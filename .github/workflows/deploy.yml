@@ -7,7 +7,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REGISTRY: 851459781528.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REGISTRY: 836471808669.dkr.ecr.us-east-1.amazonaws.com
   WEB_REPO: lms-web
   REALTIME_REPO: lms-realtime
 
