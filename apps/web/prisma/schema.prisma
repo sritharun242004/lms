@@ -1,0 +1,297 @@
+// ============================================================================
+// Mentor Connect LMS — Prisma Schema
+// PostgreSQL · Prisma v6 · Fully Normalized
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  MENTOR
+  MENTEE
+}
+
+enum UserStatus {
+  ONLINE
+  OFFLINE
+  AWAY
+}
+
+enum MemberRole {
+  OWNER
+  MENTOR
+  MENTEE
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  ANNOUNCEMENT
+}
+
+// ============================================================================
+// 1. User
+// ============================================================================
+
+model User {
+  id                 String     @id @default(cuid())
+  name               String
+  // Guest mentees (joined via name + invite code, no account) have no
+  // email or password — only mentors/admins and legacy full mentee
+  // signups do. Postgres allows multiple NULLs in a unique column, so
+  // any number of guest mentees can coexist.
+  email              String?    @unique
+  phone              String?    @unique
+  password           String?
+  role               UserRole   @default(MENTEE)
+  bio                String?
+  avatarUrl          String?    @map("avatar_url")
+  status             UserStatus @default(OFFLINE)
+  lastSeenAt         DateTime?  @map("last_seen_at")
+  emailVerified      Boolean    @default(false) @map("email_verified")
+  emailVerifyToken   String?    @map("email_verify_token")
+  passwordResetToken String?    @map("password_reset_token")
+  passwordResetExpiry DateTime? @map("password_reset_expiry")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  groups             GroupMember[]
+  sentMessages       Message[]        @relation("MessageSender")
+  deletedMessages    Message[]        @relation("MessageDeleter")
+  refreshTokens      RefreshToken[]
+  sessions           Session[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  createdGroups      Group[]
+  createdInviteCodes InviteCode[]
+  messageEdits       MessageHistory[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// 2. RefreshToken
+// ============================================================================
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// 3. Session
+// ============================================================================
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastActiveAt DateTime @default(now()) @map("last_active_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("sessions")
+}
+
+// ============================================================================
+// 4. Group
+// ============================================================================
+
+model Group {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  wallpaperUrl String?  @map("wallpaper_url")
+  createdById  String   @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  members     GroupMember[]
+  messages    Message[]
+  inviteCodes InviteCode[]
+
+  @@index([createdById])
+  @@map("groups")
+}
+
+// ============================================================================
+// 5. GroupMember
+// ============================================================================
+
+model GroupMember {
+  id       String     @id @default(cuid())
+  userId   String     @map("user_id")
+  groupId  String     @map("group_id")
+  role     MemberRole @default(MENTEE)
+  joinedAt DateTime   @default(now()) @map("joined_at")
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+  @@map("group_members")
+}
+
+// ============================================================================
+// 6. Message
+// ============================================================================
+
+/// Full-text search: CREATE INDEX messages_content_search_idx ON messages USING GIN (to_tsvector('english', content));
+model Message {
+  id             String      @id @default(cuid())
+  content        String
+  type           MessageType @default(TEXT)
+  groupId        String      @map("group_id")
+  senderId       String      @map("sender_id")
+  attachmentUrl  String?     @map("attachment_url")
+  attachmentName String?     @map("attachment_name")
+  isPinned       Boolean     @default(false) @map("is_pinned")
+  isEdited       Boolean     @default(false) @map("is_edited")
+  isDeleted      Boolean     @default(false) @map("is_deleted")
+  deletedAt      DateTime?   @map("deleted_at")
+  deletedById    String?     @map("deleted_by_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  group       Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender      User             @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  deletedBy   User?            @relation("MessageDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
+  editHistory MessageHistory[]
+
+  @@index([groupId, createdAt])
+  @@index([senderId])
+  @@index([deletedById])
+  @@index([isPinned])
+  @@index([type])
+  @@map("messages")
+}
+
+// ============================================================================
+// 7. MessageHistory
+// ============================================================================
+
+model MessageHistory {
+  id              String   @id @default(cuid())
+  messageId       String   @map("message_id")
+  previousContent String   @map("previous_content")
+  editedById      String   @map("edited_by_id")
+  version         Int
+  editedAt        DateTime @default(now()) @map("edited_at")
+
+  // Relations
+  message  Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  editedBy User    @relation(fields: [editedById], references: [id], onDelete: Restrict)
+
+  @@index([messageId])
+  @@index([editedById])
+  @@map("message_history")
+}
+
+// ============================================================================
+// 8. InviteCode
+// ============================================================================
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  groupId     String    @map("group_id")
+  isActive    Boolean   @default(true) @map("is_active")
+  usageCount  Int       @default(0) @map("usage_count")
+  maxUsage    Int?      @map("max_usage")
+  expiresAt   DateTime? @map("expires_at")
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([groupId])
+  @@index([createdById])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@map("invite_codes")
+}
+
+// ============================================================================
+// 9. Notification
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+// ============================================================================
+// 10. AuditLog
+// ============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

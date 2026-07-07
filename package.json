@@ -1,0 +1,29 @@
+{
+  "name": "mentor-connect-lms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mentor Connect LMS - A modern Learning Management Portal with WhatsApp-inspired communication",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "dev:realtime": "npm run dev --workspace=apps/realtime",
+    "dev:all": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:realtime": "npm run build --workspace=apps/realtime",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=apps/web",
+    "db:push": "npm run db:push --workspace=apps/web",
+    "db:migrate": "npm run db:migrate --workspace=apps/web",
+    "db:seed": "npm run db:seed --workspace=apps/web",
+    "db:studio": "npm run db:studio --workspace=apps/web",
+    "clean": "rimraf apps/*/node_modules apps/*/.next packages/*/node_modules node_modules"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
