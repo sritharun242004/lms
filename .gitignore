@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Realtime server build output
+apps/realtime/dist/
+
+# Production
+build/
+dist/
+
+# Environment variables — never commit secrets
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+
+# Prisma
+apps/web/prisma/*.db
+
+# Testing / coverage
+coverage/
+
+# Turbopack / build caches
+.turbo
+*.tsbuildinfo
+
+# Vercel
+.vercel
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc scratch files accidentally left in a workspace
+*.local
