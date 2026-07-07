@@ -20,4 +20,4 @@ ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
 WORKDIR /app/apps/web
-CMD ["node", "node_modules/next/dist/bin/next", "start"]
+CMD ["sh", "-c", "echo BOOT_START; ls -1 /app/apps/web/node_modules 2>/dev/null | head -3; ls -1 /app/node_modules/.bin/next 2>&1; exec npx --no-install next start"]
