@@ -20,4 +20,6 @@ ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
 WORKDIR /app/apps/web
-CMD ["sh", "-c", "echo BOOT_START; ls -1 /app/apps/web/node_modules 2>/dev/null | head -3; ls -1 /app/node_modules/.bin/next 2>&1; exec npx --no-install next start"]
+# npx handles the workspace hoisting - next binary lands in /app/node_modules/.bin,
+# not /app/apps/web/node_modules/, so an explicit relative path breaks.
+CMD ["npx", "--no-install", "next", "start"]
