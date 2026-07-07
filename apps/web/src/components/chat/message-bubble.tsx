@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { Pin, Pencil, Trash2, Check, X } from "lucide-react";
+import { toast } from "sonner";
+import { Pin, Pencil, Trash2, Check, X, Copy } from "lucide-react";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -42,6 +43,11 @@ export function MessageBubble({
     await onEdit(message.id, draft.trim());
     setIsSaving(false);
     setIsEditing(false);
+  }
+
+  async function copyMessage() {
+    await navigator.clipboard.writeText(message.content);
+    toast.success("Message copied");
   }
 
   return (
@@ -121,13 +127,22 @@ export function MessageBubble({
             )}
           </div>
 
-          {!isEditing && (isOwn || canManage) && (
+          {!isEditing && (
             <div
               className={cn(
                 "absolute top-0 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
                 isOwn ? "right-2" : "left-2"
               )}
             >
+              <Button
+                size="icon"
+                className="size-6"
+                variant="ghost"
+                aria-label="Copy message"
+                onClick={copyMessage}
+              >
+                <Copy className="size-3" />
+              </Button>
               {canManage && (
                 <Button
                   size="icon"

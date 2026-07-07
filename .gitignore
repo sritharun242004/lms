@@ -50,3 +50,5 @@ Thumbs.db
 
 # Misc scratch files accidentally left in a workspace
 *.local
+
+.vercel
