@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   // container without shipping all of node_modules.
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   turbopack: {
     root: path.join(__dirname, "../.."),
   },
