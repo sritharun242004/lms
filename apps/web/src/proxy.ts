@@ -32,11 +32,11 @@ const ROLE_ROUTES: Record<string, UserRole[]> = {
   "/dashboard": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
 };
 
-// Dashboard redirect by role
+// Landing page redirect by role — mentees have no dashboard, chat is their home.
 const ROLE_DASHBOARD: Record<string, string> = {
   ADMIN: "/admin/dashboard",
   MENTOR: "/mentor/dashboard",
-  MENTEE: "/mentee/dashboard",
+  MENTEE: "/chat",
 };
 
 export function proxy(request: NextRequest) {
