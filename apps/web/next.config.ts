@@ -2,9 +2,10 @@ import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Pin the workspace root explicitly — an unrelated lockfile on the
-  // user's Desktop (above this monorepo) otherwise makes Next.js guess
-  // the wrong root and warn on every build.
+  // Standalone output lets us copy a self-contained runtime into the
+  // container without shipping all of node_modules.
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   turbopack: {
     root: path.join(__dirname, "../.."),
   },

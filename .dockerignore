@@ -10,6 +10,7 @@ dist
 apps/*/.env
 .git
 .github
-apps/web
 docker-compose.yml
 amplify.yml
+README.md
+**/README.md
