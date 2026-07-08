@@ -1,0 +1,31 @@
+# Next.js web image for Mentor Connect LMS.
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm ci --workspaces --include-workspace-root
+
+COPY apps/web ./apps/web
+COPY packages/shared ./packages/shared
+
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so must be set
+# BEFORE next build, not at container runtime.
+ARG NEXT_PUBLIC_APP_URL=https://lms.thebotcompany.in
+ARG NEXT_PUBLIC_SOCKET_URL=https://sock.lms.thebotcompany.in
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+
+RUN cd apps/web && npx prisma generate && npm run build
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+EXPOSE 3000
+
+WORKDIR /app/apps/web
+# npx handles the workspace hoisting (next is at /app/node_modules/.bin, not apps/web).
+CMD ["npx", "--no-install", "next", "start"]

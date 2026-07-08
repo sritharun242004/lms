@@ -1,0 +1,21 @@
+# Socket.IO realtime server for Mentor Connect LMS.
+# Runs the TS server via tsx (no separate compile step needed - packages/shared
+# ships raw TS which tsx transpiles on the fly).
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/realtime/package.json ./apps/realtime/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm ci --workspaces --include-workspace-root
+
+COPY apps/realtime ./apps/realtime
+COPY packages/shared ./packages/shared
+
+ENV NODE_ENV=production
+ENV PORT=4000
+EXPOSE 4000
+
+CMD ["npx", "tsx", "apps/realtime/src/server.ts"]
