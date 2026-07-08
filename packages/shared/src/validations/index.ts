@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole, MessageType } from "../constants";
+import { UserRole, MessageType, PollChartType } from "../constants";
 
 // ============================================================
 // AUTH VALIDATIONS
@@ -17,38 +17,6 @@ export const loginSchema = z.object({
   rememberMe: z.boolean().optional().default(false),
 });
 
-// Mentor/admin self-registration. Mentees never see a password —
-// they join via `menteeJoinSchema` below with just a name and code.
-export const mentorSignupSchema = z
-  .object({
-    name: z
-      .string()
-      .min(1, "Name is required")
-      .min(2, "Name must be at least 2 characters")
-      .max(100, "Name must be at most 100 characters")
-      .trim(),
-    email: z
-      .string()
-      .min(1, "Email is required")
-      .email("Invalid email address")
-      .toLowerCase(),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .max(128, "Password must be at most 128 characters")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number")
-      .regex(
-        /[^a-zA-Z0-9]/,
-        "Password must contain at least one special character"
-      ),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
 
 // Mentee join flow: no account, no password — just a name and the
 // group's invite code. A lightweight session is issued immediately.
@@ -230,6 +198,77 @@ export const editMessageSchema = z.object({
 });
 
 // ============================================================
+// POLL VALIDATIONS
+// ============================================================
+
+export const createPollSchema = z.object({
+  question: z
+    .string()
+    .min(1, "Question is required")
+    .max(300, "Question must be at most 300 characters")
+    .trim(),
+  options: z
+    .array(
+      z
+        .string()
+        .min(1, "Option cannot be empty")
+        .max(100, "Option must be at most 100 characters")
+        .trim()
+    )
+    .min(2, "At least 2 options are required")
+    .max(8, "At most 8 options are allowed"),
+  chartType: z.nativeEnum(PollChartType).optional().default(PollChartType.BAR),
+});
+
+export const castVoteSchema = z.object({
+  optionId: z.string().min(1, "An option is required"),
+});
+
+// ============================================================
+// OPEN QUESTION VALIDATIONS
+// ============================================================
+
+export const createOpenQuestionSchema = z.object({
+  question: z
+    .string()
+    .min(1, "Question is required")
+    .max(300, "Question must be at most 300 characters")
+    .trim(),
+});
+
+export const submitAnswerSchema = z.object({
+  text: z
+    .string()
+    .min(1, "Answer cannot be empty")
+    .max(280, "Answer must be at most 280 characters")
+    .trim(),
+});
+
+// ============================================================
+// WORD CLOUD VALIDATIONS
+// ============================================================
+
+export const createWordCloudSchema = z.object({
+  question: z
+    .string()
+    .min(1, "Question is required")
+    .max(300, "Question must be at most 300 characters")
+    .trim(),
+  maxWordsPerParticipant: z.coerce.number().int().min(1).max(10).optional().default(1),
+  maxWordLength: z.coerce.number().int().min(10).max(40).optional().default(30),
+  allowMultipleSubmissions: z.boolean().optional().default(false),
+  profanityFilter: z.boolean().optional().default(true),
+});
+
+export const submitWordSchema = z.object({
+  text: z.string().min(1, "Enter a word").trim(),
+});
+
+export const wordCloudControlSchema = z.object({
+  action: z.enum(["reset", "lock", "unlock"]),
+});
+
+// ============================================================
 // SEARCH VALIDATIONS
 // ============================================================
 
@@ -263,7 +302,6 @@ export const paginationSchema = z.object({
 // ============================================================
 
 export type LoginInput = z.infer<typeof loginSchema>;
-export type MentorSignupInput = z.infer<typeof mentorSignupSchema>;
 export type MenteeJoinInput = z.infer<typeof menteeJoinSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
@@ -275,5 +313,12 @@ export type UpdateGroupInput = z.infer<typeof updateGroupSchema>;
 export type JoinGroupInput = z.infer<typeof joinGroupSchema>;
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 export type EditMessageInput = z.infer<typeof editMessageSchema>;
+export type CreatePollInput = z.infer<typeof createPollSchema>;
+export type CastVoteInput = z.infer<typeof castVoteSchema>;
+export type CreateOpenQuestionInput = z.infer<typeof createOpenQuestionSchema>;
+export type SubmitAnswerInput = z.infer<typeof submitAnswerSchema>;
+export type CreateWordCloudInput = z.infer<typeof createWordCloudSchema>;
+export type SubmitWordInput = z.infer<typeof submitWordSchema>;
+export type WordCloudControlInput = z.infer<typeof wordCloudControlSchema>;
 export type SearchInput = z.infer<typeof searchSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

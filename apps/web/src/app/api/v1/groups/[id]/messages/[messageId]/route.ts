@@ -2,24 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
+import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { editMessageSchema, AuditAction } from "@lms/shared";
-
-const MESSAGE_SELECT = {
-  id: true,
-  content: true,
-  type: true,
-  groupId: true,
-  senderId: true,
-  sender: { select: { id: true, name: true, email: true, role: true, avatarUrl: true, status: true } },
-  attachmentUrl: true,
-  attachmentName: true,
-  isPinned: true,
-  isEdited: true,
-  isDeleted: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
 
 async function loadOwnMessage(groupId: string, messageId: string, userId: string) {
   const message = await prisma.message.findFirst({
@@ -54,7 +39,7 @@ export async function PATCH(
   try {
     const historyCount = await prisma.messageHistory.count({ where: { messageId } });
 
-    const [, updated] = await prisma.$transaction([
+    const [, updatedRaw] = await prisma.$transaction([
       prisma.messageHistory.create({
         data: {
           messageId,
@@ -66,9 +51,10 @@ export async function PATCH(
       prisma.message.update({
         where: { id: messageId },
         data: { content: parsed.data.content, isEdited: true },
-        select: MESSAGE_SELECT,
+        select: messageSelect(user.id),
       }),
     ]);
+    const updated = serializeMessage(updatedRaw, user.id);
 
     await prisma.auditLog.create({
       data: {

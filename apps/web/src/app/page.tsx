@@ -49,12 +49,6 @@ export default async function Home() {
               <Link href="/login">Mentor sign in</Link>
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Running your own groups?{" "}
-            <Link href="/signup" className="font-medium text-foreground underline underline-offset-4">
-              Create a mentor account
-            </Link>
-          </p>
         </div>
 
         <div className="grid w-full max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">

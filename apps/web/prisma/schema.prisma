@@ -40,6 +40,15 @@ enum MessageType {
   IMAGE
   FILE
   ANNOUNCEMENT
+  POLL
+  OPEN_QUESTION
+  WORD_CLOUD
+}
+
+enum PollChartType {
+  BAR
+  DONUT
+  PIE
 }
 
 // ============================================================================
@@ -79,6 +88,9 @@ model User {
   createdGroups      Group[]
   createdInviteCodes InviteCode[]
   messageEdits       MessageHistory[]
+  pollVotes          PollVote[]
+  openAnswers        OpenAnswer[]
+  wordCloudSubmissions WordCloudSubmission[]
 
   @@map("users")
 }
@@ -192,7 +204,11 @@ model Message {
   group       Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender      User             @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
   deletedBy   User?            @relation("MessageDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
-  editHistory MessageHistory[]
+  editHistory  MessageHistory[]
+  poll         Poll?
+  openQuestion OpenQuestion?
+  wordCloud    WordCloud?
+  attachment   MessageAttachment?
 
   @@index([groupId, createdAt])
   @@index([senderId])
@@ -200,6 +216,28 @@ model Message {
   @@index([isPinned])
   @@index([type])
   @@map("messages")
+}
+
+// ============================================================================
+// 6a. MessageAttachment
+// ============================================================================
+
+// Uploaded file bytes for a FILE-type message, stored in Postgres so no
+// external object storage is required. `data` is kept out of every normal
+// message list query (messageSelect only pulls mimeType/size) — it's read
+// only when the download route streams this single row back.
+model MessageAttachment {
+  id        String   @id @default(cuid())
+  messageId String   @unique @map("message_id")
+  fileName  String   @map("file_name")
+  mimeType  String   @map("mime_type")
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("message_attachments")
 }
 
 // ============================================================================
@@ -221,6 +259,172 @@ model MessageHistory {
   @@index([messageId])
   @@index([editedById])
   @@map("message_history")
+}
+
+// ============================================================================
+// 7b. Poll — a live, votable multiple-choice message (Mentimeter-style)
+// ============================================================================
+
+model Poll {
+  id            String        @id @default(cuid())
+  messageId     String        @unique @map("message_id")
+  question      String
+  chartType     PollChartType @default(BAR) @map("chart_type")
+  allowMultiple Boolean       @default(false) @map("allow_multiple")
+  isClosed      Boolean       @default(false) @map("is_closed")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  // No separate createdById — the linked message's sender is the poll's
+  // creator (same ownership check already used for editing/deleting a
+  // regular message covers polls too, since a poll is just a message).
+  message Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  options PollOption[]
+  votes   PollVote[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String @map("poll_id")
+  text   String
+  order  Int
+
+  // Relations
+  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  pollId    String   @map("poll_id")
+  optionId  String   @map("option_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unique per (option, user) rather than (poll, user) — this is what
+  // lets `allowMultiple` polls record one row per option a user picks.
+  // Single-choice polls enforce "one active vote" at the application
+  // layer instead: casting a new vote deletes the user's other rows
+  // for that poll first.
+  @@unique([optionId, userId])
+  @@index([pollId])
+  @@index([userId])
+  @@map("poll_votes")
+}
+
+// ============================================================================
+// 7c. OpenQuestion — a free-text prompt where answers stack up live as a
+// wall of anonymous cards (Mentimeter "Open Ended" style), rather than
+// a bar/pie of counted options.
+// ============================================================================
+
+model OpenQuestion {
+  id        String   @id @default(cuid())
+  messageId String   @unique @map("message_id")
+  question  String
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations — same "no createdById" reasoning as Poll: the linked
+  // message's sender is the question's creator.
+  message Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  answers OpenAnswer[]
+
+  @@map("open_questions")
+}
+
+model OpenAnswer {
+  id             String   @id @default(cuid())
+  openQuestionId String   @map("open_question_id")
+  userId         String   @map("user_id")
+  text           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  openQuestion OpenQuestion @relation(fields: [openQuestionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One answer per user per question — resubmitting updates this row
+  // (its position in the wall stays put, ordered by original createdAt)
+  // rather than adding a duplicate card.
+  @@unique([openQuestionId, userId])
+  @@index([openQuestionId])
+  @@map("open_answers")
+}
+
+// ============================================================================
+// 7d. WordCloud — a live-aggregated word cloud (Mentimeter-style). Every
+// submission is normalized and merged into a per-word frequency count
+// rather than displayed as a separate item, so the cloud never shows
+// duplicate words.
+// ============================================================================
+
+model WordCloud {
+  id                       String   @id @default(cuid())
+  messageId                String   @unique @map("message_id")
+  question                 String
+  maxWordsPerParticipant   Int      @default(1) @map("max_words_per_participant")
+  maxWordLength            Int      @default(30) @map("max_word_length")
+  allowMultipleSubmissions Boolean  @default(false) @map("allow_multiple_submissions")
+  profanityFilter          Boolean  @default(true) @map("profanity_filter")
+  isLocked                 Boolean  @default(false) @map("is_locked")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  // Relations — same "no createdById" reasoning as Poll/OpenQuestion.
+  message     Message               @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  entries     WordCloudEntry[]
+  submissions WordCloudSubmission[]
+
+  @@map("word_clouds")
+}
+
+model WordCloudEntry {
+  id          String   @id @default(cuid())
+  wordCloudId String   @map("word_cloud_id")
+  // Normalized (trimmed, lowercased, punctuation-stripped) form — this
+  // is what duplicate detection matches against.
+  text        String
+  count       Int      @default(1)
+  // Assigned once, at first submission, and never recomputed — a word's
+  // color must stay fixed for the life of the cloud.
+  color       String
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+
+  // Relations
+  wordCloud   WordCloud             @relation(fields: [wordCloudId], references: [id], onDelete: Cascade)
+  submissions WordCloudSubmission[]
+
+  @@unique([wordCloudId, text])
+  @@index([wordCloudId])
+  @@map("word_cloud_entries")
+}
+
+model WordCloudSubmission {
+  id          String   @id @default(cuid())
+  wordCloudId String   @map("word_cloud_id")
+  entryId     String   @map("entry_id")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  wordCloud WordCloud      @relation(fields: [wordCloudId], references: [id], onDelete: Cascade)
+  entry     WordCloudEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([wordCloudId])
+  @@index([userId])
+  @@index([entryId])
+  @@map("word_cloud_submissions")
 }
 
 // ============================================================================

@@ -26,6 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GroupFormDialog } from "@/components/groups/group-form-dialog";
+import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
+import { useConfirm } from "@/hooks/use-confirm";
 
 export function GroupCard({
   group,
@@ -35,6 +37,7 @@ export function GroupCard({
   onChanged: () => void;
 }) {
   const [isBusy, setIsBusy] = React.useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   async function copyCode() {
     if (!group.inviteCode) return;
@@ -71,9 +74,13 @@ export function GroupCard({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${group.name}"? This removes all its messages and members.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete "${group.name}"?`,
+      description: "This removes all its messages and members. This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setIsBusy(true);
     try {
       const res = await groupService.remove(group.id);
@@ -89,6 +96,7 @@ export function GroupCard({
 
   return (
     <Card>
+      {confirmDialog}
       <CardHeader className="flex flex-row items-start justify-between gap-2">
         <div className="flex flex-col gap-1">
           <CardTitle className="text-base">{group.name}</CardTitle>
@@ -135,11 +143,27 @@ export function GroupCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Users className="size-3.5" />
-          {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
-          {!group.canManage && <span>· by {group.mentorName}</span>}
-        </div>
+        {group.canManage ? (
+          <GroupMembersDialog
+            groupId={group.id}
+            groupName={group.name}
+            trigger={
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <Users className="size-3.5" />
+                {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
+              </button>
+            }
+          />
+        ) : (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Users className="size-3.5" />
+            {group.memberCount} {group.memberCount === 1 ? "member" : "members"}
+            <span>· by {group.mentorName}</span>
+          </div>
+        )}
 
         {group.inviteCode && (
           <button

@@ -5,11 +5,46 @@ import type { ChatMessage } from "@/lib/api/services/message-service";
 import { authService } from "@/lib/api/services/auth-service";
 import { connectSocket, getSocket } from "@/lib/socket/client";
 
+interface PollVoteEvent {
+  messageId: string;
+  pollId: string;
+  options: { id: string; voteCount: number }[];
+  totalVotes: number;
+}
+
+interface OpenQuestionAnswerEvent {
+  messageId: string;
+  openQuestionId: string;
+  answer: { id: string; text: string; createdAt: string };
+}
+
+interface WordCloudUpdateEvent {
+  messageId: string;
+  wordCloudId: string;
+  entry: { id: string; text: string; count: number; color: string };
+}
+
+interface WordCloudResetEvent {
+  messageId: string;
+  wordCloudId: string;
+}
+
+interface WordCloudLockEvent {
+  messageId: string;
+  wordCloudId: string;
+  isLocked: boolean;
+}
+
 interface ChatSocketHandlers {
   onNew?: (message: ChatMessage) => void;
   onEdit?: (message: ChatMessage) => void;
   onDelete?: (data: { messageId: string; groupId: string }) => void;
   onPin?: (data: { messageId: string; groupId: string; isPinned: boolean }) => void;
+  onPollVote?: (data: PollVoteEvent) => void;
+  onOpenQuestionAnswer?: (data: OpenQuestionAnswerEvent) => void;
+  onWordCloudUpdate?: (data: WordCloudUpdateEvent) => void;
+  onWordCloudReset?: (data: WordCloudResetEvent) => void;
+  onWordCloudLock?: (data: WordCloudLockEvent) => void;
 }
 
 /**
@@ -42,6 +77,11 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       socket.on("message:edit", handleEdit);
       socket.on("message:delete", handleDelete);
       socket.on("message:pin", handlePin);
+      socket.on("poll:vote", handlePollVote);
+      socket.on("open-question:answer", handleOpenQuestionAnswer);
+      socket.on("word-cloud:update", handleWordCloudUpdate);
+      socket.on("word-cloud:reset", handleWordCloudReset);
+      socket.on("word-cloud:lock", handleWordCloudLock);
     }
 
     function handleNew(message: ChatMessage) {
@@ -56,6 +96,21 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
     function handlePin(data: { messageId: string; groupId: string; isPinned: boolean }) {
       if (data.groupId === groupId) handlersRef.current.onPin?.(data);
     }
+    function handlePollVote(data: PollVoteEvent) {
+      handlersRef.current.onPollVote?.(data);
+    }
+    function handleOpenQuestionAnswer(data: OpenQuestionAnswerEvent) {
+      handlersRef.current.onOpenQuestionAnswer?.(data);
+    }
+    function handleWordCloudUpdate(data: WordCloudUpdateEvent) {
+      handlersRef.current.onWordCloudUpdate?.(data);
+    }
+    function handleWordCloudReset(data: WordCloudResetEvent) {
+      handlersRef.current.onWordCloudReset?.(data);
+    }
+    function handleWordCloudLock(data: WordCloudLockEvent) {
+      handlersRef.current.onWordCloudLock?.(data);
+    }
 
     join();
 
@@ -67,6 +122,11 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       socket.off("message:edit", handleEdit);
       socket.off("message:delete", handleDelete);
       socket.off("message:pin", handlePin);
+      socket.off("poll:vote", handlePollVote);
+      socket.off("open-question:answer", handleOpenQuestionAnswer);
+      socket.off("word-cloud:update", handleWordCloudUpdate);
+      socket.off("word-cloud:reset", handleWordCloudReset);
+      socket.off("word-cloud:lock", handleWordCloudLock);
     };
   }, [groupId]);
 }

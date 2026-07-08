@@ -73,14 +73,17 @@ export async function POST(req: NextRequest) {
       return errorResponse("User not found", "USER_NOT_FOUND", 401);
     }
 
-    // Rotate tokens (revoke old, issue new)
+    // Rotate tokens (revoke old, issue new), carrying the original
+    // "remember me" choice forward so the new refresh token doesn't
+    // silently downgrade to the short-lived expiry.
+    const rememberMe = Boolean(payload.rememberMe);
     await revokeRefreshToken(token);
 
     const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateNewRefreshToken(user);
+    const newRefreshToken = generateNewRefreshToken(user, rememberMe);
 
-    await storeRefreshToken(user.id, newRefreshToken);
-    await setAuthCookies(newAccessToken, newRefreshToken);
+    await storeRefreshToken(user.id, newRefreshToken, rememberMe);
+    await setAuthCookies(newAccessToken, newRefreshToken, rememberMe);
 
     return successResponse({
       accessToken: newAccessToken,

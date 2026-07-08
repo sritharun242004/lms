@@ -13,6 +13,18 @@ export interface GroupCard {
   canManage: boolean;
 }
 
+export interface GroupMemberEntry {
+  id: string;
+  role: "OWNER" | "MENTOR" | "MENTEE";
+  joinedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    avatarUrl: string | null;
+  };
+}
+
 export const groupService = {
   list: () => apiClient.get<{ groups: GroupCard[] }>("/groups"),
 
@@ -33,4 +45,7 @@ export const groupService = {
 
   disableInviteCode: (groupId: string) =>
     apiClient.patch<{ message: string }>(`/groups/${groupId}/invite-code`, undefined),
+
+  members: (groupId: string) =>
+    apiClient.get<{ members: GroupMemberEntry[] }>(`/groups/${groupId}/members`),
 };

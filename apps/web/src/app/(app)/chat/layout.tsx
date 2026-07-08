@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getManagedGroups, getJoinedGroups } from "@/lib/groups/queries";
-import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { ChatShell } from "@/components/chat/chat-shell";
 
 export default async function ChatLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -12,9 +12,8 @@ export default async function ChatLayout({ children }: { children: React.ReactNo
     : await getJoinedGroups(user.id);
 
   return (
-    <div className="-m-4 flex h-[calc(100svh-3.5rem)] md:-m-6">
-      <ChatSidebar groups={groups} canCreate={canManage} />
-      <div className="flex flex-1 flex-col">{children}</div>
-    </div>
+    <ChatShell groups={groups} canCreate={canManage}>
+      {children}
+    </ChatShell>
   );
 }

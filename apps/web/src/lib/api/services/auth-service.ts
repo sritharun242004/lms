@@ -2,7 +2,6 @@ import { apiClient } from "@/lib/api/client";
 import type {
   AuthUser,
   LoginInput,
-  MentorSignupInput,
   MenteeJoinInput,
   ForgotPasswordInput,
   ResetPasswordInput,
@@ -17,11 +16,6 @@ export interface AuthSession {
 
 export const authService = {
   login: (input: LoginInput) => apiClient.post<AuthSession>("/auth/login", input),
-
-  // The server's schema still requires confirmPassword (it re-checks the
-  // match server-side too) — send the full validated form values as-is.
-  mentorSignup: (input: MentorSignupInput) =>
-    apiClient.post<AuthSession>("/auth/signup", input),
 
   join: (input: MenteeJoinInput) =>
     apiClient.post<AuthSession & { joinedGroup: { id: string; name: string } }>(

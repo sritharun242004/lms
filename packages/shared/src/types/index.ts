@@ -51,6 +51,10 @@ export interface JwtPayload {
   name: string;
   email: string | null;
   role: UserRole;
+  // Only present on refresh tokens — carried across rotations so a
+  // "remember me" session keeps its long expiry instead of resetting
+  // to the default on every silent refresh.
+  rememberMe?: boolean;
   iat: number;
   exp: number;
 }
@@ -259,6 +263,31 @@ export interface SocketEvents {
   "member:leave": (data: { groupId: string; userId: string }) => void;
   "user:online": (data: { userId: string; status: UserStatus }) => void;
   "notification:new": (notification: Notification) => void;
+  // Counts-only update — never carries a viewer-specific "my vote", so
+  // it's safe to broadcast the exact same payload to every client.
+  "poll:vote": (data: {
+    messageId: string;
+    pollId: string;
+    options: { id: string; voteCount: number }[];
+    totalVotes: number;
+  }) => void;
+  // Anonymous — carries the answer text but never who submitted it, so
+  // it's identical for every viewer regardless of who's asking.
+  "open-question:answer": (data: {
+    messageId: string;
+    openQuestionId: string;
+    answer: { id: string; text: string; createdAt: string };
+  }) => void;
+  // A single entry's new count (and color, on first appearance) — the
+  // client merges this into its local list rather than replacing it,
+  // so existing word positions in the layout stay stable.
+  "word-cloud:update": (data: {
+    messageId: string;
+    wordCloudId: string;
+    entry: { id: string; text: string; count: number; color: string };
+  }) => void;
+  "word-cloud:reset": (data: { messageId: string; wordCloudId: string }) => void;
+  "word-cloud:lock": (data: { messageId: string; wordCloudId: string; isLocked: boolean }) => void;
 }
 
 // ============================================================

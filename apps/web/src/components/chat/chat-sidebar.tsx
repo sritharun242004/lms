@@ -27,7 +27,7 @@ export function ChatSidebar({
     : groups;
 
   return (
-    <div className="flex h-full w-full max-w-xs flex-col border-r border-border">
+    <div className="flex h-full w-full flex-col md:max-w-xs md:border-r md:border-border">
       <div className="flex items-center justify-between gap-2 border-b border-border p-3">
         <h2 className="text-lg font-semibold">Chats</h2>
         {canCreate && (

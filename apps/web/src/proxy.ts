@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/auth";
+import {
+  verifyAccessToken,
+  verifyRefreshToken,
+  generateAccessToken,
+  generateRefreshToken,
+  isRefreshTokenValid,
+  revokeRefreshToken,
+  storeRefreshToken,
+  getAccessCookieOptions,
+  getRefreshCookieOptions,
+} from "@/lib/auth";
+import { prisma } from "@/lib/db/prisma";
 import type { UserRole } from "@lms/shared";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
   "/",
   "/login",
-  "/signup",
   "/join",
   "/forgot-password",
   "/reset-password",
@@ -16,7 +26,6 @@ const PUBLIC_ROUTES = [
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   "/api/v1/auth/login",
-  "/api/v1/auth/signup",
   "/api/v1/auth/join",
   "/api/v1/auth/refresh",
   "/api/v1/auth/forgot-password",
@@ -39,7 +48,7 @@ const ROLE_DASHBOARD: Record<string, string> = {
   MENTEE: "/chat",
 };
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip static assets and Next.js internals
@@ -65,81 +74,119 @@ export function proxy(request: NextRequest) {
 
   const isApiRoute = pathname.startsWith("/api/");
 
-  // Get access token from cookies
-  const token = request.cookies.get("access_token")?.value;
+  const initialToken = request.cookies.get("access_token")?.value ?? null;
+  let payload = initialToken ? verifyAccessToken(initialToken) : null;
 
-  // No token and private route → redirect to login (or 401 JSON for APIs,
-  // since a fetch() call following an HTML redirect can't be parsed as JSON)
-  if (!token && !isPublicRoute) {
-    if (isApiRoute) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-        { status: 401 }
-      );
-    }
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  // The access token is short-lived (15 min) by design. Rather than
+  // bouncing every user back to /login once it expires, silently rotate
+  // it here using the long-lived refresh token — the same way login/
+  // refresh-route rotation works, just triggered automatically on the
+  // next request instead of requiring the client to call /auth/refresh
+  // itself (which nothing in the app did, so sessions used to die at
+  // the 15-minute mark). Proxy runs on the Node.js runtime in this
+  // Next.js version, so a direct Prisma call here is safe.
+  let rotated: { accessToken: string; refreshToken: string; rememberMe: boolean } | null = null;
+  if (!payload) {
+    const refreshCookie = request.cookies.get("refresh_token")?.value;
+    if (refreshCookie) {
+      const refreshPayload = verifyRefreshToken(refreshCookie);
+      if (refreshPayload && (await isRefreshTokenValid(refreshCookie))) {
+        const user = await prisma.user.findUnique({
+          where: { id: refreshPayload.sub },
+          select: { id: true, name: true, email: true, role: true },
+        });
 
-  // Has token and on public auth page → redirect to dashboard
-  if (token && isPublicRoute && pathname !== "/") {
-    const payload = verifyAccessToken(token);
-    if (payload) {
-      const dashboard = ROLE_DASHBOARD[payload.role] || "/dashboard";
-      return NextResponse.redirect(new URL(dashboard, request.url));
-    }
-  }
+        if (user) {
+          const rememberMe = Boolean(refreshPayload.rememberMe);
+          await revokeRefreshToken(refreshCookie);
 
-  // Verify token for protected routes
-  if (token && !isPublicRoute) {
-    const payload = verifyAccessToken(token);
+          const newAccessToken = generateAccessToken(user);
+          const newRefreshToken = generateRefreshToken(user, rememberMe);
+          await storeRefreshToken(user.id, newRefreshToken, rememberMe);
 
-    if (!payload) {
-      // Token invalid/expired
-      if (isApiRoute) {
-        const response = NextResponse.json(
-          { success: false, error: { code: "TOKEN_EXPIRED", message: "Access token expired" } },
-          { status: 401 }
-        );
-        response.cookies.delete("access_token");
-        return response;
+          rotated = { accessToken: newAccessToken, refreshToken: newRefreshToken, rememberMe };
+
+          // Reflect the rotated token onto the current request so that
+          // server components / route handlers rendered after this
+          // proxy call (in this same request) see a valid session
+          // instead of the stale expired one.
+          request.cookies.set("access_token", newAccessToken);
+          request.cookies.set("refresh_token", newRefreshToken);
+
+          payload = verifyAccessToken(newAccessToken);
+        }
       }
-      // Non-API route → clear cookie and redirect to login
-      const response = NextResponse.redirect(
-        new URL("/login", request.url)
-      );
-      response.cookies.delete("access_token");
-      return response;
     }
+  }
 
+  const withRotatedCookies = (response: NextResponse) => {
+    if (rotated) {
+      response.cookies.set("access_token", rotated.accessToken, getAccessCookieOptions());
+      response.cookies.set(
+        "refresh_token",
+        rotated.refreshToken,
+        getRefreshCookieOptions(rotated.rememberMe)
+      );
+    }
+    return response;
+  };
+
+  const requestHeaders = new Headers(request.headers);
+  const nextWithHeaders = (init?: Parameters<typeof NextResponse.next>[0]) =>
+    NextResponse.next({ ...init, request: { headers: requestHeaders } });
+
+  // No valid token (missing, expired, or refresh failed) and private
+  // route → redirect to login (or 401 JSON for APIs, since a fetch()
+  // call following an HTML redirect can't be parsed as JSON).
+  if (!payload && !isPublicRoute) {
+    const response = isApiRoute
+      ? NextResponse.json(
+          { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+          { status: 401 }
+        )
+      : (() => {
+          const loginUrl = new URL("/login", request.url);
+          loginUrl.searchParams.set("redirect", pathname);
+          return NextResponse.redirect(loginUrl);
+        })();
+    // Clear whatever's left of a dead session so we don't keep
+    // attempting (and paying the DB cost of) a doomed refresh on every
+    // subsequent request.
+    response.cookies.delete("access_token");
+    response.cookies.delete("refresh_token");
+    return response;
+  }
+
+  // Has a valid token and on public auth page → redirect to dashboard
+  if (payload && isPublicRoute && pathname !== "/") {
+    const dashboard = ROLE_DASHBOARD[payload.role] || "/dashboard";
+    return withRotatedCookies(NextResponse.redirect(new URL(dashboard, request.url)));
+  }
+
+  // Verify access for protected routes
+  if (payload && !isPublicRoute) {
     // Check role-based access
     for (const [prefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
       if (pathname.startsWith(prefix)) {
         if (!allowedRoles.includes(payload.role as UserRole)) {
           const dashboard = ROLE_DASHBOARD[payload.role] || "/dashboard";
-          return NextResponse.redirect(new URL(dashboard, request.url));
+          return withRotatedCookies(NextResponse.redirect(new URL(dashboard, request.url)));
         }
         break;
       }
     }
 
     // Attach user info to headers for downstream use
-    const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-user-id", payload.sub);
     if (payload.email) {
       requestHeaders.set("x-user-email", payload.email);
     }
     requestHeaders.set("x-user-role", payload.role);
 
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
+    return withRotatedCookies(nextWithHeaders());
   }
 
-  return NextResponse.next();
+  return withRotatedCookies(nextWithHeaders());
 }
 
 export const config = {

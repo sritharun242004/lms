@@ -1,18 +1,48 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { isToday, isYesterday, isThisYear, format } from "date-fns";
-import { Lock, Send, Users } from "lucide-react";
-import { MessageType } from "@lms/shared";
-import type { ChatMessage } from "@/lib/api/services/message-service";
+import {
+  ArrowLeft,
+  BarChart3,
+  Cloud,
+  Loader2,
+  Lock,
+  MessageSquareText,
+  Plus,
+  Send,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { MessageType, MAX_ATTACHMENT_SIZE_BYTES, MAX_ATTACHMENT_SIZE_MB } from "@lms/shared";
+import type {
+  ChatMessage,
+  OpenQuestionData,
+  PollData,
+  WordCloudData,
+} from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
 import { useChatSocket } from "@/hooks/use-chat-socket";
+import { useConfirm } from "@/hooks/use-confirm";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { PollFormDialog } from "@/components/chat/poll-form-dialog";
+import { PollMessage } from "@/components/chat/poll-message";
+import { OpenQuestionFormDialog } from "@/components/chat/open-question-form-dialog";
+import { OpenQuestionMessage } from "@/components/chat/open-question-message";
+import { WordCloudFormDialog } from "@/components/chat/word-cloud-form-dialog";
+import { WordCloudMessage } from "@/components/chat/word-cloud-message";
 
 function dateSeparatorLabel(date: Date): string {
   if (isToday(date)) return "Today";
@@ -51,8 +81,11 @@ export function ChatThread({
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   // The parent renders <ChatThread key={groupId} .../>, so this whole
   // component remounts with fresh state whenever the group changes —
@@ -70,6 +103,71 @@ export function ChatThread({
     onDelete: ({ messageId }) => setMessages((prev) => prev.filter((m) => m.id !== messageId)),
     onPin: ({ messageId, isPinned }) =>
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, isPinned } : m))),
+    onPollVote: ({ messageId, options, totalVotes }) =>
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId || !m.poll) return m;
+          const merged = m.poll.options.map((o) => {
+            const updated = options.find((u) => u.id === o.id);
+            return updated ? { ...o, voteCount: updated.voteCount } : o;
+          });
+          return { ...m, poll: { ...m.poll, options: merged, totalVotes } };
+        })
+      ),
+    onOpenQuestionAnswer: ({ messageId, answer }) =>
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId || !m.openQuestion) return m;
+          const index = m.openQuestion.answers.findIndex((a) => a.id === answer.id);
+          const answers =
+            index === -1
+              ? [...m.openQuestion.answers, answer]
+              : m.openQuestion.answers.map((a) => (a.id === answer.id ? answer : a));
+          return { ...m, openQuestion: { ...m.openQuestion, answers } };
+        })
+      ),
+    onWordCloudUpdate: ({ messageId, entry }) =>
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId || !m.wordCloud) return m;
+          const index = m.wordCloud.entries.findIndex((e) => e.id === entry.id);
+          const entries =
+            index === -1
+              ? [...m.wordCloud.entries, entry]
+              : m.wordCloud.entries.map((e) => (e.id === entry.id ? entry : e));
+          return {
+            ...m,
+            wordCloud: {
+              ...m.wordCloud,
+              entries,
+              totalSubmissions: m.wordCloud.totalSubmissions + 1,
+            },
+          };
+        })
+      ),
+    onWordCloudReset: ({ messageId }) =>
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id !== messageId || !m.wordCloud
+            ? m
+            : {
+                ...m,
+                wordCloud: {
+                  ...m.wordCloud,
+                  entries: [],
+                  totalSubmissions: 0,
+                  totalParticipants: 0,
+                  mySubmissionCount: 0,
+                },
+              }
+        )
+      ),
+    onWordCloudLock: ({ messageId, isLocked }) =>
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id !== messageId || !m.wordCloud ? m : { ...m, wordCloud: { ...m.wordCloud, isLocked } }
+        )
+      ),
   });
 
   async function loadOlder() {
@@ -105,6 +203,30 @@ export function ChatThread({
     }
   }
 
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || isUploading) return;
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      toast.error(`"${file.name}" is too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`);
+      return;
+    }
+    const caption = draft.trim();
+    setIsUploading(true);
+    setDraft("");
+    try {
+      const res = await messageService.sendFile(groupId, file, caption || undefined);
+      if (!res.success) throw new Error(res.error?.message || "Failed to upload file");
+      setMessages((prev) => upsert(prev, res.data!));
+      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload file");
+      setDraft(caption);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   async function handleEdit(messageId: string, content: string) {
     try {
       const res = await messageService.edit(groupId, messageId, { content });
@@ -116,7 +238,13 @@ export function ChatThread({
   }
 
   async function handleDelete(messageId: string) {
-    if (!window.confirm("Delete this message?")) return;
+    const ok = await confirm({
+      title: "Delete this message?",
+      description: "This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await messageService.remove(groupId, messageId);
       if (!res.success) throw new Error(res.error?.message || "Failed to delete message");
@@ -138,11 +266,44 @@ export function ChatThread({
     }
   }
 
+  function handlePollCreated(message: ChatMessage) {
+    setMessages((prev) => upsert(prev, message));
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+  }
+
+  function handlePollVoted(messageId: string, poll: PollData) {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, poll } : m)));
+  }
+
+  function handleOpenQuestionCreated(message: ChatMessage) {
+    setMessages((prev) => upsert(prev, message));
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+  }
+
+  function handleAnswered(messageId: string, openQuestion: OpenQuestionData) {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, openQuestion } : m)));
+  }
+
+  function handleWordCloudCreated(message: ChatMessage) {
+    setMessages((prev) => upsert(prev, message));
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+  }
+
+  function handleWordCloudChanged(messageId: string, wordCloud: WordCloudData) {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, wordCloud } : m)));
+  }
+
   let lastDateLabel = "";
 
   return (
     <div className="flex h-full flex-col">
+      {confirmDialog}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
+          <Link href="/chat" aria-label="Back to chats">
+            <ArrowLeft className="size-4" />
+          </Link>
+        </Button>
         <Avatar>
           <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
         </Avatar>
@@ -187,15 +348,45 @@ export function ChatThread({
                     </span>
                   </div>
                 )}
-                <MessageBubble
-                  message={message}
-                  isOwn={message.senderId === currentUserId}
-                  canManage={canManage}
-                  showSender={showSender}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onTogglePin={handleTogglePin}
-                />
+                {message.type === MessageType.POLL && message.poll ? (
+                  <PollMessage
+                    message={message}
+                    poll={message.poll}
+                    groupId={groupId}
+                    isOwn={message.senderId === currentUserId}
+                    onVoted={(poll) => handlePollVoted(message.id, poll)}
+                    onDelete={handleDelete}
+                  />
+                ) : message.type === MessageType.OPEN_QUESTION && message.openQuestion ? (
+                  <OpenQuestionMessage
+                    message={message}
+                    openQuestion={message.openQuestion}
+                    groupId={groupId}
+                    isOwn={message.senderId === currentUserId}
+                    onAnswered={(openQuestion) => handleAnswered(message.id, openQuestion)}
+                    onDelete={handleDelete}
+                  />
+                ) : message.type === MessageType.WORD_CLOUD && message.wordCloud ? (
+                  <WordCloudMessage
+                    message={message}
+                    wordCloud={message.wordCloud}
+                    groupId={groupId}
+                    isOwn={message.senderId === currentUserId}
+                    onSubmitted={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
+                    onControlled={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
+                    onDelete={handleDelete}
+                  />
+                ) : (
+                  <MessageBubble
+                    message={message}
+                    isOwn={message.senderId === currentUserId}
+                    canManage={canManage}
+                    showSender={showSender}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onTogglePin={handleTogglePin}
+                  />
+                )}
               </React.Fragment>
             );
           })
@@ -205,6 +396,62 @@ export function ChatThread({
 
       {canManage ? (
         <div className="flex items-end gap-2 border-t border-border p-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelected}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            aria-label="Attach file"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {isUploading ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="shrink-0" aria-label="Interactive tools">
+                <Sparkles className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top">
+              <PollFormDialog
+                groupId={groupId}
+                onCreated={handlePollCreated}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <BarChart3 />
+                    Multiple choice poll
+                  </DropdownMenuItem>
+                }
+              />
+              <OpenQuestionFormDialog
+                groupId={groupId}
+                onCreated={handleOpenQuestionCreated}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <MessageSquareText />
+                    Open ended question
+                  </DropdownMenuItem>
+                }
+              />
+              <WordCloudFormDialog
+                groupId={groupId}
+                onCreated={handleWordCloudCreated}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Cloud />
+                    Word cloud
+                  </DropdownMenuItem>
+                }
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

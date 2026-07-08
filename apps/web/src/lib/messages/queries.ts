@@ -1,43 +1,24 @@
 import { prisma } from "@/lib/db/prisma";
-import type { MessageType, UserRole, UserStatus } from "@lms/shared";
+import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 
 const PAGE_SIZE = 50;
 
-const MESSAGE_SELECT = {
-  id: true,
-  content: true,
-  type: true,
-  groupId: true,
-  senderId: true,
-  sender: { select: { id: true, name: true, email: true, role: true, avatarUrl: true, status: true } },
-  attachmentUrl: true,
-  attachmentName: true,
-  isPinned: true,
-  isEdited: true,
-  isDeleted: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
-
 export async function getInitialMessages(
-  groupId: string
+  groupId: string,
+  viewerId: string
 ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
   const messages = await prisma.message.findMany({
     where: { groupId, isDeleted: false },
     orderBy: { createdAt: "desc" },
     take: PAGE_SIZE,
-    select: MESSAGE_SELECT,
+    select: messageSelect(viewerId),
   });
 
   return {
-    messages: messages.reverse().map((m: (typeof messages)[number]) => ({
-      ...m,
-      type: m.type as MessageType,
-      sender: { ...m.sender, role: m.sender.role as UserRole, status: m.sender.status as UserStatus },
-      createdAt: m.createdAt.toISOString(),
-      updatedAt: m.updatedAt.toISOString(),
-    })),
+    messages: messages
+      .reverse()
+      .map((m: (typeof messages)[number]) => serializeMessage(m, viewerId)),
     hasMore: messages.length === PAGE_SIZE,
   };
 }

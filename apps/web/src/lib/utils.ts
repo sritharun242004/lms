@@ -128,6 +128,23 @@ export function getInitials(name: string, maxInitials: number = 2): string {
     .join("");
 }
 
+// ─── File size formatting ─────────────────────────────────────
+/**
+ * Formats a byte count into a human-readable string.
+ * e.g. 1536 → "1.5 KB", 4200000 → "4 MB"
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value % 1 === 0 ? value : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 // ─── Async utilities ──────────────────────────────────────────
 /**
  * Returns a promise that resolves after `ms` milliseconds.

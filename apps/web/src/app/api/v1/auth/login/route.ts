@@ -51,10 +51,10 @@ export async function POST(req: NextRequest) {
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    const refreshToken = generateRefreshToken(user, rememberMe);
 
     // Store refresh token
-    await storeRefreshToken(user.id, refreshToken);
+    await storeRefreshToken(user.id, refreshToken, rememberMe);
 
     // Set cookies
     await setAuthCookies(accessToken, refreshToken, rememberMe);

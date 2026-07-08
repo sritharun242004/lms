@@ -6,7 +6,6 @@ import type {
   ApiError,
   AuthUser,
   LoginInput,
-  MentorSignupInput,
   MenteeJoinInput,
   ClaimAccountInput,
 } from "@lms/shared";
@@ -30,7 +29,6 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (input: LoginInput) => Promise<AuthUser>;
-  mentorSignup: (input: MentorSignupInput) => Promise<AuthUser>;
   join: (
     input: MenteeJoinInput
   ) => Promise<{ user: AuthUser; joinedGroup: { id: string; name: string } }>;
@@ -58,18 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await authService.login(input);
       if (!res.success) {
         throw new Error(apiErrorMessage(res.error, "Login failed"));
-      }
-      queryClient.setQueryData(AUTH_QUERY_KEY, res.data!.user);
-      return res.data!.user;
-    },
-    [queryClient]
-  );
-
-  const mentorSignup = React.useCallback(
-    async (input: MentorSignupInput) => {
-      const res = await authService.mentorSignup(input);
-      if (!res.success) {
-        throw new Error(apiErrorMessage(res.error, "Signup failed"));
       }
       queryClient.setQueryData(AUTH_QUERY_KEY, res.data!.user);
       return res.data!.user;
@@ -113,12 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isAuthenticated: !!data,
       login,
-      mentorSignup,
       join,
       claimAccount,
       logout,
     }),
-    [data, isLoading, login, mentorSignup, join, claimAccount, logout]
+    [data, isLoading, login, join, claimAccount, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

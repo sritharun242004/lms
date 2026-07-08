@@ -14,9 +14,29 @@ const JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET || "dev-refresh-secret-change-in-production";
 const JWT_ACCESS_EXPIRY_RAW = process.env.JWT_ACCESS_EXPIRY || "15m";
 const JWT_REFRESH_EXPIRY_RAW = process.env.JWT_REFRESH_EXPIRY || "7d";
+const JWT_REFRESH_EXPIRY_REMEMBER_RAW =
+  process.env.JWT_REFRESH_EXPIRY_REMEMBER || "30d";
 const JWT_ACCESS_EXPIRY = JWT_ACCESS_EXPIRY_RAW as SignOptions["expiresIn"];
 const JWT_REFRESH_EXPIRY = JWT_REFRESH_EXPIRY_RAW as SignOptions["expiresIn"];
+const JWT_REFRESH_EXPIRY_REMEMBER =
+  JWT_REFRESH_EXPIRY_REMEMBER_RAW as SignOptions["expiresIn"];
 const SALT_ROUNDS = 12;
+
+const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15 minutes, matches JWT_ACCESS_EXPIRY
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
+const REFRESH_COOKIE_MAX_AGE_REMEMBER = 30 * 24 * 60 * 60; // 30 days
+
+// A duration string like "7d" or "15m" parsed to milliseconds, for
+// computing the DB-stored refresh token expiry (kept in sync with the
+// JWT's own expiresIn so a token isn't rejected by the DB before the
+// signature even goes stale, or vice versa).
+function parseDurationMs(duration: string): number {
+  const match = /^(\d+)([smhd])$/.exec(duration);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1], 10);
+  const unitMs = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[match[2]]!;
+  return value * unitMs;
+}
 
 // ============================================================
 // PASSWORD HASHING
@@ -55,21 +75,25 @@ export function generateAccessToken(user: {
   );
 }
 
-export function generateRefreshToken(user: {
-  id: string;
-  name: string;
-  email: string | null;
-  role: UserRole | string;
-}): string {
+export function generateRefreshToken(
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    role: UserRole | string;
+  },
+  rememberMe = false
+): string {
   return jwt.sign(
     {
       sub: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      rememberMe,
     },
     JWT_REFRESH_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRY }
+    { expiresIn: rememberMe ? JWT_REFRESH_EXPIRY_REMEMBER : JWT_REFRESH_EXPIRY }
   );
 }
 
@@ -97,6 +121,29 @@ export function verifyRefreshToken(token: string): JwtPayload | null {
 // COOKIE MANAGEMENT
 // ============================================================
 
+// Shared with proxy.ts, which sets these same cookies on a NextResponse
+// (a different API surface than the next/headers `cookies()` store used
+// here) when it silently rotates an expired access token.
+export function getAccessCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: ACCESS_COOKIE_MAX_AGE,
+  };
+}
+
+export function getRefreshCookieOptions(rememberMe = false) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: rememberMe ? REFRESH_COOKIE_MAX_AGE_REMEMBER : REFRESH_COOKIE_MAX_AGE,
+  };
+}
+
 export async function setAuthCookies(
   accessToken: string,
   refreshToken: string,
@@ -104,21 +151,8 @@ export async function setAuthCookies(
 ) {
   const cookieStore = await cookies();
 
-  cookieStore.set("access_token", accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 15 * 60, // 15 minutes
-  });
-
-  cookieStore.set("refresh_token", refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60, // 30 days or 7 days
-  });
+  cookieStore.set("access_token", accessToken, getAccessCookieOptions());
+  cookieStore.set("refresh_token", refreshToken, getRefreshCookieOptions(rememberMe));
 }
 
 export async function clearAuthCookies() {
@@ -208,12 +242,12 @@ export async function requireRole(...roles: UserRole[]): Promise<AuthUser> {
 
 export async function storeRefreshToken(
   userId: string,
-  token: string
+  token: string,
+  rememberMe = false
 ): Promise<void> {
-  // Parse expiry from JWT_REFRESH_EXPIRY
-  const expiresIn = JWT_REFRESH_EXPIRY_RAW.endsWith("d")
-    ? parseInt(JWT_REFRESH_EXPIRY_RAW) * 24 * 60 * 60 * 1000
-    : parseInt(JWT_REFRESH_EXPIRY_RAW) * 60 * 60 * 1000;
+  const expiresIn = parseDurationMs(
+    rememberMe ? JWT_REFRESH_EXPIRY_REMEMBER_RAW : JWT_REFRESH_EXPIRY_RAW
+  );
 
   await prisma.refreshToken.create({
     data: {

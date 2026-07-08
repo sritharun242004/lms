@@ -19,7 +19,23 @@ export enum MessageType {
   IMAGE = "IMAGE",
   FILE = "FILE",
   ANNOUNCEMENT = "ANNOUNCEMENT",
+  POLL = "POLL",
+  OPEN_QUESTION = "OPEN_QUESTION",
+  WORD_CLOUD = "WORD_CLOUD",
 }
+
+export enum PollChartType {
+  BAR = "BAR",
+  DONUT = "DONUT",
+  PIE = "PIE",
+}
+
+// ============================================================
+// FILE ATTACHMENTS
+// ============================================================
+
+export const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_MB = 25;
 
 export enum MemberRole {
   OWNER = "OWNER",
@@ -58,6 +74,10 @@ export enum AuditAction {
   MESSAGE_DELETED = "MESSAGE_DELETED",
   MESSAGE_PINNED = "MESSAGE_PINNED",
   MESSAGE_UNPINNED = "MESSAGE_UNPINNED",
+  POLL_CREATED = "POLL_CREATED",
+  OPEN_QUESTION_CREATED = "OPEN_QUESTION_CREATED",
+  WORD_CLOUD_CREATED = "WORD_CLOUD_CREATED",
+  WORD_CLOUD_RESET = "WORD_CLOUD_RESET",
 
   // Invite
   INVITE_GENERATED = "INVITE_GENERATED",

@@ -3,24 +3,9 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
+import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { sendMessageSchema, AuditAction } from "@lms/shared";
-
-const MESSAGE_SELECT = {
-  id: true,
-  content: true,
-  type: true,
-  groupId: true,
-  senderId: true,
-  sender: { select: { id: true, name: true, email: true, role: true, avatarUrl: true, status: true } },
-  attachmentUrl: true,
-  attachmentName: true,
-  isPinned: true,
-  isEdited: true,
-  isDeleted: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
 
 const PAGE_SIZE = 50;
 
@@ -52,11 +37,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
-      select: MESSAGE_SELECT,
+      select: messageSelect(user.id),
     });
 
     return successResponse({
-      messages: messages.reverse(),
+      messages: messages
+        .reverse()
+        .map((m: (typeof messages)[number]) => serializeMessage(m, user.id)),
       hasMore: messages.length === PAGE_SIZE,
     });
   } catch (error) {
@@ -85,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (parsed.error) return parsed.error;
 
   try {
-    const message = await prisma.message.create({
+    const created = await prisma.message.create({
       data: {
         content: parsed.data.content,
         type: parsed.data.type,
@@ -94,8 +81,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         groupId,
         senderId: user.id,
       },
-      select: MESSAGE_SELECT,
+      select: messageSelect(user.id),
     });
+    const message = serializeMessage(created, user.id);
 
     await prisma.auditLog.create({
       data: {

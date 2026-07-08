@@ -74,6 +74,47 @@ async function apiFetch<T>(
   }
 }
 
+/**
+ * Multipart upload — deliberately skips `apiFetch`'s JSON content-type
+ * and stringify step so the browser can set its own
+ * `multipart/form-data; boundary=...` header for the FormData body.
+ */
+async function apiFormFetch<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+  const url = new URL(`/api/v1${endpoint}`, BASE_URL);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+    const data: ApiResponse<T> = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || {
+          code: "REQUEST_FAILED",
+          message: `Request failed with status ${response.status}`,
+        },
+      };
+    }
+
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      },
+    };
+  }
+}
+
 // ============================================================
 // API CLIENT
 // ============================================================
@@ -84,6 +125,8 @@ export const apiClient = {
 
   post: <T>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: "POST", body }),
+
+  postForm: <T>(endpoint: string, formData: FormData) => apiFormFetch<T>(endpoint, formData),
 
   patch: <T>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: "PATCH", body }),

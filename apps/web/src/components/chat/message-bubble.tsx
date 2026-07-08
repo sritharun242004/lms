@@ -3,12 +3,103 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Pin, Pencil, Trash2, Check, X, Copy } from "lucide-react";
+import {
+  Pin,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  Copy,
+  Download,
+  File as FileIcon,
+  FileText,
+  FileSpreadsheet,
+  Presentation,
+} from "lucide-react";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function FileTypeIcon({ mimeType, fileName }: { mimeType: string; fileName: string }) {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  if (mimeType === "application/pdf" || ext === "pdf") return <FileText className="size-6" />;
+  if (
+    mimeType.includes("spreadsheet") ||
+    mimeType === "text/csv" ||
+    ["xls", "xlsx", "csv"].includes(ext)
+  )
+    return <FileSpreadsheet className="size-6" />;
+  if (mimeType.includes("presentation") || ["ppt", "pptx"].includes(ext))
+    return <Presentation className="size-6" />;
+  if (mimeType.includes("word") || ["doc", "docx"].includes(ext))
+    return <FileText className="size-6" />;
+  return <FileIcon className="size-6" />;
+}
+
+function AttachmentPreview({ message }: { message: ChatMessage }) {
+  if (!message.attachmentUrl) return null;
+  const mimeType = message.attachment?.mimeType ?? "";
+  const fileName = message.attachmentName ?? "Attachment";
+  const inlineUrl = `${message.attachmentUrl}?inline=1`;
+
+  if (mimeType.startsWith("image/")) {
+    return (
+      <a href={inlineUrl} target="_blank" rel="noopener noreferrer" className="block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={inlineUrl}
+          alt={fileName}
+          className="max-h-64 max-w-full rounded-lg object-contain"
+        />
+      </a>
+    );
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return (
+      <video src={inlineUrl} controls className="max-h-64 max-w-full rounded-lg">
+        Your browser does not support video playback.
+      </video>
+    );
+  }
+
+  if (mimeType.startsWith("audio/")) {
+    return (
+      <audio src={inlineUrl} controls className="w-full min-w-56">
+        Your browser does not support audio playback.
+      </audio>
+    );
+  }
+
+  return (
+    <a
+      href={message.attachmentUrl}
+      className={cn(
+        "flex items-center gap-2.5 rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-inherit no-underline",
+        "hover:bg-background/70"
+      )}
+    >
+      <FileTypeIcon mimeType={mimeType} fileName={fileName} />
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-medium">{fileName}</span>
+        {message.attachment && (
+          <span className="text-xs opacity-70">{formatFileSize(message.attachment.size)}</span>
+        )}
+      </div>
+    </a>
+  );
+}
+
+const LONG_PRESS_MS = 450;
+const MOVE_CANCEL_PX = 10;
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -32,6 +123,49 @@ export function MessageBubble({
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(message.content);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [showActions, setShowActions] = React.useState(false);
+  const longPressTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStart = React.useRef<{ x: number; y: number } | null>(null);
+  const actionsWrapRef = React.useRef<HTMLDivElement>(null);
+
+  // Mentors reveal the action bar with a long-press on mobile (mirrors WhatsApp);
+  // mentees never manage messages, so their copy button stays visible by default.
+  function clearLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function handlePointerDown(e: React.PointerEvent) {
+    if (!canManage || e.pointerType !== "touch") return;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    clearLongPress();
+    longPressTimer.current = setTimeout(() => setShowActions(true), LONG_PRESS_MS);
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!pressStart.current) return;
+    const dx = e.clientX - pressStart.current.x;
+    const dy = e.clientY - pressStart.current.y;
+    if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) clearLongPress();
+  }
+
+  function handlePointerUp() {
+    clearLongPress();
+    pressStart.current = null;
+  }
+
+  React.useEffect(() => {
+    if (!canManage || !showActions) return;
+    function handleOutside(e: PointerEvent) {
+      if (actionsWrapRef.current && !actionsWrapRef.current.contains(e.target as Node)) {
+        setShowActions(false);
+      }
+    }
+    document.addEventListener("pointerdown", handleOutside);
+    return () => document.removeEventListener("pointerdown", handleOutside);
+  }, [canManage, showActions]);
 
   async function saveEdit() {
     if (!draft.trim() || draft === message.content) {
@@ -65,7 +199,14 @@ export function MessageBubble({
           </span>
         )}
 
-        <div className="relative">
+        <div
+          ref={actionsWrapRef}
+          className="relative"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           <div
             className={cn(
               "rounded-2xl px-3.5 py-2 text-sm",
@@ -111,7 +252,12 @@ export function MessageBubble({
                 </div>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              <div className="flex flex-col gap-2">
+                <AttachmentPreview message={message} />
+                {message.content && (
+                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                )}
+              </div>
             )}
 
             {!isEditing && (
@@ -130,19 +276,31 @@ export function MessageBubble({
           {!isEditing && (
             <div
               className={cn(
-                "absolute top-0 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
+                "absolute top-0 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm transition-opacity",
+                canManage
+                  ? cn(showActions ? "opacity-100" : "opacity-0", "md:opacity-0 md:group-hover:opacity-100")
+                  : "opacity-100",
                 isOwn ? "right-2" : "left-2"
               )}
             >
-              <Button
-                size="icon"
-                className="size-6"
-                variant="ghost"
-                aria-label="Copy message"
-                onClick={copyMessage}
-              >
-                <Copy className="size-3" />
-              </Button>
+              {message.content && (
+                <Button
+                  size="icon"
+                  className="size-6"
+                  variant="ghost"
+                  aria-label="Copy message"
+                  onClick={copyMessage}
+                >
+                  <Copy className="size-3" />
+                </Button>
+              )}
+              {message.attachmentUrl && (
+                <Button size="icon" className="size-6" variant="ghost" aria-label="Download file" asChild>
+                  <a href={message.attachmentUrl} download={message.attachmentName ?? undefined}>
+                    <Download className="size-3" />
+                  </a>
+                </Button>
+              )}
               {canManage && (
                 <Button
                   size="icon"
