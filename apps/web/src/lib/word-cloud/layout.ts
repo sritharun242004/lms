@@ -132,7 +132,13 @@ export function computeWordCloudLayout(
   // smaller ones fill in around them.
   const sorted = [...words].sort((a, b) => b.count - a.count);
 
-  const placed: (PlacedWord & Rect)[] = [];
+  // `placed` holds each word's center (what callers/rendering use); collision
+  // checks need top-left rects instead, so those are tracked separately —
+  // conflating the two under the same x/y previously let words overlap
+  // because a placed word's *center* was compared as if it were a rect's
+  // top-left corner.
+  const placed: PlacedWord[] = [];
+  const placedRects: Rect[] = [];
 
   for (const word of sorted) {
     const fontSize = fontSizeForCount(word.count, minFontSize, maxFontSize);
@@ -146,7 +152,7 @@ export function computeWordCloudLayout(
       prev?.y ?? centerY,
       textWidth,
       textHeight,
-      placed,
+      placedRects,
       { width, height },
       padding
     );
@@ -160,6 +166,7 @@ export function computeWordCloudLayout(
       fontSize,
       rotation,
     });
+    placedRects.push(toRect(x, y, textWidth, textHeight));
   }
 
   return placed;

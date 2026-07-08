@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole, MessageType, PollChartType } from "../constants";
+import { MessageType, PollChartType } from "../constants";
 
 // ============================================================
 // AUTH VALIDATIONS
@@ -261,7 +261,7 @@ export const createWordCloudSchema = z.object({
 });
 
 export const submitWordSchema = z.object({
-  text: z.string().min(1, "Enter a word").trim(),
+  text: z.string().trim().min(1, "Enter a word"),
 });
 
 export const wordCloudControlSchema = z.object({
