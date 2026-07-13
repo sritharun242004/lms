@@ -29,6 +29,7 @@ import type {
   WordCloudData,
 } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
+import { upsertMessage as upsert, mergeLatest } from "@/lib/chat/merge";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { useConfirm } from "@/hooks/use-confirm";
 import { getInitials } from "@/lib/utils";
@@ -56,36 +57,7 @@ function dateSeparatorLabel(date: Date): string {
   return format(date, "MMM d, yyyy");
 }
 
-function upsert(messages: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
-  const index = messages.findIndex((m) => m.id === incoming.id);
-  if (index === -1) return [...messages, incoming];
-  const next = messages.slice();
-  next[index] = incoming;
-  return next;
-}
-
-const POLL_INTERVAL_MS = 5000;
-
-/**
- * Reconcile the current thread with a freshly fetched batch of the newest
- * messages. This is the polling fallback that keeps chats live even when the
- * realtime socket server is unreachable: new messages are added, edited ones
- * are refreshed, and messages deleted within the fetched window disappear.
- * Older messages already loaded above the window are left untouched.
- */
-function mergeLatest(existing: ChatMessage[], latest: ChatMessage[]): ChatMessage[] {
-  if (latest.length === 0) return existing;
-  const oldestInWindow = latest[0].createdAt;
-  const latestIds = new Set(latest.map((m) => m.id));
-  // Drop messages that fall inside the fetched window but are no longer
-  // present (deleted elsewhere); keep everything older than the window.
-  const kept = existing.filter((m) => m.createdAt < oldestInWindow || latestIds.has(m.id));
-  let merged = kept;
-  for (const message of latest) merged = upsert(merged, message);
-  return merged
-    .slice()
-    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
-}
+const POLL_INTERVAL_MS = 4000;
 
 export function ChatThread({
   groupId,
@@ -137,28 +109,47 @@ export function ChatThread({
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, []);
 
-  // Polling fallback: even when the realtime socket can't be reached (the
-  // common cause of "messages only show up after a reload"), re-fetch the
-  // newest messages on an interval and reconcile them into the thread.
+  // Live updates without a reload. The realtime socket is the fast path,
+  // but it silently does nothing when the realtime server is unreachable
+  // (the common cause of "the mentee has to refresh to see new messages").
+  // This effect polls the newest messages on an interval and reconciles
+  // them in, and refreshes immediately whenever the tab regains focus, so
+  // every viewer — mentors and read-only mentees alike — stays current.
   React.useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     async function refresh() {
-      if (document.visibilityState !== "visible") return;
-      const res = await messageService.list(groupId);
-      if (cancelled || !res.success || !res.data) return;
-      const latest = res.data.messages;
-      const hasNew = latest.some((m) => !messageIdsRef.current.has(m.id));
-      setMessages((prev) => mergeLatest(prev, latest));
-      if (hasNew && isAtBottomRef.current) {
-        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const res = await messageService.list(groupId);
+        if (cancelled || !res.success || !res.data) return;
+        const latest = res.data.messages;
+        const hasNew = latest.some((m) => !messageIdsRef.current.has(m.id));
+        setMessages((prev) => mergeLatest(prev, latest));
+        if (hasNew && isAtBottomRef.current) {
+          requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+        }
+      } finally {
+        inFlight = false;
       }
     }
 
     const timer = setInterval(refresh, POLL_INTERVAL_MS);
+    // Fire an immediate catch-up when the user returns to the tab/window
+    // instead of making them wait out the next interval.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+
     return () => {
       cancelled = true;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
     };
   }, [groupId]);
 

@@ -200,7 +200,7 @@ export function MessageBubble({
         </Avatar>
       )}
 
-      <div className={cn("flex max-w-[70%] flex-col gap-1", isOwn && "items-end")}>
+      <div className={cn("flex min-w-0 max-w-[70%] flex-col gap-1", isOwn && "items-end")}>
         {showSender && !isOwn && (
           <span className="px-1 text-xs font-medium text-muted-foreground">
             {message.sender.name}
@@ -264,7 +264,7 @@ export function MessageBubble({
               <div className="flex flex-col gap-2">
                 <AttachmentPreview message={message} />
                 {message.content && (
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
                 )}
               </div>
             )}
@@ -285,11 +285,14 @@ export function MessageBubble({
           {!isEditing && (
             <div
               className={cn(
-                "absolute top-0 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm transition-opacity",
+                "absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm transition-opacity",
                 canManage
                   ? cn(showActions ? "opacity-100" : "opacity-0", "md:opacity-0 md:group-hover:opacity-100")
                   : "opacity-100",
-                isOwn ? "right-2" : "left-2"
+                // Sit just outside the bubble — to its right for incoming
+                // messages, to its left for your own — so the controls never
+                // cover the text (previously they overlapped the top edge).
+                isOwn ? "right-full mr-1" : "left-full ml-1"
               )}
             >
               {canCopy && (
