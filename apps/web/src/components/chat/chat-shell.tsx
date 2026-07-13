@@ -22,11 +22,11 @@ export function ChatShell({
   const hasActiveGroup = pathname !== "/chat";
 
   return (
-    <div className="-m-4 flex h-[calc(100svh-3.5rem)] md:-m-6">
+    <div className="-m-4 flex h-[calc(100svh-3.5rem)] overflow-x-hidden md:-m-6">
       <div className={cn("h-full", hasActiveGroup ? "hidden md:flex" : "flex w-full md:w-auto")}>
         <ChatSidebar groups={groups} canCreate={canCreate} />
       </div>
-      <div className={cn("flex-1 flex-col", hasActiveGroup ? "flex" : "hidden md:flex")}>
+      <div className={cn("min-w-0 flex-1 flex-col", hasActiveGroup ? "flex" : "hidden md:flex")}>
         {children}
       </div>
     </div>

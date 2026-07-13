@@ -34,8 +34,17 @@ export enum PollChartType {
 // FILE ATTACHMENTS
 // ============================================================
 
-export const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
-export const MAX_ATTACHMENT_SIZE_MB = 25;
+export const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_MB = 50;
+
+// ============================================================
+// MESSAGE LIMITS
+// ============================================================
+
+// Character cap for a single text message / edit. Sized to comfortably
+// hold ~3000 words (avg ~6 chars incl. spacing) so mentors can post long
+// announcements in one message.
+export const MAX_MESSAGE_LENGTH = 20000;
 
 export enum MemberRole {
   OWNER = "OWNER",

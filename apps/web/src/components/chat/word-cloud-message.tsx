@@ -31,6 +31,7 @@ export function WordCloudMessage({
   wordCloud,
   groupId,
   isOwn,
+  canManage,
   onSubmitted,
   onControlled,
   onDelete,
@@ -39,6 +40,8 @@ export function WordCloudMessage({
   wordCloud: WordCloudData;
   groupId: string;
   isOwn: boolean;
+  /** Mentors/admins only — gates the CSV/SVG export controls. */
+  canManage: boolean;
   onSubmitted: (wordCloud: WordCloudData) => void;
   onControlled: (wordCloud: WordCloudData) => void;
   onDelete: (messageId: string) => void;
@@ -172,7 +175,7 @@ export function WordCloudMessage({
           {wordCloud.totalSubmissions} {wordCloud.totalSubmissions === 1 ? "word" : "words"}
           {wordCloud.isLocked && " · locked"}
         </span>
-        {wordCloud.entries.length > 0 && (
+        {canManage && wordCloud.entries.length > 0 && (
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={exportCsv}>
               <Download className="size-3" />

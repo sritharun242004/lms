@@ -16,7 +16,12 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { MessageType, MAX_ATTACHMENT_SIZE_BYTES, MAX_ATTACHMENT_SIZE_MB } from "@lms/shared";
+import {
+  MessageType,
+  MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_ATTACHMENT_SIZE_MB,
+  MAX_MESSAGE_LENGTH,
+} from "@lms/shared";
 import type {
   ChatMessage,
   OpenQuestionData,
@@ -59,6 +64,29 @@ function upsert(messages: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
   return next;
 }
 
+const POLL_INTERVAL_MS = 5000;
+
+/**
+ * Reconcile the current thread with a freshly fetched batch of the newest
+ * messages. This is the polling fallback that keeps chats live even when the
+ * realtime socket server is unreachable: new messages are added, edited ones
+ * are refreshed, and messages deleted within the fetched window disappear.
+ * Older messages already loaded above the window are left untouched.
+ */
+function mergeLatest(existing: ChatMessage[], latest: ChatMessage[]): ChatMessage[] {
+  if (latest.length === 0) return existing;
+  const oldestInWindow = latest[0].createdAt;
+  const latestIds = new Set(latest.map((m) => m.id));
+  // Drop messages that fall inside the fetched window but are no longer
+  // present (deleted elsewhere); keep everything older than the window.
+  const kept = existing.filter((m) => m.createdAt < oldestInWindow || latestIds.has(m.id));
+  let merged = kept;
+  for (const message of latest) merged = upsert(merged, message);
+  return merged
+    .slice()
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+}
+
 export function ChatThread({
   groupId,
   groupName,
@@ -85,7 +113,22 @@ export function ChatThread({
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const isAtBottomRef = React.useRef(true);
+  const messageIdsRef = React.useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const [confirm, confirmDialog] = useConfirm();
+
+  // Keep a live set of known message ids so polling can tell whether a
+  // fetched batch actually introduces anything new (and thus whether to
+  // auto-scroll a viewer who's pinned to the bottom).
+  React.useEffect(() => {
+    messageIdsRef.current = new Set(messages.map((m) => m.id));
+  }, [messages]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   // The parent renders <ChatThread key={groupId} .../>, so this whole
   // component remounts with fresh state whenever the group changes —
@@ -93,6 +136,31 @@ export function ChatThread({
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, []);
+
+  // Polling fallback: even when the realtime socket can't be reached (the
+  // common cause of "messages only show up after a reload"), re-fetch the
+  // newest messages on an interval and reconcile them into the thread.
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function refresh() {
+      if (document.visibilityState !== "visible") return;
+      const res = await messageService.list(groupId);
+      if (cancelled || !res.success || !res.data) return;
+      const latest = res.data.messages;
+      const hasNew = latest.some((m) => !messageIdsRef.current.has(m.id));
+      setMessages((prev) => mergeLatest(prev, latest));
+      if (hasNew && isAtBottomRef.current) {
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+      }
+    }
+
+    const timer = setInterval(refresh, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [groupId]);
 
   useChatSocket(groupId, {
     onNew: (message) => {
@@ -316,7 +384,11 @@ export function ChatThread({
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto py-3">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto py-3"
+      >
         {hasMore && (
           <div className="flex justify-center pb-2">
             <Button size="sm" variant="outline" onClick={loadOlder} disabled={isLoadingMore}>
@@ -372,6 +444,7 @@ export function ChatThread({
                     wordCloud={message.wordCloud}
                     groupId={groupId}
                     isOwn={message.senderId === currentUserId}
+                    canManage={canManage}
                     onSubmitted={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
                     onControlled={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
                     onDelete={handleDelete}
@@ -463,7 +536,8 @@ export function ChatThread({
             }}
             placeholder="Type an announcement…"
             rows={1}
-            className="max-h-40 flex-1 resize-none"
+            maxLength={MAX_MESSAGE_LENGTH}
+            className="max-h-40 min-w-0 flex-1 resize-none overflow-y-auto break-words whitespace-pre-wrap"
           />
           <Button size="icon" onClick={handleSend} disabled={!draft.trim() || isSending}>
             <Send className="size-4" />

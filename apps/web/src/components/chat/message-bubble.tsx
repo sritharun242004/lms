@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   Presentation,
 } from "lucide-react";
+import { MAX_MESSAGE_LENGTH } from "@lms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -180,9 +181,16 @@ export function MessageBubble({
   }
 
   async function copyMessage() {
-    await navigator.clipboard.writeText(message.content);
+    await navigator.clipboard.writeText(message.content || message.attachmentName || "");
     toast.success("Message copied");
   }
+
+  // Mentees get bigger, always-visible copy/download controls so they can
+  // grab any message or file with an easy tap; mentors keep the compact
+  // hover/long-press toolbar that also carries edit/delete/pin.
+  const btnSize = canManage ? "size-6" : "size-8";
+  const iconSize = canManage ? "size-3" : "size-4";
+  const canCopy = Boolean(message.content || message.attachmentName);
 
   return (
     <div className={cn("group flex gap-2 px-4 py-1", isOwn ? "justify-end" : "justify-start")}>
@@ -228,7 +236,8 @@ export function MessageBubble({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   rows={2}
-                  className="min-w-64 bg-background text-foreground"
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  className="max-h-60 min-w-64 max-w-full resize-none overflow-y-auto break-words whitespace-pre-wrap bg-background text-foreground"
                   autoFocus
                 />
                 <div className="flex justify-end gap-1">
@@ -283,54 +292,54 @@ export function MessageBubble({
                 isOwn ? "right-2" : "left-2"
               )}
             >
-              {message.content && (
+              {canCopy && (
                 <Button
                   size="icon"
-                  className="size-6"
+                  className={btnSize}
                   variant="ghost"
                   aria-label="Copy message"
                   onClick={copyMessage}
                 >
-                  <Copy className="size-3" />
+                  <Copy className={iconSize} />
                 </Button>
               )}
               {message.attachmentUrl && (
-                <Button size="icon" className="size-6" variant="ghost" aria-label="Download file" asChild>
+                <Button size="icon" className={btnSize} variant="ghost" aria-label="Download file" asChild>
                   <a href={message.attachmentUrl} download={message.attachmentName ?? undefined}>
-                    <Download className="size-3" />
+                    <Download className={iconSize} />
                   </a>
                 </Button>
               )}
               {canManage && (
                 <Button
                   size="icon"
-                  className="size-6"
+                  className={btnSize}
                   variant="ghost"
                   aria-label={message.isPinned ? "Unpin" : "Pin"}
                   onClick={() => onTogglePin(message.id)}
                 >
-                  <Pin className="size-3" />
+                  <Pin className={iconSize} />
                 </Button>
               )}
               {isOwn && (
                 <>
                   <Button
                     size="icon"
-                    className="size-6"
+                    className={btnSize}
                     variant="ghost"
                     aria-label="Edit"
                     onClick={() => setIsEditing(true)}
                   >
-                    <Pencil className="size-3" />
+                    <Pencil className={iconSize} />
                   </Button>
                   <Button
                     size="icon"
-                    className="size-6"
+                    className={btnSize}
                     variant="ghost"
                     aria-label="Delete"
                     onClick={() => onDelete(message.id)}
                   >
-                    <Trash2 className="size-3" />
+                    <Trash2 className={iconSize} />
                   </Button>
                 </>
               )}

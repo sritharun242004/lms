@@ -6,7 +6,13 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { MessageType, AuditAction, MAX_ATTACHMENT_SIZE_BYTES, MAX_ATTACHMENT_SIZE_MB } from "@lms/shared";
+import {
+  MessageType,
+  AuditAction,
+  MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_ATTACHMENT_SIZE_MB,
+  MAX_MESSAGE_LENGTH,
+} from "@lms/shared";
 
 /**
  * Upload a file attachment as a message — any file type is accepted (the
@@ -49,7 +55,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const rawContent = formData.get("content");
-  const content = (typeof rawContent === "string" ? rawContent : "").trim().slice(0, 4000);
+  const content = (typeof rawContent === "string" ? rawContent : "")
+    .trim()
+    .slice(0, MAX_MESSAGE_LENGTH);
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());

@@ -10,6 +10,7 @@ import {
   searchSchema,
   paginationSchema,
 } from "./index";
+import { MAX_MESSAGE_LENGTH } from "../constants";
 
 describe("loginSchema", () => {
   it("accepts a valid login", () => {
@@ -85,8 +86,13 @@ describe("sendMessageSchema", () => {
     expect(result.type).toBe("TEXT");
   });
 
-  it("rejects content over 4000 characters", () => {
-    const result = sendMessageSchema.safeParse({ content: "a".repeat(4001) });
+  it("accepts a long multi-thousand-word message", () => {
+    const result = sendMessageSchema.safeParse({ content: "word ".repeat(3000).trim() });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects content over the max length", () => {
+    const result = sendMessageSchema.safeParse({ content: "a".repeat(MAX_MESSAGE_LENGTH + 1) });
     expect(result.success).toBe(false);
   });
 });

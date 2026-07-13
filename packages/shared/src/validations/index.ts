@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MessageType, PollChartType } from "../constants";
+import { MessageType, PollChartType, MAX_MESSAGE_LENGTH } from "../constants";
 
 // ============================================================
 // AUTH VALIDATIONS
@@ -184,7 +184,7 @@ export const sendMessageSchema = z.object({
   content: z
     .string()
     .min(1, "Message cannot be empty")
-    .max(4000, "Message must be at most 4000 characters"),
+    .max(MAX_MESSAGE_LENGTH, `Message must be at most ${MAX_MESSAGE_LENGTH} characters`),
   type: z.nativeEnum(MessageType).optional().default(MessageType.TEXT),
   attachmentUrl: z.string().url("Invalid attachment URL").optional(),
   attachmentName: z.string().max(255).optional(),
@@ -194,7 +194,7 @@ export const editMessageSchema = z.object({
   content: z
     .string()
     .min(1, "Message cannot be empty")
-    .max(4000, "Message must be at most 4000 characters"),
+    .max(MAX_MESSAGE_LENGTH, `Message must be at most ${MAX_MESSAGE_LENGTH} characters`),
 });
 
 // ============================================================
