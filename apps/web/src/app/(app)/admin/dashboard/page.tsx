@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Users, UserCog, MessagesSquare, LayoutGrid } from "lucide-react";
+import { Users, MessagesSquare, LayoutGrid } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getAdminDashboardStats } from "@/lib/dashboard/queries";
 import { getManagedGroups } from "@/lib/groups/queries";
@@ -25,9 +25,8 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Groups" value={stats.totalGroups} icon={LayoutGrid} />
-        <StatCard label="Mentors" value={stats.totalMentors} icon={UserCog} />
         <StatCard label="Students" value={stats.totalStudents} icon={Users} />
         <StatCard label="Messages" value={stats.totalMessages} icon={MessagesSquare} />
       </div>
