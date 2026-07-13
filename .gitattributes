@@ -1,0 +1,5 @@
+# Normalize line endings — checkout as-is, commit LF only.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
