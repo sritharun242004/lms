@@ -62,12 +62,35 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
   React.useEffect(() => {
     let cancelled = false;
 
+    async function fetchSocketToken(): Promise<string | null> {
+      // Retry the socket-token fetch with backoff so a single flaky request
+      // does not leave this component's socket listeners permanently unwired.
+      const delays = [0, 1000, 3000, 5000];
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (cancelled) return null;
+        if (delays[attempt] > 0) {
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+          if (cancelled) return null;
+        }
+        try {
+          const res = await authService.socketToken();
+          if (res.success && res.data?.token) return res.data.token;
+        } catch {
+          // fall through to retry
+        }
+      }
+      // Realtime is best-effort; chat-thread.tsx polls the DB every 4s as a
+      // backup so users still receive messages even if the socket never wires.
+      console.warn("[useChatSocket] socket-token fetch failed after 4 attempts; falling back to poll-only mode");
+      return null;
+    }
+
     async function join() {
       const socket = getSocket();
       if (!socket.connected) {
-        const res = await authService.socketToken();
-        if (cancelled || !res.success) return;
-        connectSocket(res.data!.token);
+        const token = await fetchSocketToken();
+        if (cancelled || !token) return;
+        connectSocket(token);
       }
       if (cancelled) return;
 

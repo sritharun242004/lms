@@ -15,7 +15,11 @@ export function getSocket(): Socket {
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: false,
-      transports: ["websocket", "polling"],
+      // Polling first, then transparent upgrade to WebSocket. AWS App Runner's
+      // Envoy ingress rejects direct WS handshakes with 403 - if we try WS
+      // first the client burns 5-10s per reconnect before falling back and
+      // mentees see nothing during that gap.
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
