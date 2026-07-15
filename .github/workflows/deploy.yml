@@ -38,8 +38,8 @@ jobs:
       - name: Build + push web image
         run: |
           docker build -f Dockerfile.web \
-            --build-arg NEXT_PUBLIC_APP_URL=https://lms.thebotcompany.in \
-            --build-arg NEXT_PUBLIC_SOCKET_URL=https://sock.lms.thebotcompany.in \
+            --build-arg NEXT_PUBLIC_APP_URL=https://cms.thebotcompany.in \
+            --build-arg NEXT_PUBLIC_SOCKET_URL=https://sock.cms.thebotcompany.in \
             -t $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }} \
             -t $ECR_REGISTRY/$WEB_REPO:latest .
           docker push $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }}
