@@ -262,6 +262,16 @@ export interface SocketEvents {
   "member:join": (data: { groupId: string; member: GroupMember }) => void;
   "member:leave": (data: { groupId: string; userId: string }) => void;
   "user:online": (data: { userId: string; status: UserStatus }) => void;
+  // Someone opened this group's chat and is now in the room. Distinct from
+  // "member:join", which is about being added to the group's roster: this is
+  // ephemeral presence, fires on every join (including socket reconnects),
+  // and is never persisted. Emitted to the room excluding the joiner.
+  "presence:join": (data: {
+    groupId: string;
+    userId: string;
+    userName: string;
+    role: UserRole;
+  }) => void;
   "notification:new": (notification: Notification) => void;
   // Counts-only update — never carries a viewer-specific "my vote", so
   // it's safe to broadcast the exact same payload to every client.

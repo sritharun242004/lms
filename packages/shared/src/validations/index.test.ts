@@ -136,8 +136,13 @@ describe("createWordCloudSchema", () => {
     expect(result.maxWordLength).toBe(20);
   });
 
-  it("rejects maxWordsPerParticipant above 10", () => {
-    const result = createWordCloudSchema.safeParse({ question: "Q", maxWordsPerParticipant: 11 });
+  it("accepts a raised maxWordsPerParticipant", () => {
+    const result = createWordCloudSchema.safeParse({ question: "Q", maxWordsPerParticipant: 25 });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects maxWordsPerParticipant above 50", () => {
+    const result = createWordCloudSchema.safeParse({ question: "Q", maxWordsPerParticipant: 51 });
     expect(result.success).toBe(false);
   });
 });

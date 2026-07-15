@@ -42,6 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { JoinToast } from "@/components/chat/join-toast";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { PollFormDialog } from "@/components/chat/poll-form-dialog";
 import { PollMessage } from "@/components/chat/poll-message";
@@ -153,7 +154,18 @@ export function ChatThread({
     };
   }, [groupId]);
 
+  // "<name> joined" is announced once per person for the lifetime of this
+  // thread. Socket reconnects re-emit group:join, so without this a viewer on
+  // flaky wifi would be re-announced to everyone every few seconds.
+  const announcedJoinsRef = React.useRef<Set<string>>(new Set());
+
   useChatSocket(groupId, {
+    onPresenceJoin: ({ userId, userName, role }) => {
+      if (userId === currentUserId) return;
+      if (announcedJoinsRef.current.has(userId)) return;
+      announcedJoinsRef.current.add(userId);
+      toast.custom((id) => <JoinToast key={id} name={userName} role={role} />);
+    },
     onNew: (message) => {
       setMessages((prev) => upsert(prev, message));
       requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));

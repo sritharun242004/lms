@@ -13,8 +13,22 @@ export function registerChatHandlers(io: Server, socket: Socket) {
   socket.on("group:join", (groupId: string) => {
     if (!groupId || typeof groupId !== "string") return;
 
-    socket.join(`group:${groupId}`);
-    console.log(`  → ${socket.data.userName} joined group:${groupId}`);
+    const room = `group:${groupId}`;
+    const alreadyInRoom = socket.rooms.has(room);
+    socket.join(room);
+    console.log(`  → ${socket.data.userName} joined ${room}`);
+
+    // Announce the arrival to everyone else already in the room. `socket.to`
+    // excludes the joiner, who should not be told about their own arrival.
+    // Re-emitting for a socket that is already in the room would announce the
+    // same person twice for one arrival, so skip it; clients also dedupe.
+    if (alreadyInRoom) return;
+    socket.to(room).emit("presence:join", {
+      groupId,
+      userId,
+      userName: socket.data.userName,
+      role: userRole,
+    });
   });
 
   // ── Leave a group room ─────────────────────────────────────

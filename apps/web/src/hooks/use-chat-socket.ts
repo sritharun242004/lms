@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { UserRole } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { authService } from "@/lib/api/services/auth-service";
 import { connectSocket, getSocket } from "@/lib/socket/client";
@@ -35,8 +36,16 @@ interface WordCloudLockEvent {
   isLocked: boolean;
 }
 
+interface PresenceJoinEvent {
+  groupId: string;
+  userId: string;
+  userName: string;
+  role: UserRole;
+}
+
 interface ChatSocketHandlers {
   onNew?: (message: ChatMessage) => void;
+  onPresenceJoin?: (data: PresenceJoinEvent) => void;
   onEdit?: (message: ChatMessage) => void;
   onDelete?: (data: { messageId: string; groupId: string }) => void;
   onPin?: (data: { messageId: string; groupId: string; isPinned: boolean }) => void;
@@ -96,6 +105,12 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
 
       socket.emit("group:join", groupId);
 
+      // A reconnect starts a brand-new socket session, so the server-side room
+      // membership from the emit above is gone and this client would silently
+      // stop receiving realtime events. Re-join on every (re)connect.
+      socket.on("connect", handleConnect);
+
+      socket.on("presence:join", handlePresenceJoin);
       socket.on("message:new", handleNew);
       socket.on("message:edit", handleEdit);
       socket.on("message:delete", handleDelete);
@@ -107,6 +122,12 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       socket.on("word-cloud:lock", handleWordCloudLock);
     }
 
+    function handleConnect() {
+      getSocket().emit("group:join", groupId);
+    }
+    function handlePresenceJoin(data: PresenceJoinEvent) {
+      if (data.groupId === groupId) handlersRef.current.onPresenceJoin?.(data);
+    }
     function handleNew(message: ChatMessage) {
       if (message.groupId === groupId) handlersRef.current.onNew?.(message);
     }
@@ -141,6 +162,8 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       cancelled = true;
       const socket = getSocket();
       socket.emit("group:leave", groupId);
+      socket.off("connect", handleConnect);
+      socket.off("presence:join", handlePresenceJoin);
       socket.off("message:new", handleNew);
       socket.off("message:edit", handleEdit);
       socket.off("message:delete", handleDelete);

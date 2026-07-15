@@ -34,12 +34,15 @@ import {
 // with react-hook-form's default-values-are-required typing.
 const wordCloudFormSchema = z.object({
   question: z.string().min(1, "Question is required").max(300),
-  maxWordsPerParticipant: z.coerce.number().int().min(1).max(10),
+  maxWordsPerParticipant: z.coerce.number().int().min(1).max(50),
   maxWordLength: z.coerce.number().int().min(10).max(40),
   allowMultipleSubmissions: z.boolean(),
   profanityFilter: z.boolean(),
 });
 type WordCloudFormValues = z.infer<typeof wordCloudFormSchema>;
+
+// What "allow multiple words per person" jumps to when switched on.
+const DEFAULT_MULTIPLE_WORDS = 3;
 
 const DEFAULT_VALUES: WordCloudFormValues = {
   question: "",
@@ -124,7 +127,22 @@ export function WordCloudFormDialog({
                     <FormLabel>Allow multiple words per person</FormLabel>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        // The per-person cap is what the API actually enforces,
+                        // so keep it in step with the toggle — leaving it at 1
+                        // while "allow multiple" is on silently blocks everyone
+                        // after their first word.
+                        const current = form.getValues("maxWordsPerParticipant");
+                        if (checked && current < 2) {
+                          form.setValue("maxWordsPerParticipant", DEFAULT_MULTIPLE_WORDS);
+                        } else if (!checked) {
+                          form.setValue("maxWordsPerParticipant", 1);
+                        }
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -141,7 +159,7 @@ export function WordCloudFormDialog({
                       <Input
                         type="number"
                         min={1}
-                        max={10}
+                        max={50}
                         {...field}
                         onChange={(e) => field.onChange(e.target.valueAsNumber)}
                       />
