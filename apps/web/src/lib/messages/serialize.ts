@@ -1,4 +1,4 @@
-import type { MessageType, UserRole, UserStatus, PollChartType } from "@lms/shared";
+import type { MessageType, UserRole, UserStatus, PollChartType } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 
 /**

@@ -4,10 +4,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: lms-postgres
+    container_name: cms-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: mentor_connect_lms
+      POSTGRES_DB: mentor_connect_cms
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -22,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: lms-redis
+    container_name: cms-redis
     restart: unless-stopped
     ports:
       - "6379:6379"

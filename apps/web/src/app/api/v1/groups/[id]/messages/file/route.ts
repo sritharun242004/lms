@@ -12,7 +12,7 @@ import {
   MAX_ATTACHMENT_SIZE_BYTES,
   MAX_ATTACHMENT_SIZE_MB,
   MAX_MESSAGE_LENGTH,
-} from "@lms/shared";
+} from "@cms/shared";
 
 /**
  * Upload a file attachment as a message — any file type is accepted (the

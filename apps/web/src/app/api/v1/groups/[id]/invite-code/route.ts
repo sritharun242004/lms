@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateInviteCode } from "@/lib/utils";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { AuditAction } from "@lms/shared";
+import { AuditAction } from "@cms/shared";
 
 async function assertManageable(groupId: string, userId: string, isAdmin: boolean) {
   const group = await prisma.group.findUnique({ where: { id: groupId } });

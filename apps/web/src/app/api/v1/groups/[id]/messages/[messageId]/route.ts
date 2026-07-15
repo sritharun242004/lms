@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { editMessageSchema, AuditAction } from "@lms/shared";
+import { editMessageSchema, AuditAction } from "@cms/shared";
 
 async function loadOwnMessage(groupId: string, messageId: string, userId: string) {
   const message = await prisma.message.findFirst({

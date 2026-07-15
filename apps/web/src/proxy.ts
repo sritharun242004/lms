@@ -11,7 +11,7 @@ import {
   getRefreshCookieOptions,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
-import type { UserRole } from "@lms/shared";
+import type { UserRole } from "@cms/shared";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [

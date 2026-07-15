@@ -6,7 +6,7 @@ import {
   revokeAllUserRefreshTokens,
 } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { resetPasswordSchema, AuditAction } from "@lms/shared";
+import { resetPasswordSchema, AuditAction } from "@cms/shared";
 
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, resetPasswordSchema);

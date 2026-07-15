@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateInviteCode } from "@/lib/utils";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { createGroupSchema, AuditAction } from "@lms/shared";
+import { createGroupSchema, AuditAction } from "@cms/shared";
 
 /**
  * List groups visible to the current user:

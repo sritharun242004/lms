@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { z } from "zod";
-import { loginSchema, type LoginInput } from "@lms/shared";
+import { loginSchema, type LoginInput } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

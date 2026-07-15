@@ -2,7 +2,7 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import type { JwtPayload, AuthUser, UserRole } from "@lms/shared";
+import type { JwtPayload, AuthUser, UserRole } from "@cms/shared";
 import { prisma } from "@/lib/db/prisma";
 
 // ============================================================

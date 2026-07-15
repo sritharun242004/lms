@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { claimAccountSchema, AuditAction } from "@lms/shared";
+import { claimAccountSchema, AuditAction } from "@cms/shared";
 
 /**
  * Lets a guest mentee (joined via name + invite code, no email or

@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import { UserRole } from "@lms/shared";
+import { UserRole } from "@cms/shared";
 
 /**
  * Register chat-related socket event handlers.

@@ -1,4 +1,4 @@
-name: Deploy LMS to AWS
+name: Deploy CMS to AWS
 
 on:
   push:

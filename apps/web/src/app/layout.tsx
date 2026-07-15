@@ -17,13 +17,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Mentor Connect LMS",
-    template: "%s | Mentor Connect LMS",
+    default: "Mentor Connect CMS",
+    template: "%s | Mentor Connect CMS",
   },
   description:
     "A modern Learning Management Portal with WhatsApp-inspired communication. Connect mentors with mentees through real-time announcements and group management.",
   keywords: [
-    "LMS",
+    "CMS",
     "Learning Management System",
     "Mentor",
     "Mentee",
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "Mentor Connect LMS",
-    title: "Mentor Connect LMS",
+    siteName: "Mentor Connect CMS",
+    title: "Mentor Connect CMS",
     description:
       "A modern Learning Management Portal with WhatsApp-inspired communication.",
   },

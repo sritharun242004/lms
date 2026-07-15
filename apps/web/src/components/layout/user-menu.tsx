@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import type { AuthUser } from "@lms/shared";
+import type { AuthUser } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

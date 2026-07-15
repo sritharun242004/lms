@@ -36,12 +36,12 @@ describe("loginSchema", () => {
 
 describe("menteeJoinSchema", () => {
   it("uppercases the invite code", () => {
-    const result = menteeJoinSchema.parse({ name: "Ann", inviteCode: "lms-ab12" });
-    expect(result.inviteCode).toBe("LMS-AB12");
+    const result = menteeJoinSchema.parse({ name: "Ann", inviteCode: "cms-ab12" });
+    expect(result.inviteCode).toBe("CMS-AB12");
   });
 
   it("rejects a name shorter than 2 characters", () => {
-    const result = menteeJoinSchema.safeParse({ name: "A", inviteCode: "LMS-AB12" });
+    const result = menteeJoinSchema.safeParse({ name: "A", inviteCode: "CMS-AB12" });
     expect(result.success).toBe(false);
   });
 });

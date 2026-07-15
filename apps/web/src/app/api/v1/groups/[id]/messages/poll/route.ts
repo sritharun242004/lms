@@ -6,7 +6,7 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { createPollSchema, MessageType, AuditAction } from "@lms/shared";
+import { createPollSchema, MessageType, AuditAction } from "@cms/shared";
 
 /**
  * Create a live poll — a message of type POLL with a question and 2-8

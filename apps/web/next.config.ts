@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // Requests pass through proxy.ts, which buffers the body up to this
     // limit before route handlers see it — must exceed MAX_ATTACHMENT_SIZE_BYTES
-    // (50MB, from @lms/shared) or chat file uploads get silently truncated.
+    // (50MB, from @cms/shared) or chat file uploads get silently truncated.
     proxyClientMaxBodySize: "55mb",
   },
 };

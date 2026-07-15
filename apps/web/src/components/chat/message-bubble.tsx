@@ -16,7 +16,7 @@ import {
   FileSpreadsheet,
   Presentation,
 } from "lucide-react";
-import { MAX_MESSAGE_LENGTH } from "@lms/shared";
+import { MAX_MESSAGE_LENGTH } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

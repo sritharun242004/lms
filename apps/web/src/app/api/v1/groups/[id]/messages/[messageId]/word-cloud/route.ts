@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { wordCloudControlSchema, AuditAction } from "@lms/shared";
+import { wordCloudControlSchema, AuditAction } from "@cms/shared";
 import type { NextRequest } from "next/server";
 
 /** Presenter controls: reset the cloud, or lock/unlock further submissions. */

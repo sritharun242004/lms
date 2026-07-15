@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { AuthUser } from "@lms/shared";
+import type { AuthUser } from "@cms/shared";
 
 export interface GroupAccess {
   canView: boolean;

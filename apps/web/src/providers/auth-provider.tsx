@@ -8,7 +8,7 @@ import type {
   LoginInput,
   MenteeJoinInput,
   ClaimAccountInput,
-} from "@lms/shared";
+} from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 
 const AUTH_QUERY_KEY = ["auth", "me"] as const;

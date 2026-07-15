@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
-import { forgotPasswordSchema, type ForgotPasswordInput } from "@lms/shared";
+import { forgotPasswordSchema, type ForgotPasswordInput } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

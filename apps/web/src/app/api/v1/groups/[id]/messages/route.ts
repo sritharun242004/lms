@@ -5,7 +5,7 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { sendMessageSchema, AuditAction } from "@lms/shared";
+import { sendMessageSchema, AuditAction } from "@cms/shared";
 
 const PAGE_SIZE = 50;
 

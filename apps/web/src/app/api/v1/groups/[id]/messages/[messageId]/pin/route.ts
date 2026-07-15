@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { AuditAction } from "@lms/shared";
+import { AuditAction } from "@cms/shared";
 
 /** Toggle a message's pinned state. Any manager (mentor/admin) may pin any message in their group. */
 export async function PATCH(

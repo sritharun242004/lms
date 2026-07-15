@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import { authMiddleware } from "./middleware/auth";
 import { registerChatHandlers } from "./handlers/chat";
 import { registerPresenceHandlers } from "./handlers/presence";
-import type { SocketEvents } from "@lms/shared";
+import type { SocketEvents } from "@cms/shared";
 
 // ============================================================
 // SERVER CONFIGURATION

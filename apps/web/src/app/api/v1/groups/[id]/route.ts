@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { updateGroupSchema, AuditAction } from "@lms/shared";
+import { updateGroupSchema, AuditAction } from "@cms/shared";
 
 async function getManageableGroup(groupId: string, userId: string, isAdmin: boolean) {
   const group = await prisma.group.findUnique({ where: { id: groupId } });

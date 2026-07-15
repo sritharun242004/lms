@@ -1,5 +1,5 @@
 {
-  "name": "@lms/realtime",
+  "name": "@cms/realtime",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lms/shared": "*",
+    "@cms/shared": "*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "jsonwebtoken": "^9.0.0",

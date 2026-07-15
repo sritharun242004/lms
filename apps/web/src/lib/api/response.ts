@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, ZodSchema } from "zod";
-import type { ApiResponse, PaginationMeta } from "@lms/shared";
+import type { ApiResponse, PaginationMeta } from "@cms/shared";
 
 // ============================================================
 // API RESPONSE HELPERS

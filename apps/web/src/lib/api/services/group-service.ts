@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import type { CreateGroupInput, UpdateGroupInput } from "@lms/shared";
+import type { CreateGroupInput, UpdateGroupInput } from "@cms/shared";
 
 export interface GroupCard {
   id: string;

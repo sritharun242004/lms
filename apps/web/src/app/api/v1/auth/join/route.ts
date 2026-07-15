@@ -12,7 +12,7 @@ import {
   errorResponse,
   parseBody,
 } from "@/lib/api/response";
-import { menteeJoinSchema, AuditAction } from "@lms/shared";
+import { menteeJoinSchema, AuditAction } from "@cms/shared";
 
 /**
  * Public, account-less mentee join: a name and an invite code are

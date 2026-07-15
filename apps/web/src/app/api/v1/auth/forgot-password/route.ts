@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { generatePasswordResetToken } from "@/lib/auth";
 import { successResponse, parseBody } from "@/lib/api/response";
-import { forgotPasswordSchema } from "@lms/shared";
+import { forgotPasswordSchema } from "@cms/shared";
 
 const GENERIC_MESSAGE =
   "If an account exists for that email, a password reset link has been sent.";

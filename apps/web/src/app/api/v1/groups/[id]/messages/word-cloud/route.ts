@@ -6,7 +6,7 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { createWordCloudSchema, MessageType, AuditAction } from "@lms/shared";
+import { createWordCloudSchema, MessageType, AuditAction } from "@cms/shared";
 
 /**
  * Create a word cloud — a message of type WORD_CLOUD. Every group

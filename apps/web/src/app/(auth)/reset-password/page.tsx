@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { resetPasswordSchema, type ResetPasswordInput } from "@lms/shared";
+import { resetPasswordSchema, type ResetPasswordInput } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";

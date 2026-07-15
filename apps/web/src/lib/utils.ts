@@ -69,12 +69,12 @@ export function formatRelativeTime(
 // ─── Invite code generator ────────────────────────────────────
 /**
  * Generates a random invite code.
- * @param prefix — Defaults to `"LMS"`
+ * @param prefix — Defaults to `"CMS"`
  * @param length — Character count after the prefix. Defaults to `4`.
- * @returns e.g. `"LMS-A8KD"` or `"MENTOR-X3P9"`
+ * @returns e.g. `"CMS-A8KD"` or `"MENTOR-X3P9"`
  */
 export function generateInviteCode(
-  prefix: string = "LMS",
+  prefix: string = "CMS",
   length: number = 4
 ): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/1/O/0 to avoid ambiguity

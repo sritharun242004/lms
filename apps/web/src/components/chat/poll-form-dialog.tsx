@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { BarChart3, Circle, Loader2, PieChart, Plus, X } from "lucide-react";
-import { PollChartType } from "@lms/shared";
+import { PollChartType } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
 import { Button } from "@/components/ui/button";

@@ -6,7 +6,7 @@ import type {
   ForgotPasswordInput,
   ResetPasswordInput,
   ClaimAccountInput,
-} from "@lms/shared";
+} from "@cms/shared";
 
 export interface AuthSession {
   user: AuthUser;

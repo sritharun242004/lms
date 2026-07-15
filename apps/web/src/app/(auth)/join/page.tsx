@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { menteeJoinSchema, type MenteeJoinInput } from "@lms/shared";
+import { menteeJoinSchema, type MenteeJoinInput } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +84,7 @@ function JoinForm() {
               <FormItem>
                 <FormLabel>Invite code</FormLabel>
                 <FormControl>
-                  <Input placeholder="LMS-A8KD" className="uppercase" {...field} />
+                  <Input placeholder="CMS-A8KD" className="uppercase" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

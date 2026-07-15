@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { AdminDashboardStats, MentorDashboardStats, MenteeDashboardStats } from "@lms/shared";
+import type { AdminDashboardStats, MentorDashboardStats, MenteeDashboardStats } from "@cms/shared";
 
 function startOfToday(): Date {
   const d = new Date();

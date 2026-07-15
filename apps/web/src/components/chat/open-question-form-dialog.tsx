@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { createOpenQuestionSchema, type CreateOpenQuestionInput } from "@lms/shared";
+import { createOpenQuestionSchema, type CreateOpenQuestionInput } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
 import { Button } from "@/components/ui/button";

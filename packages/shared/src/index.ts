@@ -1,4 +1,4 @@
-// @lms/shared - Shared types, constants, and validations for Mentor Connect LMS
+// @cms/shared - Shared types, constants, and validations for Mentor Connect CMS
 
 // Constants & Enums
 export {

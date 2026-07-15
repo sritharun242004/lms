@@ -6,7 +6,7 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { createOpenQuestionSchema, MessageType, AuditAction } from "@lms/shared";
+import { createOpenQuestionSchema, MessageType, AuditAction } from "@cms/shared";
 
 /**
  * Post an open-ended question — a message of type OPEN_QUESTION.

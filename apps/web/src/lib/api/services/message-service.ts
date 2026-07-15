@@ -13,7 +13,7 @@ import type {
   CreateWordCloudInput,
   SubmitWordInput,
   WordCloudControlInput,
-} from "@lms/shared";
+} from "@cms/shared";
 
 export interface PollOptionResult {
   id: string;

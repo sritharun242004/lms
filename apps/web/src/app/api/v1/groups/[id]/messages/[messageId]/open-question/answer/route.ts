@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { submitAnswerSchema } from "@lms/shared";
+import { submitAnswerSchema } from "@cms/shared";
 import type { NextRequest } from "next/server";
 
 /**

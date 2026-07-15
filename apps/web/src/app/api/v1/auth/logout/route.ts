@@ -7,7 +7,7 @@ import {
   verifyAccessToken,
 } from "@/lib/auth";
 import { successResponse } from "@/lib/api/response";
-import { AuditAction } from "@lms/shared";
+import { AuditAction } from "@cms/shared";
 
 export async function POST() {
   try {

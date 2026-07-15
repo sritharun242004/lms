@@ -12,7 +12,7 @@ import {
   errorResponse,
   parseBody,
 } from "@/lib/api/response";
-import { loginSchema, AuditAction } from "@lms/shared";
+import { loginSchema, AuditAction } from "@cms/shared";
 
 export async function POST(req: NextRequest) {
   // Parse and validate body

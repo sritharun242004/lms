@@ -7,7 +7,7 @@ import { isStopWord } from "@/lib/word-cloud/stop-words";
 import { containsProfanity } from "@/lib/word-cloud/profanity-filter";
 import { hueForWord } from "@/lib/word-cloud/color";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { submitWordSchema } from "@lms/shared";
+import { submitWordSchema } from "@cms/shared";
 import type { NextRequest } from "next/server";
 
 /**
