@@ -164,7 +164,9 @@ export function ChatThread({
       if (userId === currentUserId) return;
       if (announcedJoinsRef.current.has(userId)) return;
       announcedJoinsRef.current.add(userId);
-      toast.custom((id) => <JoinToast key={id} name={userName} role={role} />);
+      toast.custom((id) => <JoinToast key={id} name={userName} role={role} />, {
+        position: "bottom-right",
+      });
     },
     onNew: (message) => {
       setMessages((prev) => upsert(prev, message));

@@ -28,7 +28,16 @@ export function Providers({ children }: ProvidersProps) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           {children}
-          <Toaster position="top-right" richColors closeButton duration={4000} />
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            duration={4000}
+            // Only affects bottom-anchored toasts (currently just the chat
+            // "<name> joined" toast) — clears the message input bar's
+            // ~88px height so it never sits on top of the send button.
+            offset={{ bottom: "104px" }}
+          />
         </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
       </QueryClientProvider>
