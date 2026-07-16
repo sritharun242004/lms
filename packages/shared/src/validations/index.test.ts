@@ -121,7 +121,6 @@ describe("createWordCloudSchema", () => {
   it("applies defaults for optional fields", () => {
     const result = createWordCloudSchema.parse({ question: "Describe the workshop" });
     expect(result.maxWordsPerParticipant).toBe(1);
-    expect(result.maxWordLength).toBe(30);
     expect(result.allowMultipleSubmissions).toBe(false);
     expect(result.profanityFilter).toBe(true);
   });
@@ -130,10 +129,8 @@ describe("createWordCloudSchema", () => {
     const result = createWordCloudSchema.parse({
       question: "Q",
       maxWordsPerParticipant: "3",
-      maxWordLength: "20",
     });
     expect(result.maxWordsPerParticipant).toBe(3);
-    expect(result.maxWordLength).toBe(20);
   });
 
   it("accepts a raised maxWordsPerParticipant", () => {

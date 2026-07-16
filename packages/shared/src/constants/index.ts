@@ -46,6 +46,10 @@ export const MAX_ATTACHMENT_SIZE_MB = 50;
 // announcements in one message.
 export const MAX_MESSAGE_LENGTH = 20000;
 
+// Fixed per-word character cap for word clouds — no longer mentor-configurable,
+// see WORD_CLOUD_MAX_WORD_LENGTH usage in createWordCloudSchema.
+export const WORD_CLOUD_MAX_WORD_LENGTH = 200;
+
 export enum MemberRole {
   OWNER = "OWNER",
   MENTOR = "MENTOR",

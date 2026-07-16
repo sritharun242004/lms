@@ -190,32 +190,41 @@ export function WordCloudMessage({
       </div>
 
       {canSubmit ? (
-        <div className="flex items-center gap-2">
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder="Type one word…"
-            maxLength={wordCloud.maxWordLength}
-            disabled={isSubmitting}
-          />
-          <Button
-            size="icon"
-            className="shrink-0"
-            onClick={submit}
-            disabled={!draft.trim() || isSubmitting}
-          >
-            {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Send className="size-4" />
-            )}
-          </Button>
+        <div className="flex flex-col gap-1.5 rounded-xl border-2 border-primary/30 bg-primary/5 p-2.5">
+          {wordCloud.maxWordsPerParticipant > 1 && (
+            <span className="px-0.5 text-xs font-medium text-muted-foreground">
+              {remaining} of {wordCloud.maxWordsPerParticipant} word
+              {wordCloud.maxWordsPerParticipant === 1 ? "" : "s"} left
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder="Type one word…"
+              maxLength={wordCloud.maxWordLength}
+              disabled={isSubmitting}
+              className="h-10 border-input bg-background text-base shadow-sm"
+            />
+            <Button
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={submit}
+              disabled={!draft.trim() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+            </Button>
+          </div>
         </div>
       ) : (
         <p className="text-center text-xs text-muted-foreground">

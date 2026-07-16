@@ -6,7 +6,12 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
-import { createWordCloudSchema, MessageType, AuditAction } from "@cms/shared";
+import {
+  createWordCloudSchema,
+  MessageType,
+  AuditAction,
+  WORD_CLOUD_MAX_WORD_LENGTH,
+} from "@cms/shared";
 
 /**
  * Create a word cloud — a message of type WORD_CLOUD. Every group
@@ -30,13 +35,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const parsed = await parseBody(req, createWordCloudSchema);
   if (parsed.error) return parsed.error;
-  const {
-    question,
-    maxWordsPerParticipant,
-    maxWordLength,
-    allowMultipleSubmissions,
-    profanityFilter,
-  } = parsed.data;
+  const { question, maxWordsPerParticipant, allowMultipleSubmissions, profanityFilter } =
+    parsed.data;
 
   try {
     const messageId = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           // A single-submission cloud has nothing to "allow multiple" —
           // keep the effective cap at 1 regardless of the number field.
           maxWordsPerParticipant: allowMultipleSubmissions ? maxWordsPerParticipant : 1,
-          maxWordLength,
+          maxWordLength: WORD_CLOUD_MAX_WORD_LENGTH,
           allowMultipleSubmissions,
           profanityFilter,
         },

@@ -35,7 +35,6 @@ import {
 const wordCloudFormSchema = z.object({
   question: z.string().min(1, "Question is required").max(300),
   maxWordsPerParticipant: z.coerce.number().int().min(1).max(50),
-  maxWordLength: z.coerce.number().int().min(10).max(40),
   allowMultipleSubmissions: z.boolean(),
   profanityFilter: z.boolean(),
 });
@@ -47,7 +46,6 @@ const DEFAULT_MULTIPLE_WORDS = 3;
 const DEFAULT_VALUES: WordCloudFormValues = {
   question: "",
   maxWordsPerParticipant: 1,
-  maxWordLength: 30,
   allowMultipleSubmissions: false,
   profanityFilter: true,
 };
@@ -169,26 +167,6 @@ export function WordCloudFormDialog({
                 )}
               />
             )}
-
-            <FormField
-              control={form.control}
-              name="maxWordLength"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Max characters per word</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={10}
-                      max={40}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

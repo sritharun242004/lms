@@ -15,6 +15,7 @@ export {
   MAX_ATTACHMENT_SIZE_BYTES,
   MAX_ATTACHMENT_SIZE_MB,
   MAX_MESSAGE_LENGTH,
+  WORD_CLOUD_MAX_WORD_LENGTH,
 } from "./constants";
 export type { Permission } from "./constants";
 

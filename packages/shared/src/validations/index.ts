@@ -255,7 +255,6 @@ export const createWordCloudSchema = z.object({
     .max(300, "Question must be at most 300 characters")
     .trim(),
   maxWordsPerParticipant: z.coerce.number().int().min(1).max(50).optional().default(1),
-  maxWordLength: z.coerce.number().int().min(10).max(40).optional().default(30),
   allowMultipleSubmissions: z.boolean().optional().default(false),
   profanityFilter: z.boolean().optional().default(true),
 });

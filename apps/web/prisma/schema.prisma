@@ -374,7 +374,7 @@ model WordCloud {
   messageId                String   @unique @map("message_id")
   question                 String
   maxWordsPerParticipant   Int      @default(1) @map("max_words_per_participant")
-  maxWordLength            Int      @default(30) @map("max_word_length")
+  maxWordLength            Int      @default(200) @map("max_word_length")
   allowMultipleSubmissions Boolean  @default(false) @map("allow_multiple_submissions")
   profanityFilter          Boolean  @default(true) @map("profanity_filter")
   isLocked                 Boolean  @default(false) @map("is_locked")
