@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Download, Loader2, Lock, RotateCcw, Send, Trash2, Unlock } from "lucide-react";
+import { Loader2, Lock, RotateCcw, Send, Trash2, Unlock } from "lucide-react";
 import type { ChatMessage, WordCloudData } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
 import { getInitials } from "@/lib/utils";
@@ -13,25 +13,11 @@ import { Input } from "@/components/ui/input";
 import { WordCloudCanvas } from "@/components/chat/word-cloud-canvas";
 import { useConfirm } from "@/hooks/use-confirm";
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function csvEscape(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
 export function WordCloudMessage({
   message,
   wordCloud,
   groupId,
   isOwn,
-  canManage,
   onSubmitted,
   onControlled,
   onDelete,
@@ -40,8 +26,6 @@ export function WordCloudMessage({
   wordCloud: WordCloudData;
   groupId: string;
   isOwn: boolean;
-  /** Mentors/admins only — gates the CSV/SVG export controls. */
-  canManage: boolean;
   onSubmitted: (wordCloud: WordCloudData) => void;
   onControlled: (wordCloud: WordCloudData) => void;
   onDelete: (messageId: string) => void;
@@ -49,7 +33,6 @@ export function WordCloudMessage({
   const [draft, setDraft] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isControlling, setIsControlling] = React.useState(false);
-  const canvasWrapRef = React.useRef<HTMLDivElement>(null);
   const [confirm, confirmDialog] = useConfirm();
 
   const remaining = wordCloud.maxWordsPerParticipant - wordCloud.mySubmissionCount;
@@ -92,26 +75,6 @@ export function WordCloudMessage({
     } finally {
       setIsControlling(false);
     }
-  }
-
-  function exportCsv() {
-    const rows = [
-      "Word,Count",
-      ...wordCloud.entries.map((e) => `${csvEscape(e.text)},${e.count}`),
-    ];
-    downloadBlob(new Blob([rows.join("\n")], { type: "text/csv" }), "word-cloud.csv");
-  }
-
-  function exportSvg() {
-    const svg = canvasWrapRef.current?.querySelector("svg");
-    if (!svg) {
-      toast.error("Nothing to export yet");
-      return;
-    }
-    const clone = svg.cloneNode(true) as SVGSVGElement;
-    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    const markup = new XMLSerializer().serializeToString(clone);
-    downloadBlob(new Blob([markup], { type: "image/svg+xml" }), "word-cloud.svg");
   }
 
   return (
@@ -165,32 +128,12 @@ export function WordCloudMessage({
 
       <p className="font-medium">{wordCloud.question}</p>
 
-      <div ref={canvasWrapRef} className="flex min-h-[240px] flex-col rounded-lg bg-muted/30">
+      <div className="flex min-h-[240px] flex-col rounded-lg bg-muted/30">
         <WordCloudCanvas entries={wordCloud.entries} className="min-h-[240px]" />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          {wordCloud.totalParticipants} {wordCloud.totalParticipants === 1 ? "person" : "people"} ·{" "}
-          {wordCloud.totalSubmissions} {wordCloud.totalSubmissions === 1 ? "word" : "words"}
-          {wordCloud.isLocked && " · locked"}
-        </span>
-        {canManage && wordCloud.entries.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={exportCsv}>
-              <Download className="size-3" />
-              CSV
-            </Button>
-            <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" onClick={exportSvg}>
-              <Download className="size-3" />
-              SVG
-            </Button>
-          </div>
-        )}
-      </div>
-
       {canSubmit ? (
-        <div className="flex flex-col gap-1.5 rounded-xl border-2 border-primary/30 bg-primary/5 p-2.5">
+        <div className="flex flex-col gap-1.5">
           {wordCloud.maxWordsPerParticipant > 1 && (
             <span className="px-0.5 text-xs font-medium text-muted-foreground">
               {remaining} of {wordCloud.maxWordsPerParticipant} word
@@ -210,7 +153,7 @@ export function WordCloudMessage({
               placeholder="Type one word…"
               maxLength={wordCloud.maxWordLength}
               disabled={isSubmitting}
-              className="h-10 border-input bg-background text-base shadow-sm"
+              className="h-10 border-sky-400/50 bg-sky-400/15 text-base text-foreground shadow-sm placeholder:text-foreground/50 focus-visible:border-sky-400 focus-visible:ring-sky-400/40 dark:bg-sky-400/10"
             />
             <Button
               size="icon"

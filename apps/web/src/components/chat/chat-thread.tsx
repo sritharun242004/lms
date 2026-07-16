@@ -449,7 +449,6 @@ export function ChatThread({
                     wordCloud={message.wordCloud}
                     groupId={groupId}
                     isOwn={message.senderId === currentUserId}
-                    canManage={canManage}
                     onSubmitted={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
                     onControlled={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
                     onDelete={handleDelete}
