@@ -181,7 +181,7 @@ export function MessageBubble({
   }
 
   async function copyMessage() {
-    await navigator.clipboard.writeText(message.content || message.attachmentName || "");
+    await navigator.clipboard.writeText(message.content);
     toast.success("Message copied");
   }
 
@@ -190,7 +190,9 @@ export function MessageBubble({
   // hover/long-press toolbar that also carries edit/delete/pin.
   const btnSize = canManage ? "size-6" : "size-8";
   const iconSize = canManage ? "size-3" : "size-4";
-  const canCopy = Boolean(message.content || message.attachmentName);
+  // Copy only makes sense for actual text — file/document messages are
+  // covered by the download action instead.
+  const canCopy = Boolean(message.content);
 
   return (
     <div className={cn("group flex gap-2 px-4 py-1", isOwn ? "justify-end" : "justify-start")}>

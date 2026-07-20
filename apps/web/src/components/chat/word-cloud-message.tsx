@@ -78,7 +78,7 @@ export function WordCloudMessage({
   }
 
   return (
-    <div className="mx-4 my-2 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-3xl">
+    <div className="mx-4 my-2 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-4xl">
       {confirmDialog}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -128,8 +128,8 @@ export function WordCloudMessage({
 
       <p className="font-medium">{wordCloud.question}</p>
 
-      <div className="flex min-h-[240px] flex-col rounded-lg bg-muted/30">
-        <WordCloudCanvas entries={wordCloud.entries} className="min-h-[240px]" />
+      <div className="flex min-h-[300px] flex-col rounded-lg bg-muted/30">
+        <WordCloudCanvas entries={wordCloud.entries} className="min-h-[300px]" />
       </div>
 
       {canSubmit ? (

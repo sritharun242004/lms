@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return errorResponse("You don't have access to this group", "FORBIDDEN", 403);
   }
   if (!access.canManage) {
-    return errorResponse("Only mentors can send messages in this group", "FORBIDDEN", 403);
+    return errorResponse("Only coaches can send messages in this group", "FORBIDDEN", 403);
   }
 
   const parsed = await parseBody(req, sendMessageSchema);

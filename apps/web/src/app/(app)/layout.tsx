@@ -29,7 +29,7 @@ export default async function AppLayout({
               <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <MessagesSquare className="size-4" />
               </span>
-              <span className="hidden sm:inline">Mentor Connect</span>
+              <span className="hidden sm:inline">AI Empowerment</span>
             </Link>
           </div>
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-4 text-sm sm:flex">

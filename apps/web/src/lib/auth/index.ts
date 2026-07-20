@@ -91,6 +91,11 @@ export function generateRefreshToken(
       email: user.email,
       role: user.role,
       rememberMe,
+      // Refresh tokens are stored with a unique DB constraint on the raw
+      // token string; without a nonce, two tokens minted for the same user
+      // in the same second (same payload, same second-precision `iat`)
+      // would be byte-identical and collide on insert.
+      jti: crypto.randomUUID(),
     },
     JWT_REFRESH_SECRET,
     { expiresIn: rememberMe ? JWT_REFRESH_EXPIRY_REMEMBER : JWT_REFRESH_EXPIRY }

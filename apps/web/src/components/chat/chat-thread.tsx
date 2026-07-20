@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   BarChart3,
   Cloud,
+  Copy,
   Loader2,
   Lock,
   MessageSquareText,
@@ -43,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { JoinToast } from "@/components/chat/join-toast";
+import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { PollFormDialog } from "@/components/chat/poll-form-dialog";
 import { PollMessage } from "@/components/chat/poll-message";
@@ -68,6 +70,8 @@ export function ChatThread({
   canManage,
   initialMessages,
   initialHasMore,
+  showBackLink = true,
+  inviteCode = null,
 }: {
   groupId: string;
   groupName: string;
@@ -76,6 +80,8 @@ export function ChatThread({
   canManage: boolean;
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
+  showBackLink?: boolean;
+  inviteCode?: { code: string; isActive: boolean } | null;
 }) {
   const [messages, setMessages] = React.useState(initialMessages);
   const [hasMore, setHasMore] = React.useState(initialHasMore);
@@ -277,27 +283,49 @@ export function ChatThread({
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file || isUploading) return;
-    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
-      toast.error(`"${file.name}" is too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`);
-      return;
+    if (files.length === 0 || isUploading) return;
+
+    const oversized = files.filter((f) => f.size > MAX_ATTACHMENT_SIZE_BYTES);
+    const validFiles = files.filter((f) => f.size <= MAX_ATTACHMENT_SIZE_BYTES);
+    if (oversized.length > 0) {
+      toast.error(
+        oversized.length === 1
+          ? `"${oversized[0].name}" is too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`
+          : `${oversized.length} files are too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`
+      );
     }
+    if (validFiles.length === 0) return;
+
+    // The backend stores one attachment per message, so multiple files become
+    // multiple messages sent in sequence; only the first carries the caption.
     const caption = draft.trim();
+    let captionPending = Boolean(caption);
     setIsUploading(true);
     setDraft("");
-    try {
-      const res = await messageService.sendFile(groupId, file, caption || undefined);
-      if (!res.success) throw new Error(res.error?.message || "Failed to upload file");
-      setMessages((prev) => upsert(prev, res.data!));
-      requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to upload file");
-      setDraft(caption);
-    } finally {
-      setIsUploading(false);
+    for (const file of validFiles) {
+      try {
+        const res = await messageService.sendFile(
+          groupId,
+          file,
+          captionPending ? caption : undefined
+        );
+        captionPending = false;
+        if (!res.success) throw new Error(res.error?.message || `Failed to upload "${file.name}"`);
+        setMessages((prev) => upsert(prev, res.data!));
+        requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : `Failed to upload "${file.name}"`
+        );
+        if (captionPending) {
+          setDraft(caption);
+          captionPending = false;
+        }
+      }
     }
+    setIsUploading(false);
   }
 
   async function handleEdit(messageId: string, content: string) {
@@ -366,27 +394,75 @@ export function ChatThread({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, wordCloud } : m)));
   }
 
+  async function copyInviteCode() {
+    if (!inviteCode) return;
+    await navigator.clipboard.writeText(inviteCode.code);
+    toast.success("Invite code copied");
+  }
+
   let lastDateLabel = "";
 
   return (
     <div className="flex h-full flex-col">
       {confirmDialog}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
-          <Link href="/chat" aria-label="Back to chats">
-            <ArrowLeft className="size-4" />
-          </Link>
-        </Button>
-        <Avatar>
-          <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold">{groupName}</span>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Users className="size-3" />
-            {memberCount} {memberCount === 1 ? "member" : "members"}
-          </span>
-        </div>
+        {showBackLink && (
+          <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
+            <Link href="/chat" aria-label="Back to chats">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+        )}
+        {canManage ? (
+          <GroupMembersDialog
+            groupId={groupId}
+            groupName={groupName}
+            trigger={
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left hover:opacity-80"
+                aria-label="View group members"
+              >
+                <Avatar>
+                  <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
+                </Avatar>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-semibold">{groupName}</span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Users className="size-3" />
+                    {memberCount} {memberCount === 1 ? "member" : "members"}
+                  </span>
+                </div>
+              </button>
+            }
+          />
+        ) : (
+          <>
+            <Avatar>
+              <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold">{groupName}</span>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="size-3" />
+                {memberCount} {memberCount === 1 ? "member" : "members"}
+              </span>
+            </div>
+          </>
+        )}
+        {canManage && inviteCode?.isActive && (
+          <button
+            type="button"
+            onClick={copyInviteCode}
+            aria-label="Copy invite code"
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-border bg-muted/50 px-2 py-1 text-left transition-colors hover:bg-muted"
+          >
+            <span className="font-mono text-xs font-medium tracking-wide">
+              {inviteCode.code}
+            </span>
+            <Copy className="size-3 text-muted-foreground" />
+          </button>
+        )}
       </div>
 
       <div
@@ -476,6 +552,7 @@ export function ChatThread({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             className="hidden"
             onChange={handleFileSelected}
           />
@@ -550,7 +627,7 @@ export function ChatThread({
       ) : (
         <div className="flex items-center justify-center gap-1.5 border-t border-border p-3 text-sm text-muted-foreground">
           <Lock className="size-3.5" />
-          Only mentors can post in this group
+          Only coaches can post in this group
         </div>
       )}
     </div>

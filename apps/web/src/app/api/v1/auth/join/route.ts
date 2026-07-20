@@ -64,22 +64,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ipAddress =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      undefined;
+
+    const userSelect = {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatarUrl: true,
+      emailVerified: true,
+    } as const;
+
     const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Same device (IP) rejoining a group it's already a mentee of — reuse
+      // that identity instead of minting a duplicate guest account.
+      const existingMember = ipAddress
+        ? await tx.groupMember.findFirst({
+            where: {
+              groupId: invite.groupId,
+              role: "MENTEE",
+              user: { ipAddress },
+            },
+            select: { user: { select: userSelect } },
+          })
+        : null;
+
+      if (existingMember) {
+        return existingMember.user;
+      }
+
       const newUser = await tx.user.create({
         data: {
           name,
           role: "MENTEE",
           status: "ONLINE",
           lastSeenAt: new Date(),
+          ipAddress,
         },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          avatarUrl: true,
-          emailVerified: true,
-        },
+        select: userSelect,
       });
 
       await tx.groupMember.create({
@@ -101,6 +126,7 @@ export async function POST(req: NextRequest) {
           action: AuditAction.USER_SIGNUP,
           entityType: "User",
           entityId: newUser.id,
+          ipAddress,
           metadata: {
             inviteCode,
             groupId: invite.groupId,
@@ -116,6 +142,7 @@ export async function POST(req: NextRequest) {
           action: AuditAction.MEMBER_JOINED,
           entityType: "Group",
           entityId: invite.groupId,
+          ipAddress,
           metadata: {
             groupName: invite.group.name,
             joinMethod: "guest",
@@ -136,10 +163,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: user.id,
         userAgent: req.headers.get("user-agent") || undefined,
-        ipAddress:
-          req.headers.get("x-forwarded-for")?.split(",")[0] ||
-          req.headers.get("x-real-ip") ||
-          undefined,
+        ipAddress,
       },
     });
 

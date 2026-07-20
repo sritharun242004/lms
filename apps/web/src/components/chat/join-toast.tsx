@@ -7,8 +7,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: "Admin",
-  MENTOR: "Mentor",
-  MENTEE: "Mentee",
+  MENTOR: "Coach",
+  MENTEE: "Trainee",
 };
 
 const ROLE_BADGE: Record<UserRole, string> = {

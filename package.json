@@ -2,7 +2,7 @@
   "name": "mentor-connect-cms",
   "version": "1.0.0",
   "private": true,
-  "description": "Mentor Connect CMS - A modern Learning Management Portal with WhatsApp-inspired communication",
+  "description": "AI Empowerment CMS - A modern Learning Management Portal with WhatsApp-inspired communication",
   "workspaces": [
     "apps/*",
     "packages/*"

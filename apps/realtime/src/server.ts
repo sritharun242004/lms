@@ -150,7 +150,7 @@ httpServer.listen(PORT, () => {
   console.log(`
   ┌──────────────────────────────────────────┐
   │                                          │
-  │   🚀 Mentor Connect Realtime Server      │
+  │   🚀 AI Empowerment Realtime Server      │
   │                                          │
   │   Port:    ${PORT}                          │
   │   Client:  ${CLIENT_URL}         │

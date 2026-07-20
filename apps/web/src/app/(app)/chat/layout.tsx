@@ -11,8 +11,12 @@ export default async function ChatLayout({ children }: { children: React.ReactNo
     ? await getManagedGroups(user.role === "ADMIN" ? {} : { userId: user.id })
     : await getJoinedGroups(user.id);
 
+  // A mentee who belongs to only one group has nothing to switch between, so
+  // the group list/search sidebar is just noise — go straight to the thread.
+  const hideSidebar = !canManage && groups.length <= 1;
+
   return (
-    <ChatShell groups={groups} canCreate={canManage}>
+    <ChatShell groups={groups} canCreate={canManage} hideSidebar={hideSidebar}>
       {children}
     </ChatShell>
   );

@@ -18,8 +18,8 @@ import {
 
 const ROLE_LABEL: Record<AuthUser["role"], string> = {
   ADMIN: "Admin",
-  MENTOR: "Mentor",
-  MENTEE: "Mentee",
+  MENTOR: "Coach",
+  MENTEE: "Trainee",
 };
 
 export function UserMenu({ user }: { user: AuthUser }) {

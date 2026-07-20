@@ -1,5 +1,5 @@
 // ============================================================================
-// Mentor Connect CMS — Prisma Schema
+// AI Empowerment CMS — Prisma Schema
 // PostgreSQL · Prisma v6 · Fully Normalized
 // ============================================================================
 
@@ -66,6 +66,11 @@ model User {
   phone              String?    @unique
   password           String?
   role               UserRole   @default(MENTEE)
+  // Set only for guest mentees, from the request IP at join time. Used
+  // server-side to avoid creating a duplicate mentee record when the same
+  // device re-submits the join form for a group it's already in — never
+  // selected into any client-facing response.
+  ipAddress          String?    @map("ip_address")
   bio                String?
   avatarUrl          String?    @map("avatar_url")
   status             UserStatus @default(OFFLINE)

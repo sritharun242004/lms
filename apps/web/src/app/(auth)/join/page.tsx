@@ -57,7 +57,7 @@ function JoinForm() {
       <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Join a group</h1>
         <p className="text-sm text-muted-foreground">
-          Just your name and the invite code your mentor shared — no account needed
+          Just your name and the invite code your coach shared — no account needed
         </p>
       </div>
 
@@ -99,9 +99,9 @@ function JoinForm() {
       </Form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Are you a mentor?{" "}
+        Are you a coach?{" "}
         <Link href="/signup" className="font-medium text-foreground underline underline-offset-4">
-          Create a mentor account
+          Create a coach account
         </Link>
       </p>
     </div>

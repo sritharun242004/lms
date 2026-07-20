@@ -1,4 +1,4 @@
-# Socket.IO realtime server for Mentor Connect LMS.
+# Socket.IO realtime server for AI Empowerment LMS.
 # Runs the TS server via tsx (no separate compile step needed - packages/shared
 # ships raw TS which tsx transpiles on the fly).
 FROM node:20-alpine

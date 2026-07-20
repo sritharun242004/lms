@@ -36,6 +36,23 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
   }));
 }
 
+/** The active invite code for a single group — mentor-only, never fetched for a mentee viewer. */
+export async function getActiveInviteCode(
+  groupId: string
+): Promise<{ code: string; isActive: boolean } | null> {
+  const invite = await prisma.inviteCode.findFirst({
+    where: { groupId, isActive: true },
+    orderBy: { createdAt: "desc" },
+    select: { code: true, isActive: true },
+  });
+  return invite;
+}
+
+/** Mentee view: how many groups they've joined — used to decide whether the group-switcher UI is needed at all. */
+export async function getJoinedGroupCount(menteeId: string): Promise<number> {
+  return prisma.groupMember.count({ where: { userId: menteeId } });
+}
+
 /** Mentee view: groups they've joined — no invite code, no manage actions. */
 export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
   const memberships = await prisma.groupMember.findMany({

@@ -43,7 +43,7 @@ export function PollMessage({
   }
 
   return (
-    <div className="mx-4 my-2 flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-2xl">
+    <div className="mx-4 my-2 flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-4xl">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Avatar className="size-6">

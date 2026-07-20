@@ -1,4 +1,4 @@
-# Next.js web image for Mentor Connect LMS.
+# Next.js web image for AI Empowerment LMS.
 FROM node:20-alpine
 
 WORKDIR /app

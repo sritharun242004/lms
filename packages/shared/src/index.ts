@@ -1,4 +1,4 @@
-// @cms/shared - Shared types, constants, and validations for Mentor Connect CMS
+// @cms/shared - Shared types, constants, and validations for AI Empowerment CMS
 
 // Constants & Enums
 export {

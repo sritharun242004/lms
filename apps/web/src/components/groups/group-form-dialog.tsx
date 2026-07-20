@@ -84,7 +84,7 @@ export function GroupFormDialog({
           <DialogTitle>{mode === "edit" ? "Edit group" : "Create a group"}</DialogTitle>
           <DialogDescription>
             {mode === "edit"
-              ? "Update the name and description your mentees see."
+              ? "Update the name and description your trainees see."
               : "Give your group a name — you'll get a shareable invite code right after."}
           </DialogDescription>
         </DialogHeader>

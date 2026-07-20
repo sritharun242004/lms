@@ -19,8 +19,8 @@ import {
 
 const ROLE_LABEL: Record<GroupMemberEntry["role"], string> = {
   OWNER: "Owner",
-  MENTOR: "Mentor",
-  MENTEE: "Mentee",
+  MENTOR: "Coach",
+  MENTEE: "Trainee",
 };
 
 export function GroupMembersDialog({

@@ -17,11 +17,11 @@ export default async function Home() {
           <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <MessagesSquare className="size-4" />
           </span>
-          Mentor Connect
+          AI Empowerment
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" asChild>
-            <Link href="/login">Mentor sign in</Link>
+            <Link href="/login">Coach sign in</Link>
           </Button>
           <Button asChild>
             <Link href="/join">Join a group</Link>
@@ -35,10 +35,10 @@ export default async function Home() {
             A modern Learning Management Portal
           </span>
           <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            Mentorship communication, done the WhatsApp way.
+            Coaching communication, done the WhatsApp way.
           </h1>
           <p className="max-w-xl text-lg text-muted-foreground text-balance">
-            Mentors broadcast to read-only announcement groups. Mentees stay in the loop.
+            Coaches broadcast to read-only announcement groups. Trainees stay in the loop.
             Invite codes make joining effortless.
           </p>
           <div className="flex items-center gap-3">
@@ -46,7 +46,7 @@ export default async function Home() {
               <Link href="/join">Join with an invite code</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link href="/login">Mentor sign in</Link>
+              <Link href="/login">Coach sign in</Link>
             </Button>
           </div>
         </div>

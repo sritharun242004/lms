@@ -13,7 +13,6 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -106,19 +105,6 @@ function LoginForm() {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="rememberMe"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <FormLabel className="font-normal">Remember me for 30 days</FormLabel>
-              </FormItem>
-            )}
-          />
-
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             Sign in
@@ -127,7 +113,7 @@ function LoginForm() {
       </Form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Joining a group as a mentee?{" "}
+        Joining a group as a trainee?{" "}
         <Link href="/join" className="font-medium text-foreground underline underline-offset-4">
           Enter your invite code
         </Link>

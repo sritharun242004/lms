@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <MessagesSquare className="size-4" />
             </span>
-            Mentor Connect
+            AI Empowerment
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-center">
@@ -31,11 +31,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         />
         <div className="relative flex h-full flex-col items-start justify-end gap-4 p-12 text-primary-foreground">
           <h2 className="text-3xl font-semibold leading-tight text-balance">
-            Where mentors and mentees stay connected.
+            Participant Portal
           </h2>
           <p className="max-w-md text-base text-primary-foreground/80">
             Announcement groups, real-time chat, and invite-only communities —
-            built for modern mentorship programs.
+            built for modern coaching programs.
           </p>
         </div>
       </div>

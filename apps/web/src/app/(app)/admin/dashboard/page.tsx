@@ -21,7 +21,7 @@ export default async function AdminDashboardPage() {
           Welcome back, {user.name.split(" ")[0]}
         </h1>
         <p className="text-sm text-muted-foreground">
-          A system-wide overview of every group, mentor, and student.
+          A system-wide overview of every group, coach, and student.
         </p>
       </div>
 

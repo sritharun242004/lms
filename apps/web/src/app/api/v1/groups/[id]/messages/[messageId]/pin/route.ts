@@ -18,7 +18,7 @@ export async function PATCH(
   const { id: groupId, messageId } = await params;
   const access = await getGroupAccess(groupId, user);
   if (!access.canManage) {
-    return errorResponse("Only mentors can pin messages", "FORBIDDEN", 403);
+    return errorResponse("Only coaches can pin messages", "FORBIDDEN", 403);
   }
 
   const message = await prisma.message.findFirst({

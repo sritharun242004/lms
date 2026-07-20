@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     return errorResponse("Authentication required", "UNAUTHORIZED", 401);
   }
   if (user.role !== "ADMIN" && user.role !== "MENTOR") {
-    return errorResponse("Only mentors can create groups", "FORBIDDEN", 403);
+    return errorResponse("Only coaches can create groups", "FORBIDDEN", 403);
   }
 
   const parsed = await parseBody(req, createGroupSchema);
