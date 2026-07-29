@@ -1,6 +1,14 @@
 import type { ApiResponse } from "@cms/shared";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+// In the browser, always talk to the origin that actually served the page
+// (relative to `window.location.origin`) so auth cookies are same-origin and
+// login can't break when the deployed host differs from the build-time
+// NEXT_PUBLIC_APP_URL (which is inlined into the bundle and can't be changed
+// at runtime). Only server-side rendering needs the absolute fallback.
+function resolveBaseUrl(): string {
+  if (typeof window !== "undefined") return window.location.origin;
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
 
 // ============================================================
 // BASE FETCH WRAPPER
@@ -22,7 +30,7 @@ async function apiFetch<T>(
   const { body, params, headers: customHeaders, ...restOptions } = options;
 
   // Build URL with query parameters
-  const url = new URL(`/api/v1${endpoint}`, BASE_URL);
+  const url = new URL(`/api/v1${endpoint}`, resolveBaseUrl());
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -80,7 +88,7 @@ async function apiFetch<T>(
  * `multipart/form-data; boundary=...` header for the FormData body.
  */
 async function apiFormFetch<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
-  const url = new URL(`/api/v1${endpoint}`, BASE_URL);
+  const url = new URL(`/api/v1${endpoint}`, resolveBaseUrl());
 
   try {
     const response = await fetch(url.toString(), {
