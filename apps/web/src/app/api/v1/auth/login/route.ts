@@ -59,37 +59,39 @@ export async function POST(req: NextRequest) {
     // Set cookies
     await setAuthCookies(accessToken, refreshToken, rememberMe);
 
-    // Update user status
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { status: "ONLINE", lastSeenAt: new Date() },
-    });
+    // Bookkeeping (presence, session record, audit log) is best-effort: the
+    // user is already authenticated and cookied above, so a failure here
+    // must not turn a successful login into a 500 for the client.
+    const ipAddress =
+      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      req.headers.get("x-real-ip") ||
+      undefined;
 
-    // Create session
-    await prisma.session.create({
-      data: {
-        userId: user.id,
-        userAgent: req.headers.get("user-agent") || undefined,
-        ipAddress:
-          req.headers.get("x-forwarded-for")?.split(",")[0] ||
-          req.headers.get("x-real-ip") ||
-          undefined,
-      },
-    });
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: AuditAction.USER_LOGIN,
-        entityType: "User",
-        entityId: user.id,
-        ipAddress:
-          req.headers.get("x-forwarded-for")?.split(",")[0] ||
-          req.headers.get("x-real-ip") ||
-          undefined,
-      },
-    });
+    const bookkeeping = await Promise.allSettled([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { status: "ONLINE", lastSeenAt: new Date() },
+      }),
+      prisma.session.create({
+        data: {
+          userId: user.id,
+          userAgent: req.headers.get("user-agent") || undefined,
+          ipAddress,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: AuditAction.USER_LOGIN,
+          entityType: "User",
+          entityId: user.id,
+          ipAddress,
+        },
+      }),
+    ]);
+    bookkeeping
+      .filter((r) => r.status === "rejected")
+      .forEach((r) => console.error("Login bookkeeping failed:", r.reason));
 
     return successResponse({
       user: {
