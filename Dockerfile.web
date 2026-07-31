@@ -27,5 +27,6 @@ ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
 WORKDIR /app/apps/web
-# npx handles the workspace hoisting (next is at /app/node_modules/.bin, not apps/web).
-CMD ["npx", "--no-install", "next", "start"]
+# Apply pending Prisma migrations before booting the web server. This keeps the
+# production DB schema in sync with code that expects guest trainee accounts.
+CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/schema.prisma && npx --no-install next start"]
