@@ -11,10 +11,10 @@ export default async function ChatLayout({ children }: { children: React.ReactNo
     ? await getManagedGroups(user.role === "ADMIN" ? {} : { userId: user.id })
     : await getJoinedGroups(user.id);
 
-  // Mentors work directly in the active conversation, so their chat view does
+  // Managers work directly in the active conversation, so their chat view does
   // not include the group list/search sidebar. A mentee in only one group also
   // has nothing to switch between.
-  const hideSidebar = user.role === "MENTOR" || (!canManage && groups.length <= 1);
+  const hideSidebar = canManage || groups.length <= 1;
 
   return (
     <ChatShell groups={groups} canCreate={canManage} hideSidebar={hideSidebar}>

@@ -5,8 +5,10 @@ import { getJoinedGroups, getManagedGroups } from "@/lib/groups/queries";
 
 export default async function ChatIndexPage() {
   const user = await getCurrentUser();
-  if (user?.role === "MENTOR") {
-    const groups = await getManagedGroups({ userId: user.id });
+  const canManage = user?.role === "ADMIN" || user?.role === "MENTOR";
+
+  if (user && canManage) {
+    const groups = await getManagedGroups(user.role === "ADMIN" ? {} : { userId: user.id });
     if (groups.length > 0) redirect(`/chat/${groups[0].id}`);
   }
   if (user && user.role !== "ADMIN" && user.role !== "MENTOR") {
