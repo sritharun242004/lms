@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   loginSchema,
+  coachSignupSchema,
   menteeJoinSchema,
   resetPasswordSchema,
   sendMessageSchema,
@@ -31,6 +32,19 @@ describe("loginSchema", () => {
   it("defaults rememberMe to false when omitted", () => {
     const result = loginSchema.parse({ email: "a@b.com", password: "password123" });
     expect(result.rememberMe).toBe(false);
+  });
+});
+
+describe("coachSignupSchema", () => {
+  it("normalizes an approved coach email and requires matching secure passwords", () => {
+    const result = coachSignupSchema.parse({
+      name: "Asha Coach",
+      email: "ASHA@EXAMPLE.COM ",
+      password: "Strong@Pass1",
+      confirmPassword: "Strong@Pass1",
+    });
+
+    expect(result.email).toBe("asha@example.com");
   });
 });
 

@@ -12,6 +12,7 @@ import { messageService } from "@/lib/api/services/message-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export function PollFormDialog({
   onCreated: (message: ChatMessage) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<PollFormValues>({
@@ -76,6 +78,13 @@ export function PollFormDialog({
 
   React.useEffect(() => {
     if (open) {
+      const saved = sessionStorage.getItem("cms-poll-template");
+      if (saved) {
+        const template = JSON.parse(saved) as { question: string; options: string[] };
+        form.reset({ question: template.question, options: template.options.map((value) => ({ value })), chartType: PollChartType.BAR });
+        sessionStorage.removeItem("cms-poll-template");
+        return;
+      }
       form.reset({
         question: "",
         options: [{ value: "" }, { value: "" }],
@@ -113,6 +122,7 @@ export function PollFormDialog({
             Ask a question with a few options — everyone in the group can vote live.
           </DialogDescription>
         </DialogHeader>
+        <Button variant="outline" size="sm" className="self-start" asChild><a href={`/questions?returnTo=${encodeURIComponent(pathname)}`}>Import question</a></Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">

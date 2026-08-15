@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const ROLE_LABEL: Record<AuthUser["role"], string> = {
-  ADMIN: "Admin",
+  ADMIN: "Super Admin",
   MENTOR: "Coach",
   MENTEE: "Trainee",
 };

@@ -96,8 +96,46 @@ model User {
   pollVotes          PollVote[]
   openAnswers        OpenAnswer[]
   wordCloudSubmissions WordCloudSubmission[]
+  approvedCoachEmails CoachEmailApproval[] @relation("CoachApprovalAdmin")
+  savedQuestions      QuestionLibraryItem[]
 
   @@map("users")
+}
+
+model QuestionLibraryItem {
+  id          String        @id @default(cuid())
+  question    String
+  chartType   PollChartType @default(BAR) @map("chart_type")
+  createdById String        @map("created_by_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  options     QuestionLibraryOption[]
+  @@index([createdById])
+  @@map("question_library_items")
+}
+
+model QuestionLibraryOption {
+  id         String              @id @default(cuid())
+  questionId String              @map("question_id")
+  text       String
+  order      Int
+  question   QuestionLibraryItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@unique([questionId, order])
+  @@map("question_library_options")
+}
+
+model CoachEmailApproval {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  approvedById String   @map("approved_by_id")
+  claimedAt    DateTime? @map("claimed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  approvedBy User @relation("CoachApprovalAdmin", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([approvedById])
+  @@map("coach_email_approvals")
 }
 
 // ============================================================================

@@ -7,6 +7,7 @@ export interface GroupCard {
   description: string | null;
   wallpaperUrl: string | null;
   createdAt: string;
+  lastActivityAt: string;
   mentorName: string;
   memberCount: number;
   inviteCode: { id: string; code: string; isActive: boolean; usageCount: number } | null;

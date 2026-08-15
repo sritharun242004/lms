@@ -17,6 +17,7 @@ import type { UserRole } from "@cms/shared";
 const PUBLIC_ROUTES = [
   "/",
   "/login",
+  "/signup",
   "/join",
   "/forgot-password",
   "/reset-password",
@@ -26,6 +27,7 @@ const PUBLIC_ROUTES = [
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   "/api/v1/auth/login",
+  "/api/v1/auth/signup",
   "/api/v1/auth/join",
   "/api/v1/auth/refresh",
   "/api/v1/auth/forgot-password",

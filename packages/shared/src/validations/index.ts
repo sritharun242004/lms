@@ -17,6 +17,31 @@ export const loginSchema = z.object({
   rememberMe: z.boolean().optional().default(false),
 });
 
+const securePassword = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character");
+
+export const coachSignupSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters").max(100).trim(),
+    email: z.string().trim().min(1, "Email is required").email("Invalid email address").toLowerCase(),
+    password: securePassword,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+export const coachEmailApprovalSchema = z.object({
+  email: z.string().trim().min(1, "Email is required").email("Invalid email address").toLowerCase(),
+});
+
 
 // Mentee join flow: no account, no password — just a name and the
 // group's invite code. A lightweight session is issued immediately.
@@ -301,6 +326,8 @@ export const paginationSchema = z.object({
 // ============================================================
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type CoachSignupInput = z.infer<typeof coachSignupSchema>;
+export type CoachEmailApprovalInput = z.infer<typeof coachEmailApprovalSchema>;
 export type MenteeJoinInput = z.infer<typeof menteeJoinSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

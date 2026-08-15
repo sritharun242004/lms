@@ -24,7 +24,7 @@ export default async function AppLayout({
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
         <div className="relative flex h-14 items-center justify-between px-3 sm:px-4 md:px-6">
           <div className="flex items-center gap-2">
-            <MobileNav isMentee={isMentee} />
+            <MobileNav isMentee={isMentee} isSuperAdmin={user.role === "ADMIN"} />
             <Link href={homeHref} className="flex items-center gap-2 font-semibold">
               <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <MessagesSquare className="size-4" />
@@ -36,6 +36,12 @@ export default async function AppLayout({
             {!isMentee && (
               <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
                 Dashboard
+              </Link>
+            )}
+            {!isMentee && <Link href="/questions" className="text-muted-foreground hover:text-foreground">Question library</Link>}
+            {user.role === "ADMIN" && (
+              <Link href="/admin/coaches" className="text-muted-foreground hover:text-foreground">
+                Coach onboarding
               </Link>
             )}
             <Link href="/chat" className="text-muted-foreground hover:text-foreground">

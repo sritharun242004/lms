@@ -18,9 +18,9 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: { role: "ADMIN" },
     create: {
-      name: process.env.ADMIN_NAME || "The Bot Company",
+      name: process.env.ADMIN_NAME || "CMS Super Admin",
       email,
       password,
       role: "ADMIN",
@@ -31,9 +31,6 @@ async function main() {
   console.log(`  ✓ Admin created: ${admin.email}`);
 
   console.log("\n✅ Database seeded successfully!\n");
-  console.log("  Account:");
-  console.log(`    ${email} / ${process.env.ADMIN_PASSWORD || "Bot@2026"}`);
-  console.log("");
 }
 
 main()

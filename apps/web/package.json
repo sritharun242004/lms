@@ -17,8 +17,8 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.0.0",
     "@cms/shared": "*",
+    "@hookform/resolvers": "^5.0.0",
     "@prisma/client": "^6.9.0",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-avatar": "^1.1.0",
@@ -52,6 +52,7 @@
     "socket.io-client": "^4.8.0",
     "sonner": "^2.0.0",
     "tailwind-merge": "^3.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.0"
   },
   "devDependencies": {

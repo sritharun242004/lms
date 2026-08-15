@@ -22,6 +22,8 @@ export type { Permission } from "./constants";
 // Validation Schemas
 export {
   loginSchema,
+  coachSignupSchema,
+  coachEmailApprovalSchema,
   menteeJoinSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -47,6 +49,8 @@ export {
 // Inferred Types from Schemas
 export type {
   LoginInput,
+  CoachSignupInput,
+  CoachEmailApprovalInput,
   MenteeJoinInput,
   ForgotPasswordInput,
   ResetPasswordInput,

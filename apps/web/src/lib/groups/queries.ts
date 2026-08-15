@@ -5,13 +5,13 @@ import type { GroupCard } from "@/lib/api/services/group-service";
 export async function getManagedGroups(opts: { userId?: string } = {}): Promise<GroupCard[]> {
   const groups = await prisma.group.findMany({
     where: opts.userId ? { createdById: opts.userId } : {},
-    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       name: true,
       description: true,
       wallpaperUrl: true,
       createdAt: true,
+      updatedAt: true,
       createdBy: { select: { name: true } },
       _count: { select: { members: true } },
       inviteCodes: {
@@ -19,6 +19,12 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
         orderBy: { createdAt: "desc" },
         take: 1,
         select: { id: true, code: true, isActive: true, usageCount: true },
+      },
+      messages: {
+        where: { isDeleted: false },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
       },
     },
   });
@@ -29,6 +35,7 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
     description: g.description,
     wallpaperUrl: g.wallpaperUrl,
     createdAt: g.createdAt.toISOString(),
+    lastActivityAt: (g.messages[0]?.createdAt ?? g.updatedAt).toISOString(),
     mentorName: g.createdBy.name,
     memberCount: g._count.members,
     inviteCode: g.inviteCodes[0] ?? null,
@@ -57,7 +64,6 @@ export async function getJoinedGroupCount(menteeId: string): Promise<number> {
 export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
   const memberships = await prisma.groupMember.findMany({
     where: { userId: menteeId },
-    orderBy: { joinedAt: "desc" },
     select: {
       group: {
         select: {
@@ -66,8 +72,15 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
           description: true,
           wallpaperUrl: true,
           createdAt: true,
+          updatedAt: true,
           createdBy: { select: { name: true } },
           _count: { select: { members: true } },
+          messages: {
+            where: { isDeleted: false },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
+          },
         },
       },
     },
@@ -79,6 +92,7 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
     description: m.group.description,
     wallpaperUrl: m.group.wallpaperUrl,
     createdAt: m.group.createdAt.toISOString(),
+    lastActivityAt: (m.group.messages[0]?.createdAt ?? m.group.updatedAt).toISOString(),
     mentorName: m.group.createdBy.name,
     memberCount: m.group._count.members,
     inviteCode: null,
