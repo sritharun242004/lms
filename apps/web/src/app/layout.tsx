@@ -31,10 +31,6 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "AI Empowerment" }],
   creator: "AI Empowerment",
-  icons: {
-    icon: [{ url: "/cms-logo.jpg", type: "image/jpeg" }],
-    apple: [{ url: "/cms-logo.jpg", type: "image/jpeg" }],
-  },
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   ),
@@ -45,7 +41,6 @@ export const metadata: Metadata = {
     title: "AI Empowerment CMS",
     description:
       "A focused participant portal for group communication.",
-    images: [{ url: "/cms-logo.jpg", width: 2000, height: 2000, alt: "CMS AI Empowerment" }],
   },
 };
 
