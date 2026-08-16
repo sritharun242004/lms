@@ -4,6 +4,7 @@ import { getGroupAccess } from "@/lib/groups/access";
 import { getJoinedGroupCount } from "@/lib/groups/queries";
 import { getGroupHeader, getInitialMessages } from "@/lib/messages/queries";
 import { ChatThread } from "@/components/chat/chat-thread";
+import { chatBackHref } from "@/lib/cms/task-requirements";
 
 export default async function GroupChatPage({
   params,
@@ -22,10 +23,7 @@ export default async function GroupChatPage({
 
   const { messages, hasMore } = await getInitialMessages(groupId, user.id);
 
-  // Mentees in only one group have no sidebar to go back to (see ChatShell),
-  // so the mobile back arrow would just be dead weight.
-  const showBackLink =
-    access.canManage || (await getJoinedGroupCount(user.id)) > 1;
+  const joinedGroupCount = access.canManage ? 0 : await getJoinedGroupCount(user.id);
 
   return (
     <ChatThread
@@ -38,7 +36,7 @@ export default async function GroupChatPage({
       canManage={access.canManage}
       initialMessages={messages}
       initialHasMore={hasMore}
-      showBackLink={showBackLink}
+      backHref={chatBackHref(access.canManage, joinedGroupCount)}
     />
   );
 }

@@ -50,7 +50,7 @@ import { OpenQuestionFormDialog } from "@/components/chat/open-question-form-dia
 import { OpenQuestionMessage } from "@/components/chat/open-question-message";
 import { WordCloudFormDialog } from "@/components/chat/word-cloud-form-dialog";
 import { WordCloudMessage } from "@/components/chat/word-cloud-message";
-import { applyMemberCount, friendlyUploadError, isSupportedChatFile } from "@/lib/cms/task-requirements";
+import { applyMemberCount, friendlyUploadError, isSupportedChatFile, removeUploadByKey } from "@/lib/cms/task-requirements";
 
 type UploadRow = { key: string; name: string; loaded: number; total: number; status: "uploading" | "completed" | "failed"; error?: string };
 
@@ -72,7 +72,7 @@ export function ChatThread({
   canManage,
   initialMessages,
   initialHasMore,
-  showBackLink = true,
+  backHref,
 }: {
   groupId: string;
   groupName: string;
@@ -82,7 +82,7 @@ export function ChatThread({
   canManage: boolean;
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
-  showBackLink?: boolean;
+  backHref: string;
 }) {
   const [messages, setMessages] = React.useState(initialMessages);
   const searchParams = useSearchParams();
@@ -99,6 +99,7 @@ export function ChatThread({
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const uploadCleanupTimersRef = React.useRef<Set<number>>(new Set());
   const isAtBottomRef = React.useRef(true);
   const messageIdsRef = React.useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
   const [confirm, confirmDialog] = useConfirm();
@@ -126,6 +127,11 @@ export function ChatThread({
       0
     );
     return () => window.clearTimeout(timer);
+  }, []);
+
+  React.useEffect(() => () => {
+    uploadCleanupTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    uploadCleanupTimersRef.current.clear();
   }, []);
 
   // Live updates without a reload. The realtime socket is the fast path,
@@ -335,6 +341,11 @@ export function ChatThread({
         if (!res.success) throw new Error(res.error?.message || `Failed to upload "${file.name}"`);
         setMessages((prev) => upsert(prev, res.data!));
         setUploads((rows) => rows.map((row) => row.key === key ? { ...row, loaded: file.size, total: file.size, status: "completed" } : row));
+        const cleanupTimer = window.setTimeout(() => {
+          setUploads((rows) => removeUploadByKey(rows, key));
+          uploadCleanupTimersRef.current.delete(cleanupTimer);
+        }, 1500);
+        uploadCleanupTimersRef.current.add(cleanupTimer);
         requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
       } catch (error) {
         const message = friendlyUploadError(error instanceof Error ? error.message : `Failed to upload ${file.name}`);
@@ -429,13 +440,11 @@ export function ChatThread({
         />
       )}
       <div className="flex items-center gap-3 border-b border-border/60 bg-white/28 px-4 py-3 backdrop-blur-xl dark:bg-white/[.02]">
-        {showBackLink && (
-          <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
-            <Link href="/chat" aria-label="Back to chats">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
-        )}
+        <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>
+          <Link href={backHref} aria-label="Back">
+            <ArrowLeft className="size-4" />
+          </Link>
+        </Button>
         {canManage ? (
           <GroupMembersDialog
             groupId={groupId}

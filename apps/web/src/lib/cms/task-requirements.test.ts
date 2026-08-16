@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   applyMemberCount,
+  chatBackHref,
   friendlyUploadError,
   isFocusedGroupPath,
   isSupportedChatFile,
   normalizeQuizDraft,
+  removeUploadByKey,
   visibleRoleLabel,
 } from "./task-requirements";
 
@@ -13,6 +15,12 @@ describe("focused group navigation", () => {
     expect(isFocusedGroupPath("/chat/group-123")).toBe(true);
     expect(isFocusedGroupPath("/chat")).toBe(false);
     expect(isFocusedGroupPath("/dashboard")).toBe(false);
+  });
+
+  it("returns managers to the dashboard and participants to their available group exit", () => {
+    expect(chatBackHref(true, 5)).toBe("/dashboard");
+    expect(chatBackHref(false, 3)).toBe("/chat");
+    expect(chatBackHref(false, 1)).toBe("/");
   });
 });
 
@@ -40,6 +48,15 @@ describe("chat uploads", () => {
     expect(friendlyUploadError("String pattern failed to match")).toBe(
       "The browser could not prepare this file. Rename it using simple letters and numbers, then try again."
     );
+  });
+
+  it("removes only the completed upload progress row", () => {
+    const rows = [
+      { key: "image", status: "completed" },
+      { key: "archive", status: "failed" },
+    ];
+
+    expect(removeUploadByKey(rows, "image")).toEqual([{ key: "archive", status: "failed" }]);
   });
 });
 

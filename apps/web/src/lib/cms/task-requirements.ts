@@ -4,6 +4,11 @@ export function isFocusedGroupPath(pathname: string): boolean {
   return /^\/chat\/[^/]+\/?$/.test(pathname);
 }
 
+export function chatBackHref(canManage: boolean, joinedGroupCount: number): string {
+  if (canManage) return "/dashboard";
+  return joinedGroupCount > 1 ? "/chat" : "/";
+}
+
 export function visibleRoleLabel(role: UserRole | string): string {
   return role === "ADMIN" ? "Super Admin" : "Participant";
 }
@@ -32,6 +37,10 @@ export function applyMemberCount(
   activeGroupId: string
 ): number {
   return event.groupId === activeGroupId ? event.memberCount : current;
+}
+
+export function removeUploadByKey<T extends { key: string }>(rows: T[], key: string): T[] {
+  return rows.filter((row) => row.key !== key);
 }
 
 export type QuizDraft = {
