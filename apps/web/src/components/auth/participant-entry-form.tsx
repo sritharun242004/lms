@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, LogIn, MessagesSquare } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { menteeJoinSchema, type MenteeJoinInput } from "@cms/shared";
 import { toast } from "sonner";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 export function ParticipantEntryForm({ standalone = false }: { standalone?: boolean }) {
   const router = useRouter();
@@ -46,5 +47,5 @@ export function ParticipantEntryForm({ standalone = false }: { standalone?: bool
   );
 
   if (!standalone) return formContent;
-  return <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-5"><div className="ambient-orb -top-40 -right-28 size-[36rem] bg-primary/25" /><div className="ambient-orb -bottom-40 -left-28 size-[32rem] bg-brand-200/70" /><main className="glass relative z-10 w-full max-w-md rounded-[2rem] p-7 sm:p-9"><Link href="/" className="mb-10 flex items-center justify-center gap-3 font-bold"><span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground"><MessagesSquare className="size-4" /></span>AI Empowerment</Link>{formContent}</main></div>;
+  return <div className="relative flex min-h-svh items-center justify-center overflow-hidden p-5"><div className="ambient-orb -top-40 -right-28 size-[36rem] bg-primary/25" /><div className="ambient-orb -bottom-40 -left-28 size-[32rem] bg-brand-200/70" /><main className="glass relative z-10 w-full max-w-md rounded-[2rem] p-7 sm:p-9"><Link href="/" aria-label="CMS AI Empowerment home" className="mb-10 flex justify-center"><BrandLogo priority className="w-44 shadow-[0_10px_28px_rgba(71,102,75,.18)]" /></Link>{formContent}</main></div>;
 }

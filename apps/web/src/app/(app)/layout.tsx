@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { MessagesSquare } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 export default async function AppLayout({
   children,
@@ -26,11 +26,8 @@ export default async function AppLayout({
         <div className="glass relative mx-auto flex h-16 max-w-[1500px] items-center justify-between rounded-[1.35rem] px-3 sm:px-5">
           <div className="flex items-center gap-2">
             <MobileNav isMentee={isMentee} isSuperAdmin={user.role === "ADMIN"} />
-            <Link href={homeHref} className="flex items-center gap-2 font-semibold">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_24px_rgba(71,102,75,.2)]">
-                <MessagesSquare className="size-4" />
-              </span>
-              <span className="hidden sm:inline">AI Empowerment</span>
+            <Link href={homeHref} aria-label="CMS AI Empowerment home">
+              <BrandLogo priority className="w-28 shadow-[0_8px_24px_rgba(71,102,75,.18)] sm:w-36" />
             </Link>
           </div>
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-xl bg-white/35 p-1 text-sm shadow-[inset_0_1px_rgba(255,255,255,.72)] md:flex dark:bg-white/5">
