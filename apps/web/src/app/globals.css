@@ -151,15 +151,15 @@
    LIGHT THEME (default)
    ============================================================ */
 :root {
-  --radius: 0.625rem; /* 10px — shadcn base radius */
+  --radius: 1rem;
 
   /* Core */
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f3f7f2;
+  --foreground: #102016;
 
   /* Primary — Blue */
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
+  --primary: #147c35;
+  --primary-foreground: #f4fff0;
 
   /* Secondary */
   --secondary: #f1f5f9;
@@ -218,47 +218,47 @@
    DARK THEME
    ============================================================ */
 .dark {
-  --background: #09090b;
-  --foreground: #f8fafc;
+  --background: #0f1511;
+  --foreground: #dee4dd;
 
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
+  --primary: #77ff61;
+  --primary-foreground: #013a00;
 
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
+  --secondary: #1b211d;
+  --secondary-foreground: #dee4dd;
 
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
+  --muted: #171d19;
+  --muted-foreground: #b9ccaf;
 
-  --accent: #1e293b;
-  --accent-foreground: #e2e8f0;
+  --accent: #252b27;
+  --accent-foreground: #eaffde;
 
-  --card: #0a0a0f;
-  --card-foreground: #f8fafc;
+  --card: #171d19;
+  --card-foreground: #dee4dd;
 
-  --popover: #0a0a0f;
-  --popover-foreground: #f8fafc;
+  --popover: #1b211d;
+  --popover-foreground: #dee4dd;
 
-  --sidebar: #0a0a0f;
-  --sidebar-foreground: #94a3b8;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar: #0a0f0c;
+  --sidebar-foreground: #b9ccaf;
+  --sidebar-accent: #252b27;
+  --sidebar-accent-foreground: #eaffde;
+  --sidebar-border: #3b4b35;
+  --sidebar-ring: #77ff61;
+  --sidebar-primary: #77ff61;
+  --sidebar-primary-foreground: #013a00;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --success: #22c55e;
-  --success-foreground: #ffffff;
+  --success: #45fda5;
+  --success-foreground: #00391f;
   --warning: #f59e0b;
   --warning-foreground: #ffffff;
 
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
+  --border: #3b4b35;
+  --input: #303632;
+  --ring: #77ff61;
 
   --chart-1: #3b82f6;
   --chart-2: #22c55e;
@@ -290,6 +290,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   line-height: 1.6;
+  background-image: radial-gradient(ellipse 80% 55% at 100% 0%, rgba(119, 255, 97, 0.08), transparent 65%), radial-gradient(ellipse 60% 40% at 0% 100%, rgba(69, 253, 165, 0.04), transparent 70%);
+  background-attachment: fixed;
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
@@ -353,15 +355,41 @@ body {
    GLASSMORPHISM UTILITY
    ============================================================ */
 .glass {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 .dark .glass {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.09);
 }
+
+.dark [data-slot="card"],
+.dark [data-slot="dialog-content"],
+.dark [data-slot="alert-dialog-content"],
+.dark [data-slot="dropdown-menu-content"],
+.dark [data-slot="popover-content"],
+.dark [data-slot="select-content"],
+.dark [data-slot="sheet-content"] {
+  background: rgba(23, 29, 25, 0.72);
+  border-color: rgba(222, 228, 221, 0.1);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.28);
+}
+
+.dark [data-slot="dialog-overlay"], .dark [data-slot="alert-dialog-overlay"] {
+  background: rgba(2, 5, 3, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.dark [data-slot="badge"] { border-color: rgba(222, 228, 221, 0.1); }
+.dark [data-slot="tabs-list"] { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+.dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(119,255,97,.1); color: #77ff61; }
+
+.dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(222,228,221,0.12); }
+.dark input:focus, .dark textarea:focus { box-shadow: 0 0 0 3px rgba(119,255,97,.14); }
 
 /* ============================================================
    TRANSITION HELPERS
