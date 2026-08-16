@@ -405,7 +405,7 @@ export function ChatThread({
   return (
     <div className="flex h-full flex-col">
       {confirmDialog}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+      <div className="flex items-center gap-3 border-b border-border/60 bg-white/28 px-4 py-3 backdrop-blur-xl dark:bg-white/[.02]">
         {showBackLink && (
           <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
             <Link href="/chat" aria-label="Back to chats">
@@ -468,7 +468,7 @@ export function ChatThread({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto py-3"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white/10 py-3 dark:bg-transparent"
       >
         {hasMore && (
           <div className="flex justify-center pb-2">
@@ -548,7 +548,7 @@ export function ChatThread({
       </div>
 
       {canManage ? (
-        <div className="flex items-end gap-2 border-t border-border p-3">
+        <div className="flex items-end gap-2 border-t border-border/60 bg-white/32 p-3 backdrop-blur-xl dark:bg-white/[.02]">
           <input
             ref={fileInputRef}
             type="file"
@@ -625,7 +625,7 @@ export function ChatThread({
           </Button>
         </div>
       ) : (
-        <div className="flex items-center justify-center gap-1.5 border-t border-border p-3 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-1.5 border-t border-border/60 bg-white/32 p-3 text-sm text-muted-foreground backdrop-blur-xl dark:bg-white/[.02]">
           <Lock className="size-3.5" />
           Only coaches can post in this group
         </div>

@@ -170,7 +170,7 @@ export function GroupCard({
             type="button"
             onClick={copyCode}
             disabled={!group.inviteCode.isActive}
-            className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/50 px-3 py-2 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center justify-between gap-2 rounded-2xl border border-primary/15 bg-primary/[.055] px-3 py-2.5 text-left transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="flex items-center gap-2">
               <span className="font-mono text-sm font-medium tracking-wide">

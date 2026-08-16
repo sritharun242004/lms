@@ -27,8 +27,8 @@ export function ChatSidebar({
     : groups;
 
   return (
-    <div className="flex h-full w-full flex-col md:max-w-xs md:border-r md:border-border">
-      <div className="flex items-center justify-between gap-2 border-b border-border p-3">
+    <div className="flex h-full w-full flex-col bg-white/24 md:max-w-xs md:border-r md:border-white/60 dark:bg-white/[.02] dark:md:border-white/10">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 p-4">
         <h2 className="text-lg font-semibold">Chats</h2>
         {canCreate && (
           <GroupFormDialog
@@ -67,8 +67,8 @@ export function ChatSidebar({
                 key={group.id}
                 href={`/chat/${group.id}`}
                 className={cn(
-                  "flex items-center gap-3 border-b border-border/50 px-3 py-3 transition-colors hover:bg-accent",
-                  isActive && "bg-accent"
+                  "mx-2 mb-1 flex items-center gap-3 rounded-2xl px-3 py-3 transition-all hover:bg-white/65 hover:shadow-sm dark:hover:bg-white/5",
+                  isActive && "bg-primary/10 text-primary shadow-sm"
                 )}
               >
                 <Avatar>

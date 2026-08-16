@@ -13,7 +13,7 @@
 /* ----- Tailwind v4 theme tokens ----------------------------- */
 @theme inline {
   /* Font families (set by next/font in layout.tsx) */
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
 
   /* ---- Semantic colour tokens (resolve via CSS vars) -------- */
@@ -67,16 +67,16 @@
   --color-chart-5: var(--chart-5);
 
   /* ---- Static palette (available as `bg-brand-500` etc.) ---- */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #2563eb;
-  --color-brand-600: #1d4ed8;
-  --color-brand-700: #1e40af;
-  --color-brand-800: #1e3a8a;
-  --color-brand-900: #172554;
+  --color-brand-50: #f3f7f3;
+  --color-brand-100: #e3eee4;
+  --color-brand-200: #c8ebca;
+  --color-brand-300: #adcfaf;
+  --color-brand-400: #86a789;
+  --color-brand-500: #5f7f63;
+  --color-brand-600: #47664b;
+  --color-brand-700: #304d35;
+  --color-brand-800: #1f3c25;
+  --color-brand-900: #03210c;
 
   --color-emerald-500: #22c55e;
   --color-red-500: #ef4444;
@@ -151,44 +151,44 @@
    LIGHT THEME (default)
    ============================================================ */
 :root {
-  --radius: 1rem;
+  --radius: 1.25rem;
 
   /* Core */
-  --background: #f3f7f2;
-  --foreground: #102016;
+  --background: #f9f9f8;
+  --foreground: #191c1c;
 
   /* Primary — Blue */
-  --primary: #147c35;
-  --primary-foreground: #f4fff0;
+  --primary: #47664b;
+  --primary-foreground: #ffffff;
 
   /* Secondary */
-  --secondary: #f1f5f9;
-  --secondary-foreground: #1e293b;
+  --secondary: #e2e2e5;
+  --secondary-foreground: #1a1c1e;
 
   /* Muted */
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  --muted: #edeeed;
+  --muted-foreground: #5a625a;
 
   /* Accent */
-  --accent: #eff6ff;
-  --accent-foreground: #1e293b;
+  --accent: #e7e8e7;
+  --accent-foreground: #1f3c25;
 
   /* Cards */
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #191c1c;
 
   /* Popovers */
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #191c1c;
 
   /* Sidebar */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #334155;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #2563eb;
-  --sidebar-primary: #2563eb;
+  --sidebar: #f9f9f8;
+  --sidebar-foreground: #424842;
+  --sidebar-accent: #e7e8e7;
+  --sidebar-accent-foreground: #1f3c25;
+  --sidebar-border: #c2c8bf;
+  --sidebar-ring: #47664b;
+  --sidebar-primary: #47664b;
   --sidebar-primary-foreground: #ffffff;
 
   /* Destructive */
@@ -202,69 +202,69 @@
   --warning-foreground: #ffffff;
 
   /* Borders & inputs */
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #2563eb;
+  --border: #d7dbd5;
+  --input: #f0f2f0;
+  --ring: #47664b;
 
   /* Chart palette */
-  --chart-1: #2563eb;
-  --chart-2: #22c55e;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
+  --chart-1: #47664b;
+  --chart-2: #86a789;
+  --chart-3: #5d5e61;
+  --chart-4: #8fa492;
+  --chart-5: #304d35;
 }
 
 /* ============================================================
    DARK THEME
    ============================================================ */
 .dark {
-  --background: #0f1511;
-  --foreground: #dee4dd;
+  --background: #171a18;
+  --foreground: #f0f1f0;
 
-  --primary: #77ff61;
-  --primary-foreground: #013a00;
+  --primary: #adcfaf;
+  --primary-foreground: #03210c;
 
-  --secondary: #1b211d;
-  --secondary-foreground: #dee4dd;
+  --secondary: #2e3131;
+  --secondary-foreground: #f0f1f0;
 
-  --muted: #171d19;
-  --muted-foreground: #b9ccaf;
+  --muted: #242826;
+  --muted-foreground: #b6ccb9;
 
-  --accent: #252b27;
-  --accent-foreground: #eaffde;
+  --accent: #304d35;
+  --accent-foreground: #f0f1f0;
 
-  --card: #171d19;
-  --card-foreground: #dee4dd;
+  --card: #222624;
+  --card-foreground: #f0f1f0;
 
-  --popover: #1b211d;
-  --popover-foreground: #dee4dd;
+  --popover: #222624;
+  --popover-foreground: #f0f1f0;
 
-  --sidebar: #0a0f0c;
-  --sidebar-foreground: #b9ccaf;
-  --sidebar-accent: #252b27;
-  --sidebar-accent-foreground: #eaffde;
-  --sidebar-border: #3b4b35;
-  --sidebar-ring: #77ff61;
-  --sidebar-primary: #77ff61;
-  --sidebar-primary-foreground: #013a00;
+  --sidebar: #191c1c;
+  --sidebar-foreground: #d2e8d4;
+  --sidebar-accent: #304d35;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #424842;
+  --sidebar-ring: #adcfaf;
+  --sidebar-primary: #adcfaf;
+  --sidebar-primary-foreground: #03210c;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --success: #45fda5;
-  --success-foreground: #00391f;
+  --success: #86a789;
+  --success-foreground: #0d1f13;
   --warning: #f59e0b;
   --warning-foreground: #ffffff;
 
-  --border: #3b4b35;
-  --input: #303632;
-  --ring: #77ff61;
+  --border: #424842;
+  --input: #2e3131;
+  --ring: #adcfaf;
 
-  --chart-1: #3b82f6;
-  --chart-2: #22c55e;
-  --chart-3: #f59e0b;
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
+  --chart-1: #adcfaf;
+  --chart-2: #86a789;
+  --chart-3: #d2e8d4;
+  --chart-4: #8fa492;
+  --chart-5: #c8ebca;
 }
 
 /* ============================================================
@@ -288,9 +288,12 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   line-height: 1.6;
-  background-image: radial-gradient(ellipse 80% 55% at 100% 0%, rgba(119, 255, 97, 0.08), transparent 65%), radial-gradient(ellipse 60% 40% at 0% 100%, rgba(69, 253, 165, 0.04), transparent 70%);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 92% 2%, rgba(134, 167, 137, 0.28), transparent 66%),
+    radial-gradient(ellipse 55% 45% at 5% 100%, rgba(200, 235, 202, 0.32), transparent 70%),
+    url("data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 120C45 94 61 35 120 0' fill='none' stroke='%23c2c8bf' stroke-width='1' opacity='.22'/%3E%3C/svg%3E");
   background-attachment: fixed;
   transition:
     background-color 0.2s ease,
@@ -355,14 +358,33 @@ body {
    GLASSMORPHISM UTILITY
    ============================================================ */
 .glass {
-  background: color-mix(in srgb, var(--card) 72%, transparent);
-  backdrop-filter: blur(24px) saturate(1.25);
-  -webkit-backdrop-filter: blur(24px) saturate(1.25);
-  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background: color-mix(in srgb, var(--card) 68%, transparent);
+  backdrop-filter: blur(28px) saturate(1.15);
+  -webkit-backdrop-filter: blur(28px) saturate(1.15);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow: 0 18px 55px rgba(31, 60, 37, 0.08), inset 0 1px rgba(255,255,255,.72);
 }
 .dark .glass {
-  background: rgba(255, 255, 255, 0.035);
-  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(34, 38, 36, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ambient-orb {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: .34;
+  animation: ambient-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(5%, 4%, 0) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-orb { animation: none; }
 }
 
 .dark [data-slot="card"],
@@ -372,7 +394,7 @@ body {
 .dark [data-slot="popover-content"],
 .dark [data-slot="select-content"],
 .dark [data-slot="sheet-content"] {
-  background: rgba(23, 29, 25, 0.72);
+  background: rgba(34, 38, 36, 0.78);
   border-color: rgba(222, 228, 221, 0.1);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
@@ -386,10 +408,10 @@ body {
 
 .dark [data-slot="badge"] { border-color: rgba(222, 228, 221, 0.1); }
 .dark [data-slot="tabs-list"] { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
-.dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(119,255,97,.1); color: #77ff61; }
+.dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(173,207,175,.12); color: #adcfaf; }
 
 .dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(222,228,221,0.12); }
-.dark input:focus, .dark textarea:focus { box-shadow: 0 0 0 3px rgba(119,255,97,.14); }
+.dark input:focus, .dark textarea:focus { box-shadow: 0 0 0 3px rgba(173,207,175,.14); }
 
 /* ============================================================
    TRANSITION HELPERS

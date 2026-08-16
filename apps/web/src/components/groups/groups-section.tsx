@@ -58,7 +58,7 @@ export function GroupsSection({
           }
         />
       ) : visibleGroups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
+        <div className="glass rounded-3xl px-6 py-12 text-center text-sm text-muted-foreground">
           No groups match &ldquo;{search.trim()}&rdquo;.
         </div>
       ) : (

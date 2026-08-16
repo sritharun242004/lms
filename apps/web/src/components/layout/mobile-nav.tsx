@@ -25,7 +25,7 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64">
+      <SheetContent side="left" className="glass w-72 border-r-white/60">
         <SheetHeader>
           <SheetTitle>Menu</SheetTitle>
         </SheetHeader>
@@ -38,10 +38,10 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
                 href={href}
                 onClick={() => setIsOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors",
                   isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-white/60 hover:text-primary dark:hover:bg-white/5"
                 )}
               >
                 <Icon className="size-4" />

@@ -20,10 +20,11 @@ export default async function MentorDashboardPage() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Coach workspace</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Welcome back, {user.name.split(" ")[0]}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-muted-foreground">
           Here&apos;s what&apos;s happening in your groups today.
         </p>
       </div>

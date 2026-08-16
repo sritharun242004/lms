@@ -28,14 +28,14 @@ export function ChatShell({
 
   if (hideSidebar) {
     return (
-      <div className="-m-4 flex h-[calc(100svh-3.5rem)] overflow-x-hidden md:-m-6">
+      <div className="glass flex h-[calc(100svh-7.5rem)] overflow-x-hidden rounded-3xl">
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>
     );
   }
 
   return (
-    <div className="-m-4 flex h-[calc(100svh-3.5rem)] overflow-x-hidden md:-m-6">
+    <div className="glass flex h-[calc(100svh-7.5rem)] overflow-x-hidden rounded-3xl">
       <div className={cn("h-full", hasActiveGroup ? "hidden md:flex" : "flex w-full md:w-auto")}>
         <ChatSidebar groups={groups} canCreate={canCreate} />
       </div>
