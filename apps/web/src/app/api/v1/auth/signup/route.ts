@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   if (existingUser) return errorResponse("An account already exists for this email", "EMAIL_IN_USE", 409);
   if (!approval || approval.claimedAt) {
-    return errorResponse("This email has not been approved for coach onboarding", "COACH_EMAIL_NOT_APPROVED", 403);
+    return errorResponse("This email has not been approved for participant onboarding", "COACH_EMAIL_NOT_APPROVED", 403);
   }
 
   try {
@@ -37,6 +37,6 @@ export async function POST(req: NextRequest) {
     return successResponse({ user, accessToken, refreshToken }, undefined, 201);
   } catch (error) {
     console.error("Coach signup error:", error);
-    return errorResponse("Unable to create coach account", "COACH_SIGNUP_ERROR", 500);
+    return errorResponse("Unable to create participant account", "COACH_SIGNUP_ERROR", 500);
   }
 }

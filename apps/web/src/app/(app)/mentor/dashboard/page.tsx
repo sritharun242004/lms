@@ -20,7 +20,7 @@ export default async function MentorDashboardPage() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
-        <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Coach workspace</p>
+        <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Participant workspace</p>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Welcome back, {user.name.split(" ")[0]}
         </h1>
@@ -32,7 +32,7 @@ export default async function MentorDashboardPage() {
       {stats.myGroups > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="My groups" value={stats.myGroups} icon={LayoutGrid} />
-          <StatCard label="Learners" value={stats.totalStudents} icon={Users} />
+          <StatCard label="Participants" value={stats.totalStudents} icon={Users} />
           <StatCard label="Messages today" value={stats.messagesToday} icon={MessagesSquare} />
           <StatCard label="Pinned messages" value={stats.pinnedMessages} icon={Pin} />
         </div>

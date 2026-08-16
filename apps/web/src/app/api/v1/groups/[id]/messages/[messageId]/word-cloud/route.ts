@@ -19,7 +19,7 @@ export async function PATCH(
   const { id: groupId, messageId } = await params;
   const access = await getGroupAccess(groupId, user);
   if (!access.canManage) {
-    return errorResponse("Only coaches can manage this word cloud", "FORBIDDEN", 403);
+    return errorResponse("Only authorized participants can manage this word cloud", "FORBIDDEN", 403);
   }
 
   const parsed = await parseBody(req, wordCloudControlSchema);

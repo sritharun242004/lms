@@ -19,7 +19,7 @@ export function EmptyGroupsState({
         </h3>
         <p className="max-w-sm text-sm text-muted-foreground">
           {mentee
-            ? "Ask your coach for an invite code to join their group."
+            ? "Ask the group owner for a meeting or course code."
             : "Create your first group to start sharing announcements with your students."}
         </p>
         {action && <div className="mt-3">{action}</div>}

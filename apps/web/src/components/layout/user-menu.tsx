@@ -7,6 +7,7 @@ import type { AuthUser } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { visibleRoleLabel } from "@/lib/cms/task-requirements";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,12 +16,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const ROLE_LABEL: Record<AuthUser["role"], string> = {
-  ADMIN: "Super Admin",
-  MENTOR: "Coach",
-  MENTEE: "Trainee",
-};
 
 export function UserMenu({ user }: { user: AuthUser }) {
   const router = useRouter();
@@ -45,7 +40,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
           <span className="text-sm font-medium text-foreground">{user.name}</span>
           <span className="text-xs font-normal text-muted-foreground">
             {user.email ? `${user.email} · ` : ""}
-            {ROLE_LABEL[user.role]}
+            {visibleRoleLabel(user.role)}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

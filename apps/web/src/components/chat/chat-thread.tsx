@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { isToday, isYesterday, isThisYear, format } from "date-fns";
 import {
   ArrowLeft,
   BarChart3,
   Cloud,
-  Copy,
   Loader2,
   Lock,
   MessageSquareText,
@@ -19,8 +19,6 @@ import {
 } from "lucide-react";
 import {
   MessageType,
-  MAX_ATTACHMENT_SIZE_BYTES,
-  MAX_ATTACHMENT_SIZE_MB,
   MAX_MESSAGE_LENGTH,
 } from "@cms/shared";
 import type {
@@ -52,6 +50,9 @@ import { OpenQuestionFormDialog } from "@/components/chat/open-question-form-dia
 import { OpenQuestionMessage } from "@/components/chat/open-question-message";
 import { WordCloudFormDialog } from "@/components/chat/word-cloud-form-dialog";
 import { WordCloudMessage } from "@/components/chat/word-cloud-message";
+import { applyMemberCount, friendlyUploadError, isSupportedChatFile } from "@/lib/cms/task-requirements";
+
+type UploadRow = { key: string; name: string; loaded: number; total: number; status: "uploading" | "completed" | "failed"; error?: string };
 
 function dateSeparatorLabel(date: Date): string {
   if (isToday(date)) return "Today";
@@ -60,35 +61,41 @@ function dateSeparatorLabel(date: Date): string {
   return format(date, "MMM d, yyyy");
 }
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 2000;
 
 export function ChatThread({
   groupId,
   groupName,
+  groupDescription,
   memberCount,
   currentUserId,
   canManage,
   initialMessages,
   initialHasMore,
   showBackLink = true,
-  inviteCode = null,
 }: {
   groupId: string;
   groupName: string;
+  groupDescription: string | null;
   memberCount: number;
   currentUserId: string;
   canManage: boolean;
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
   showBackLink?: boolean;
-  inviteCode?: { code: string; isActive: boolean } | null;
 }) {
   const [messages, setMessages] = React.useState(initialMessages);
+  const searchParams = useSearchParams();
   const [hasMore, setHasMore] = React.useState(initialHasMore);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [displayMemberCount, setDisplayMemberCount] = React.useState(memberCount);
+  const [displayGroupName, setDisplayGroupName] = React.useState(groupName);
+  const [displayGroupDescription, setDisplayGroupDescription] = React.useState(groupDescription);
+  const [hasPendingPollTemplate, setHasPendingPollTemplate] = React.useState(false);
+  const [uploads, setUploads] = React.useState<UploadRow[]>([]);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -114,6 +121,11 @@ export function ChatThread({
   // no reset effect needed. Just scroll to the bottom once on mount.
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
+    const timer = window.setTimeout(
+      () => setHasPendingPollTemplate(Boolean(sessionStorage.getItem("cms-poll-template"))),
+      0
+    );
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Live updates without a reload. The realtime socket is the fast path,
@@ -166,6 +178,12 @@ export function ChatThread({
   const announcedJoinsRef = React.useRef<Set<string>>(new Set());
 
   useChatSocket(groupId, {
+    onMembersChanged: (event) =>
+      setDisplayMemberCount((current) => applyMemberCount(current, event, groupId)),
+    onGroupUpdated: ({ name, description }) => {
+      setDisplayGroupName(name);
+      setDisplayGroupDescription(description);
+    },
     onPresenceJoin: ({ userId, userName, role }) => {
       if (userId === currentUserId) return;
       if (announcedJoinsRef.current.has(userId)) return;
@@ -285,17 +303,16 @@ export function ChatThread({
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (files.length === 0 || isUploading) return;
+    await uploadFiles(files);
+  }
 
-    const oversized = files.filter((f) => f.size > MAX_ATTACHMENT_SIZE_BYTES);
-    const validFiles = files.filter((f) => f.size <= MAX_ATTACHMENT_SIZE_BYTES);
-    if (oversized.length > 0) {
-      toast.error(
-        oversized.length === 1
-          ? `"${oversized[0].name}" is too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`
-          : `${oversized.length} files are too large. Max size is ${MAX_ATTACHMENT_SIZE_MB}MB.`
-      );
-    }
+  async function uploadFiles(files: File[]) {
+    if (files.length === 0 || isUploading) return;
+    const validFiles = files.filter((file) => {
+      const result = isSupportedChatFile(file);
+      if (!result.ok) toast.error(result.message);
+      return result.ok;
+    });
     if (validFiles.length === 0) return;
 
     // The backend stores one attachment per message, so multiple files become
@@ -305,20 +322,24 @@ export function ChatThread({
     setIsUploading(true);
     setDraft("");
     for (const file of validFiles) {
+      const key = `${file.name}:${file.size}:${file.lastModified}`;
+      setUploads((rows) => [...rows.filter((row) => row.key !== key), { key, name: file.name, loaded: 0, total: file.size, status: "uploading" }]);
       try {
         const res = await messageService.sendFile(
           groupId,
           file,
-          captionPending ? caption : undefined
+          captionPending ? caption : undefined,
+          (loaded, total) => setUploads((rows) => rows.map((row) => row.key === key ? { ...row, loaded, total: total || file.size } : row))
         );
         captionPending = false;
         if (!res.success) throw new Error(res.error?.message || `Failed to upload "${file.name}"`);
         setMessages((prev) => upsert(prev, res.data!));
+        setUploads((rows) => rows.map((row) => row.key === key ? { ...row, loaded: file.size, total: file.size, status: "completed" } : row));
         requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : `Failed to upload "${file.name}"`
-        );
+        const message = friendlyUploadError(error instanceof Error ? error.message : `Failed to upload ${file.name}`);
+        toast.error(message);
+        setUploads((rows) => rows.map((row) => row.key === key ? { ...row, status: "failed", error: message } : row));
         if (captionPending) {
           setDraft(caption);
           captionPending = false;
@@ -394,17 +415,19 @@ export function ChatThread({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, wordCloud } : m)));
   }
 
-  async function copyInviteCode() {
-    if (!inviteCode) return;
-    await navigator.clipboard.writeText(inviteCode.code);
-    toast.success("Invite code copied");
-  }
-
   let lastDateLabel = "";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" onDragOver={(event) => { if (canManage && event.dataTransfer.types.includes("Files")) event.preventDefault(); }} onDrop={(event) => { if (!canManage) return; event.preventDefault(); void uploadFiles(Array.from(event.dataTransfer.files)); }}>
       {confirmDialog}
+      {canManage && (searchParams.get("openPoll") === "1" || hasPendingPollTemplate) && (
+        <PollFormDialog
+          autoOpen
+          groupId={groupId}
+          onCreated={handlePollCreated}
+          trigger={<span className="hidden" />}
+        />
+      )}
       <div className="flex items-center gap-3 border-b border-border/60 bg-white/28 px-4 py-3 backdrop-blur-xl dark:bg-white/[.02]">
         {showBackLink && (
           <Button variant="ghost" size="icon" className="-ml-2 shrink-0 md:hidden" asChild>
@@ -416,7 +439,7 @@ export function ChatThread({
         {canManage ? (
           <GroupMembersDialog
             groupId={groupId}
-            groupName={groupName}
+            groupName={displayGroupName}
             trigger={
               <button
                 type="button"
@@ -424,13 +447,14 @@ export function ChatThread({
                 aria-label="View group members"
               >
                 <Avatar>
-                  <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
+                  <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold">{groupName}</span>
+                  <span className="truncate text-sm font-semibold">{displayGroupName}</span>
+                  {displayGroupDescription && <span className="truncate text-xs text-muted-foreground">{displayGroupDescription}</span>}
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Users className="size-3" />
-                    {memberCount} {memberCount === 1 ? "member" : "members"}
+                    {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
                   </span>
                 </div>
               </button>
@@ -439,29 +463,17 @@ export function ChatThread({
         ) : (
           <>
             <Avatar>
-              <AvatarFallback>{getInitials(groupName)}</AvatarFallback>
+              <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold">{groupName}</span>
+              <span className="text-sm font-semibold">{displayGroupName}</span>
+              {displayGroupDescription && <span className="text-xs text-muted-foreground">{displayGroupDescription}</span>}
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Users className="size-3" />
-                {memberCount} {memberCount === 1 ? "member" : "members"}
+                {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
               </span>
             </div>
           </>
-        )}
-        {canManage && inviteCode?.isActive && (
-          <button
-            type="button"
-            onClick={copyInviteCode}
-            aria-label="Copy invite code"
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-border bg-muted/50 px-2 py-1 text-left transition-colors hover:bg-muted"
-          >
-            <span className="font-mono text-xs font-medium tracking-wide">
-              {inviteCode.code}
-            </span>
-            <Copy className="size-3 text-muted-foreground" />
-          </button>
         )}
       </div>
 
@@ -548,7 +560,9 @@ export function ChatThread({
       </div>
 
       {canManage ? (
-        <div className="flex items-end gap-2 border-t border-border/60 bg-white/32 p-3 backdrop-blur-xl dark:bg-white/[.02]">
+        <div className="border-t border-border/60 bg-white/32 p-3 backdrop-blur-xl dark:bg-white/[.02]">
+          {uploads.length > 0 && <div className="mb-3 space-y-2">{uploads.map((row) => { const percent = row.total > 0 ? Math.round((row.loaded / row.total) * 100) : 0; return <div key={row.key} className="rounded-xl bg-background/70 p-2 text-xs"><div className="flex justify-between gap-3"><span className="truncate font-medium">{row.name}</span><span className={row.status === "failed" ? "text-destructive" : "text-muted-foreground"}>{row.status === "completed" ? "Completed" : row.status === "failed" ? "Failed" : `${percent}% · ${(row.loaded / 1048576).toFixed(1)} / ${(row.total / 1048576).toFixed(1)} MB`}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={row.status === "failed" ? "h-full bg-destructive" : "h-full bg-primary transition-[width]"} style={{ width: `${row.status === "failed" ? 100 : percent}%` }} /></div>{row.error && <p className="mt-1 text-destructive">{row.error}</p>}</div>; })}</div>}
+          <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -623,11 +637,12 @@ export function ChatThread({
           <Button size="icon" onClick={handleSend} disabled={!draft.trim() || isSending}>
             <Send className="size-4" />
           </Button>
+          </div>
         </div>
       ) : (
         <div className="flex items-center justify-center gap-1.5 border-t border-border/60 bg-white/32 p-3 text-sm text-muted-foreground backdrop-blur-xl dark:bg-white/[.02]">
           <Lock className="size-3.5" />
-          Only coaches can post in this group
+          Only authorized participants can post in this group
         </div>
       )}
     </div>

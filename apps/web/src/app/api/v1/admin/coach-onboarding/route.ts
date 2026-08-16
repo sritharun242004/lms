@@ -22,6 +22,6 @@ export async function POST(req: NextRequest) {
     });
     return successResponse({ approval }, undefined, 201);
   } catch {
-    return errorResponse("This coach email has already been approved", "EMAIL_ALREADY_APPROVED", 409);
+    return errorResponse("This participant email has already been approved", "EMAIL_ALREADY_APPROVED", 409);
   }
 }

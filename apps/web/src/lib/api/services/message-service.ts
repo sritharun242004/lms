@@ -114,11 +114,13 @@ export const messageService = {
   send: (groupId: string, input: SendMessageInput) =>
     apiClient.post<ChatMessage>(`/groups/${groupId}/messages`, input),
 
-  sendFile: (groupId: string, file: File, content?: string) => {
+  sendFile: (groupId: string, file: File, content?: string, onProgress?: (loaded: number, total: number) => void) => {
     const formData = new FormData();
     formData.append("file", file);
     if (content) formData.append("content", content);
-    return apiClient.postForm<ChatMessage>(`/groups/${groupId}/messages/file`, formData);
+    return onProgress
+      ? apiClient.uploadForm<ChatMessage>(`/groups/${groupId}/messages/file`, formData, onProgress)
+      : apiClient.postForm<ChatMessage>(`/groups/${groupId}/messages/file`, formData);
   },
 
   edit: (groupId: string, messageId: string, input: EditMessageInput) =>

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Loader2, Users } from "lucide-react";
-import { groupService, type GroupMemberEntry } from "@/lib/api/services/group-service";
+import { groupService } from "@/lib/api/services/group-service";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-const ROLE_LABEL: Record<GroupMemberEntry["role"], string> = {
-  OWNER: "Owner",
-  MENTOR: "Coach",
-  MENTEE: "Trainee",
-};
 
 export function GroupMembersDialog({
   groupId,
@@ -81,7 +75,7 @@ export function GroupMembersDialog({
                   </span>
                 </div>
                 <Badge variant={member.role === "MENTEE" ? "outline" : "secondary"}>
-                  {ROLE_LABEL[member.role]}
+                  Participant
                 </Badge>
               </div>
             ))}

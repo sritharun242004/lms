@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return errorResponse("You don't have access to this group", "FORBIDDEN", 403);
   }
   if (!access.canManage) {
-    return errorResponse("Only coaches can send messages in this group", "FORBIDDEN", 403);
+    return errorResponse("Only authorized participants can send messages in this group", "FORBIDDEN", 403);
   }
 
   let formData: FormData;
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
 
       return message.id;
-    }, { timeout: 30_000 });
+    }, { timeout: 60_000 });
 
     const created = await prisma.message.findUniqueOrThrow({
       where: { id: messageId },
@@ -114,6 +114,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return successResponse(message, undefined, 201);
   } catch (error) {
     console.error("Upload file error:", error);
-    return errorResponse("Failed to upload file", "FILE_UPLOAD_ERROR", 500);
+    return errorResponse("The file could not be saved. Please check your connection and try again.", "FILE_UPLOAD_ERROR", 500);
   }
 }

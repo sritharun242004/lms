@@ -98,7 +98,7 @@ export async function PATCH(
       },
     });
 
-    return successResponse({ message: "Invite code disabled" });
+    return successResponse({ message: "Meeting or course code disabled" });
   } catch (error) {
     console.error("Disable invite code error:", error);
     return errorResponse("Failed to disable invite code", "INVITE_DISABLE_ERROR", 500);

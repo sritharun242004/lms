@@ -13,6 +13,7 @@ import {
   parseBody,
 } from "@/lib/api/response";
 import { menteeJoinSchema, AuditAction } from "@cms/shared";
+import { broadcastToGroup } from "@/lib/realtime/broadcast";
 
 /**
  * Public, account-less mentee join: a name and an invite code are
@@ -37,12 +38,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (!invite) {
-      return errorResponse("Invalid invite code", "INVALID_INVITE_CODE", 400);
+      return errorResponse("Invalid meeting or course code", "INVALID_INVITE_CODE", 400);
     }
 
     if (!invite.isActive) {
       return errorResponse(
-        "This invite code has been disabled",
+        "This meeting or course code has been disabled",
         "INVITE_CODE_DISABLED",
         400
       );
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     if (invite.expiresAt && invite.expiresAt < new Date()) {
       return errorResponse(
-        "This invite code has expired",
+        "This meeting or course code has expired",
         "INVITE_CODE_EXPIRED",
         400
       );
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     if (invite.maxUsage && invite.usageCount >= invite.maxUsage) {
       return errorResponse(
-        "This invite code has reached its usage limit",
+        "This meeting or course code has reached its usage limit",
         "INVITE_CODE_LIMIT",
         400
       );
@@ -165,6 +166,12 @@ export async function POST(req: NextRequest) {
         userAgent: req.headers.get("user-agent") || undefined,
         ipAddress,
       },
+    });
+
+    const memberCount = await prisma.groupMember.count({ where: { groupId: invite.groupId } });
+    broadcastToGroup(invite.groupId, "group:members", {
+      groupId: invite.groupId,
+      memberCount,
     });
 
     return successResponse(

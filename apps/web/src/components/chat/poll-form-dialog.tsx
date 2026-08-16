@@ -56,14 +56,17 @@ export function PollFormDialog({
   trigger,
   groupId,
   onCreated,
+  autoOpen = false,
 }: {
   trigger: React.ReactNode;
   groupId: string;
   onCreated: (message: ChatMessage) => void;
+  autoOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(autoOpen);
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [quizName, setQuizName] = React.useState("");
 
   const form = useForm<PollFormValues>({
     resolver: zodResolver(pollFormSchema),
@@ -80,8 +83,8 @@ export function PollFormDialog({
     if (open) {
       const saved = sessionStorage.getItem("cms-poll-template");
       if (saved) {
-        const template = JSON.parse(saved) as { question: string; options: string[] };
-        form.reset({ question: template.question, options: template.options.map((value) => ({ value })), chartType: PollChartType.BAR });
+        const template = JSON.parse(saved) as { question: string; options: string[]; chartType?: PollChartType };
+        form.reset({ question: template.question, options: template.options.map((value) => ({ value })), chartType: template.chartType ?? PollChartType.BAR });
         sessionStorage.removeItem("cms-poll-template");
         return;
       }
@@ -112,6 +115,37 @@ export function PollFormDialog({
     }
   }
 
+  async function saveToRepository() {
+    const valid = await form.trigger();
+    if (!valid) return;
+    if (!quizName.trim()) {
+      toast.error("Enter a quiz name before saving");
+      return;
+    }
+    const values = form.getValues();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/v1/questions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: quizName,
+          question: values.question,
+          options: values.options.map((option) => option.value),
+          chartType: values.chartType,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error?.message || "Could not save quiz");
+      toast.success("Quiz saved to repository");
+      setQuizName("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save quiz");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -122,7 +156,7 @@ export function PollFormDialog({
             Ask a question with a few options — everyone in the group can vote live.
           </DialogDescription>
         </DialogHeader>
-        <Button variant="outline" size="sm" className="self-start" asChild><a href={`/questions?returnTo=${encodeURIComponent(pathname)}`}>Import question</a></Button>
+        <Button variant="outline" size="sm" className="self-start" asChild><a href={`/questions?returnTo=${encodeURIComponent(pathname)}`}>Quiz repository</a></Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -212,6 +246,14 @@ export function PollFormDialog({
                 </FormItem>
               )}
             />
+
+            <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/25 p-3">
+              <FormLabel htmlFor="repository-name">Quiz name</FormLabel>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input id="repository-name" value={quizName} onChange={(event) => setQuizName(event.target.value)} placeholder="Product knowledge — Week 1" />
+                <Button type="button" variant="outline" onClick={saveToRepository} disabled={isSubmitting}>Save to repository</Button>
+              </div>
+            </div>
 
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>

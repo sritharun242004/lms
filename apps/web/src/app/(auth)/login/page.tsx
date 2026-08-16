@@ -113,15 +113,15 @@ function LoginForm() {
       </Form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Approved coach?{" "}
+        Approved participant?{" "}
         <Link href="/signup" className="font-medium text-foreground underline underline-offset-4">
           Create your account
         </Link>
       </p>
       <p className="text-center text-sm text-muted-foreground">
-        Joining a group as a trainee?{" "}
+        Joining a group as a participant?{" "}
         <Link href="/join" className="font-medium text-foreground underline underline-offset-4">
-          Enter your invite code
+          Enter your meeting or course code
         </Link>
       </p>
     </div>

@@ -104,6 +104,7 @@ model User {
 
 model QuestionLibraryItem {
   id          String        @id @default(cuid())
+  name        String        @default("Untitled quiz")
   question    String
   chartType   PollChartType @default(BAR) @map("chart_type")
   createdById String        @map("created_by_id")
@@ -112,6 +113,7 @@ model QuestionLibraryItem {
   createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
   options     QuestionLibraryOption[]
   @@index([createdById])
+  @@index([name])
   @@map("question_library_items")
 }
 

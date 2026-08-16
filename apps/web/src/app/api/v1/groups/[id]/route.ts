@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { updateGroupSchema, AuditAction } from "@cms/shared";
+import { broadcastToGroup } from "@/lib/realtime/broadcast";
 
 async function getManageableGroup(groupId: string, userId: string, isAdmin: boolean) {
   const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -45,6 +46,12 @@ export async function PATCH(
         entityId: id,
         metadata: parsed.data,
       },
+    });
+
+    broadcastToGroup(id, "group:update", {
+      groupId: id,
+      name: updated.name,
+      description: updated.description,
     });
 
     return successResponse({

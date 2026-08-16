@@ -21,15 +21,13 @@ export const metadata: Metadata = {
     template: "%s | AI Empowerment CMS",
   },
   description:
-    "A modern Learning Management Portal with WhatsApp-inspired communication. Connect coaches with trainees through real-time announcements and group management.",
+    "A focused participant portal for real-time announcements, activities, and group communication.",
   keywords: [
     "CMS",
     "Learning Management System",
-    "Coach",
-    "Trainee",
+    "Participant",
     "Education",
     "Communication",
-    "WhatsApp",
   ],
   authors: [{ name: "AI Empowerment" }],
   creator: "AI Empowerment",
@@ -42,7 +40,7 @@ export const metadata: Metadata = {
     siteName: "AI Empowerment CMS",
     title: "AI Empowerment CMS",
     description:
-      "A modern Learning Management Portal with WhatsApp-inspired communication.",
+      "A focused participant portal for group communication.",
   },
 };
 

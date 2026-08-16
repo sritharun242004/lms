@@ -4,12 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { UserRole } from "@cms/shared";
 import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-const ROLE_LABEL: Record<UserRole, string> = {
-  ADMIN: "Admin",
-  MENTOR: "Coach",
-  MENTEE: "Trainee",
-};
+import { visibleRoleLabel } from "@/lib/cms/task-requirements";
 
 const ROLE_BADGE: Record<UserRole, string> = {
   ADMIN: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -70,7 +65,7 @@ export function JoinToast({ name, role }: { name: string; role: UserRole }) {
           ROLE_BADGE[role]
         )}
       >
-        {ROLE_LABEL[role]}
+        {visibleRoleLabel(role)}
       </span>
     </motion.div>
   );

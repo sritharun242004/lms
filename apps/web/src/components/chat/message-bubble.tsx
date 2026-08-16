@@ -287,14 +287,11 @@ export function MessageBubble({
           {!isEditing && (
             <div
               className={cn(
-                "absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm transition-opacity",
+                "mt-1 flex w-fit items-center gap-0.5 rounded-lg border border-primary/35 bg-card p-0.5 shadow-sm transition-opacity",
                 canManage
                   ? cn(showActions ? "opacity-100" : "opacity-0", "md:opacity-0 md:group-hover:opacity-100")
                   : "opacity-100",
-                // Sit just outside the bubble — to its right for incoming
-                // messages, to its left for your own — so the controls never
-                // cover the text (previously they overlapped the top edge).
-                isOwn ? "right-full mr-1" : "left-full ml-1"
+                isOwn ? "ml-auto" : "mr-auto"
               )}
             >
               {canCopy && (

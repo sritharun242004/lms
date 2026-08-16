@@ -45,7 +45,7 @@ export default async function ProfilePage() {
             ) : (
               <>
                 <dt className="text-muted-foreground">Account type</dt>
-                <dd>Guest — joined with an invite code, no email or password</dd>
+                <dd>Guest — joined with a meeting or course code, no email or password</dd>
               </>
             )}
           </dl>

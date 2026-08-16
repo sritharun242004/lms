@@ -123,6 +123,26 @@ async function apiFormFetch<T>(endpoint: string, formData: FormData): Promise<Ap
   }
 }
 
+async function apiFormUpload<T>(endpoint: string, formData: FormData, onProgress: (loaded: number, total: number) => void): Promise<ApiResponse<T>> {
+  const url = new URL(`/api/v1${endpoint}`, resolveBaseUrl());
+  return new Promise((resolve) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", url.toString());
+    request.withCredentials = true;
+    request.upload.onprogress = (event) => onProgress(event.loaded, event.lengthComputable ? event.total : 0);
+    request.onerror = () => resolve({ success: false, error: { code: "NETWORK_ERROR", message: "The upload was interrupted. Check your connection and try again." } });
+    request.onload = () => {
+      try {
+        const data = JSON.parse(request.responseText) as ApiResponse<T>;
+        resolve(request.status >= 200 && request.status < 300 ? data : { success: false, error: data.error || { code: "UPLOAD_FAILED", message: "The file could not be uploaded." } });
+      } catch {
+        resolve({ success: false, error: { code: "UPLOAD_FAILED", message: "The server returned an unreadable upload response." } });
+      }
+    };
+    request.send(formData);
+  });
+}
+
 // ============================================================
 // API CLIENT
 // ============================================================
@@ -135,6 +155,7 @@ export const apiClient = {
     apiFetch<T>(endpoint, { method: "POST", body }),
 
   postForm: <T>(endpoint: string, formData: FormData) => apiFormFetch<T>(endpoint, formData),
+  uploadForm: <T>(endpoint: string, formData: FormData, onProgress: (loaded: number, total: number) => void) => apiFormUpload<T>(endpoint, formData, onProgress),
 
   patch: <T>(endpoint: string, body?: unknown) =>
     apiFetch<T>(endpoint, { method: "PATCH", body }),

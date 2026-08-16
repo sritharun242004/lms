@@ -62,7 +62,7 @@ export function ClaimAccountDialog({ trigger }: { trigger: React.ReactNode }) {
         <DialogHeader>
           <DialogTitle>Set up login credentials</DialogTitle>
           <DialogDescription>
-            You joined with just your name and an invite code. Add an email and password
+            You joined with just your name and a meeting or course code. Add an email and password
             so you can sign back in later, even from a different device.
           </DialogDescription>
         </DialogHeader>

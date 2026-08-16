@@ -43,9 +43,22 @@ interface PresenceJoinEvent {
   role: UserRole;
 }
 
+interface GroupMembersEvent {
+  groupId: string;
+  memberCount: number;
+}
+
+interface GroupUpdateEvent {
+  groupId: string;
+  name: string;
+  description: string | null;
+}
+
 interface ChatSocketHandlers {
   onNew?: (message: ChatMessage) => void;
   onPresenceJoin?: (data: PresenceJoinEvent) => void;
+  onMembersChanged?: (data: GroupMembersEvent) => void;
+  onGroupUpdated?: (data: GroupUpdateEvent) => void;
   onEdit?: (message: ChatMessage) => void;
   onDelete?: (data: { messageId: string; groupId: string }) => void;
   onPin?: (data: { messageId: string; groupId: string; isPinned: boolean }) => void;
@@ -111,6 +124,8 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       socket.on("connect", handleConnect);
 
       socket.on("presence:join", handlePresenceJoin);
+      socket.on("group:members", handleMembersChanged);
+      socket.on("group:update", handleGroupUpdated);
       socket.on("message:new", handleNew);
       socket.on("message:edit", handleEdit);
       socket.on("message:delete", handleDelete);
@@ -127,6 +142,12 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
     }
     function handlePresenceJoin(data: PresenceJoinEvent) {
       if (data.groupId === groupId) handlersRef.current.onPresenceJoin?.(data);
+    }
+    function handleMembersChanged(data: GroupMembersEvent) {
+      if (data.groupId === groupId) handlersRef.current.onMembersChanged?.(data);
+    }
+    function handleGroupUpdated(data: GroupUpdateEvent) {
+      if (data.groupId === groupId) handlersRef.current.onGroupUpdated?.(data);
     }
     function handleNew(message: ChatMessage) {
       if (message.groupId === groupId) handlersRef.current.onNew?.(message);
@@ -164,6 +185,8 @@ export function useChatSocket(groupId: string, handlers: ChatSocketHandlers) {
       socket.emit("group:leave", groupId);
       socket.off("connect", handleConnect);
       socket.off("presence:join", handlePresenceJoin);
+      socket.off("group:members", handleMembersChanged);
+      socket.off("group:update", handleGroupUpdated);
       socket.off("message:new", handleNew);
       socket.off("message:edit", handleEdit);
       socket.off("message:delete", handleDelete);

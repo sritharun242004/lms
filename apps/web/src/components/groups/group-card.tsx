@@ -42,7 +42,7 @@ export function GroupCard({
   async function copyCode() {
     if (!group.inviteCode) return;
     await navigator.clipboard.writeText(group.inviteCode.code);
-    toast.success("Invite code copied");
+    toast.success("Meeting or course code copied");
   }
 
   async function handleRegenerate() {
@@ -50,7 +50,7 @@ export function GroupCard({
     try {
       const res = await groupService.regenerateInviteCode(group.id);
       if (!res.success) throw new Error(res.error?.message);
-      toast.success("Invite code regenerated");
+      toast.success("Meeting or course code regenerated");
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to regenerate code");
@@ -64,7 +64,7 @@ export function GroupCard({
     try {
       const res = await groupService.disableInviteCode(group.id);
       if (!res.success) throw new Error(res.error?.message);
-      toast.success("Invite code disabled");
+      toast.success("Meeting or course code disabled");
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to disable code");
@@ -125,12 +125,12 @@ export function GroupCard({
               />
               <DropdownMenuItem onSelect={handleRegenerate}>
                 <RefreshCw />
-                Regenerate invite code
+                Regenerate meeting/course code
               </DropdownMenuItem>
               {group.inviteCode?.isActive && (
                 <DropdownMenuItem onSelect={handleDisable}>
                   <ShieldOff />
-                  Disable invite code
+                  Disable meeting/course code
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

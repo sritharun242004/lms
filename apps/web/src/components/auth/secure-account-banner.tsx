@@ -9,7 +9,7 @@ export function SecureAccountBanner() {
       <div className="flex flex-1 flex-col gap-2">
         <p className="text-sm font-medium">Secure your account</p>
         <p className="text-sm text-muted-foreground">
-          You joined with just your name and an invite code. Add an email and password so
+          You joined with just your name and a meeting or course code. Add an email and password so
           you can sign back in later, even from a different device.
         </p>
         <ClaimAccountDialog

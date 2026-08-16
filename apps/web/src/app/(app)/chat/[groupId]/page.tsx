@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
-import { getActiveInviteCode, getJoinedGroupCount } from "@/lib/groups/queries";
+import { getJoinedGroupCount } from "@/lib/groups/queries";
 import { getGroupHeader, getInitialMessages } from "@/lib/messages/queries";
 import { ChatThread } from "@/components/chat/chat-thread";
 
@@ -27,21 +27,18 @@ export default async function GroupChatPage({
   const showBackLink =
     access.canManage || (await getJoinedGroupCount(user.id)) > 1;
 
-  // Never fetched for a mentee viewer — the invite code stays mentor-only.
-  const inviteCode = access.canManage ? await getActiveInviteCode(groupId) : null;
-
   return (
     <ChatThread
       key={groupId}
       groupId={groupId}
       groupName={group.name}
+      groupDescription={group.description}
       memberCount={group._count.members}
       currentUserId={user.id}
       canManage={access.canManage}
       initialMessages={messages}
       initialHasMore={hasMore}
       showBackLink={showBackLink}
-      inviteCode={inviteCode}
     />
   );
 }
