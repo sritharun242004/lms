@@ -72,9 +72,8 @@ function collidesWithAny(candidate: Rect, placed: Rect[], padding: number): bool
 
 /**
  * Archimedean spiral search for the nearest open spot to (startX, startY).
- * Starting from a word's previous position (instead of always the center)
- * is what keeps the whole layout stable across updates — an unchanged
- * word doesn't move just because a sibling grew.
+ * `minimumDistance` creates concentric frequency bands: after the dominant
+ * center word, each lower-ranked word must sit at least one step farther out.
  */
 function findPosition(
   startX: number,
@@ -83,10 +82,15 @@ function findPosition(
   height: number,
   placed: Rect[],
   bounds: { width: number; height: number },
-  padding: number
+  padding: number,
+  minimumDistance: number
 ): { x: number; y: number } {
   const first = toRect(startX, startY, width, height);
-  if (withinBounds(first, bounds.width, bounds.height) && !collidesWithAny(first, placed, padding)) {
+  if (
+    minimumDistance === 0 &&
+    withinBounds(first, bounds.width, bounds.height) &&
+    !collidesWithAny(first, placed, padding)
+  ) {
     return { x: startX, y: startY };
   }
 
@@ -95,16 +99,21 @@ function findPosition(
   const maxRadius = Math.hypot(bounds.width, bounds.height);
 
   let angle = 0;
-  let radius = radiusGrowth;
+  let radius = Math.max(radiusGrowth, minimumDistance);
   let fallback = { x: startX, y: startY };
 
   while (radius < maxRadius) {
     const cx = startX + radius * Math.cos(angle);
     const cy = startY + radius * Math.sin(angle) * 0.62; // wider than tall, like most word clouds
     const candidate = toRect(cx, cy, width, height);
+    const distanceFromCenter = Math.hypot(cx - startX, cy - startY);
     fallback = { x: cx, y: cy };
 
-    if (withinBounds(candidate, bounds.width, bounds.height) && !collidesWithAny(candidate, placed, padding)) {
+    if (
+      distanceFromCenter >= minimumDistance &&
+      withinBounds(candidate, bounds.width, bounds.height) &&
+      !collidesWithAny(candidate, placed, padding)
+    ) {
       return { x: cx, y: cy };
     }
 
@@ -129,8 +138,7 @@ export function computeWordCloudLayout(
     padding?: number;
   }
 ): PlacedWord[] {
-  const { width, height, minFontSize, maxFontSize, measureText, previousPositions, padding = 6 } =
-    options;
+  const { width, height, minFontSize, maxFontSize, measureText, padding = 6 } = options;
   const centerX = width / 2;
   const centerY = height / 2;
 
@@ -145,6 +153,7 @@ export function computeWordCloudLayout(
   // top-left corner.
   const placed: PlacedWord[] = [];
   const placedRects: Rect[] = [];
+  let previousDistance = 0;
 
   for (const word of sorted) {
     const fontSize = fontSizeForCount(word.count, minFontSize, maxFontSize);
@@ -152,16 +161,18 @@ export function computeWordCloudLayout(
     const textHeight = fontSize * 1.25;
     const rotation = rotationForWord(word.text);
 
-    const prev = previousPositions?.get(word.id);
+    const minimumDistance = placed.length === 0 ? 0 : previousDistance + padding;
     const { x, y } = findPosition(
-      prev?.x ?? centerX,
-      prev?.y ?? centerY,
+      centerX,
+      centerY,
       textWidth,
       textHeight,
       placedRects,
       { width, height },
-      padding
+      padding,
+      minimumDistance
     );
+    previousDistance = Math.hypot(x - centerX, y - centerY);
 
     placed.push({
       ...word,

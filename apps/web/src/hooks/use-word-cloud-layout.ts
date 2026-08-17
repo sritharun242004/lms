@@ -22,15 +22,13 @@ function measureTextWidth(text: string, fontSize: number): number {
 interface LayoutState {
   key: string | null;
   placed: PlacedWord[];
-  positions: Map<string, { x: number; y: number }>;
 }
 
 /**
  * Lays out a word cloud's entries as collision-free positions, re-running
  * only when the entry set, size bounds, or container dimensions change.
- * Previously-placed words are re-seeded from their last position (not the
- * center) so the whole cloud doesn't jump around every time one word's
- * count changes.
+ * Every update is repacked from the center in count order so the dominant
+ * word remains central and progressively rarer words move outward.
  *
  * Recomputes via the "adjust state during render" pattern (comparing a
  * derived key against what's stored in state) rather than an effect, so
@@ -51,7 +49,6 @@ export function useWordCloudLayout(
   const [state, setState] = React.useState<LayoutState>({
     key: null,
     placed: [],
-    positions: new Map(),
   });
 
   if (state.key !== key) {
@@ -62,12 +59,10 @@ export function useWordCloudLayout(
         minFontSize,
         maxFontSize,
         measureText: measureTextWidth,
-        previousPositions: state.positions,
       });
-      const positions = new Map(placed.map((w) => [w.id, { x: w.x, y: w.y }]));
-      setState({ key, placed, positions });
+      setState({ key, placed });
     } else if (state.placed.length > 0 || state.key === null) {
-      setState({ key, placed: [], positions: state.positions });
+      setState({ key, placed: [] });
     }
   }
 

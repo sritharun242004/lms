@@ -133,19 +133,52 @@ describe("computeWordCloudLayout", () => {
     expect(big.fontSize).toBeGreaterThan(small.fontSize);
   });
 
-  it("keeps an unchanged word anchored near its previous position", () => {
-    const words = [{ id: "1", text: "stable", count: 5 }];
-    const previousPositions = new Map([["1", { x: 120, y: 80 }]]);
-    const [placed] = computeWordCloudLayout(words, {
-      width: 400,
-      height: 300,
+  it("anchors the highest-count word at the center when counts change", () => {
+    const words = [
+      { id: "high", text: "focus", count: 12 },
+      { id: "low", text: "edge", count: 1 },
+    ];
+    const previousPositions = new Map([
+      ["high", { x: 90, y: 70 }],
+      ["low", { x: 300, y: 200 }],
+    ]);
+    const placed = computeWordCloudLayout(words, {
+      width: 600,
+      height: 400,
       minFontSize: 16,
-      maxFontSize: 60,
+      maxFontSize: 72,
       measureText,
       previousPositions,
     });
-    expect(placed.x).toBe(120);
-    expect(placed.y).toBe(80);
+    const high = placed.find((word) => word.id === "high")!;
+    expect(high.x).toBe(300);
+    expect(high.y).toBe(200);
+  });
+
+  it("places lower-frequency words farther from the center", () => {
+    const words = [
+      { id: "high", text: "core", count: 12 },
+      { id: "medium", text: "middle", count: 5 },
+      { id: "low", text: "outer", count: 1 },
+    ];
+    const placed = computeWordCloudLayout(words, {
+      width: 800,
+      height: 600,
+      minFontSize: 16,
+      maxFontSize: 80,
+      measureText,
+      previousPositions: new Map([
+        ["high", { x: 100, y: 100 }],
+        ["medium", { x: 400, y: 300 }],
+        ["low", { x: 420, y: 300 }],
+      ]),
+    });
+    const distance = (id: string) => {
+      const word = placed.find((entry) => entry.id === id)!;
+      return Math.hypot(word.x - 400, word.y - 300);
+    };
+    expect(distance("high")).toBe(0);
+    expect(distance("medium")).toBeLessThanOrEqual(distance("low"));
   });
 
   it("returns an empty layout for no words", () => {
