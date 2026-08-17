@@ -20,14 +20,19 @@ interface Rect {
   height: number;
 }
 
-// The example targets in the spec (count 1 -> 24px ... count 50 -> 74px)
-// describe an *absolute* curve, not one relative to the current cloud's
-// min/max — so a word's size tracks its own count over time and never
-// jumps around just because a different word picked up more votes.
+// Use an absolute curve rather than one relative to the current cloud's
+// min/max, so a word tracks its own count over time and never jumps just
+// because another word received a response.
 const REFERENCE_MIN_COUNT = 1;
 const REFERENCE_MAX_COUNT = 50;
+export const WORD_CLOUD_MIN_FONT_SIZE = 14;
+export const WORD_CLOUD_MAX_FONT_SIZE = 148;
 
-export function fontSizeForCount(count: number, minSize: number, maxSize: number): number {
+export function fontSizeForCount(
+  count: number,
+  minSize = WORD_CLOUD_MIN_FONT_SIZE,
+  maxSize = WORD_CLOUD_MAX_FONT_SIZE
+): number {
   const clamped = Math.max(REFERENCE_MIN_COUNT, Math.min(count, REFERENCE_MAX_COUNT));
   const ratio =
     (Math.sqrt(clamped) - Math.sqrt(REFERENCE_MIN_COUNT)) /

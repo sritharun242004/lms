@@ -1,15 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import type { WordCloudEntryResult } from "@/lib/api/services/message-service";
 import { useWordCloudLayout } from "@/hooks/use-word-cloud-layout";
 import { hslForHue } from "@/lib/word-cloud/color";
+import {
+  WORD_CLOUD_MAX_FONT_SIZE,
+  WORD_CLOUD_MIN_FONT_SIZE,
+} from "@/lib/word-cloud/layout";
 import { cn } from "@/lib/utils";
-
-const MIN_FONT_SIZE = 24;
-const MAX_FONT_SIZE = 74;
 
 function useContainerSize<T extends HTMLElement>() {
   const ref = React.useRef<T>(null);
@@ -29,14 +30,32 @@ function useContainerSize<T extends HTMLElement>() {
   return { ref, size };
 }
 
-/** Replays a brief grow-and-settle pulse whenever `pulseKey` changes. */
-function Pulse({ pulseKey, children }: { pulseKey: string; children: React.ReactNode }) {
+/** Replays a brief rise, burst, and settle whenever a word's count changes. */
+function PopcornBurst({
+  pulseKey,
+  reduceMotion,
+  children,
+}: {
+  pulseKey: string;
+  reduceMotion: boolean;
+  children: React.ReactNode;
+}) {
+  if (reduceMotion) return <tspan>{children}</tspan>;
+
   return (
     <motion.tspan
       key={pulseKey}
-      initial={{ scale: 1 }}
-      animate={{ scale: [1, 1.22, 1] }}
-      transition={{ duration: 0.45, ease: "easeOut" }}
+      initial={{ opacity: 0.72, scale: 0.88, y: 6 }}
+      animate={{
+        opacity: [0.72, 1, 1, 1],
+        scale: [0.88, 1.48, 0.96, 1],
+        y: [6, -8, 2, 0],
+      }}
+      transition={{
+        duration: 0.46,
+        times: [0, 0.32, 0.7, 1],
+        ease: [0.16, 1, 0.3, 1],
+      }}
       style={{ transformBox: "fill-box", transformOrigin: "center" }}
     >
       {children}
@@ -54,17 +73,23 @@ export function WordCloudCanvas({
   const { ref, size } = useContainerSize<HTMLDivElement>();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reduceMotion = useReducedMotion();
 
   const words = React.useMemo(
     () => entries.map((e) => ({ id: e.id, text: e.text, count: e.count })),
     [entries]
   );
 
+  const responsiveMaxFontSize = Math.min(
+    WORD_CLOUD_MAX_FONT_SIZE,
+    Math.max(88, Math.round(size.width * 0.3))
+  );
+
   const placed = useWordCloudLayout(words, {
     width: size.width,
     height: size.height,
-    minFontSize: MIN_FONT_SIZE,
-    maxFontSize: MAX_FONT_SIZE,
+    minFontSize: WORD_CLOUD_MIN_FONT_SIZE,
+    maxFontSize: responsiveMaxFontSize,
   });
 
   const colorById = React.useMemo(
@@ -94,19 +119,23 @@ export function WordCloudCanvas({
             {placed.map((word) => (
               <motion.text
                 key={word.id}
-                initial={{ opacity: 0, scale: 0, x: word.x, y: word.y }}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.9, x: word.x, y: word.y }}
                 animate={{
                   opacity: 1,
                   scale: 1,
                   x: word.x,
                   y: word.y,
-                  fontSize: `${word.fontSize}px`,
                   rotate: word.rotation,
                 }}
-                exit={{ opacity: 0, scale: 0 }}
-                transition={{ type: "spring", stiffness: 170, damping: 20 }}
+                exit={reduceMotion ? undefined : { opacity: 0, scale: 0.96 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 210, damping: 24, mass: 0.8 }
+                }
                 textAnchor="middle"
                 dominantBaseline="middle"
+                fontSize={word.fontSize}
                 fontWeight={600}
                 fill={colorById.get(word.id)}
                 style={{ transformBox: "fill-box", transformOrigin: "center", cursor: "default" }}
@@ -114,7 +143,12 @@ export function WordCloudCanvas({
                 <title>
                   {word.text} · {word.count} {word.count === 1 ? "mention" : "mentions"}
                 </title>
-                <Pulse pulseKey={`${word.id}:${word.count}`}>{word.text}</Pulse>
+                <PopcornBurst
+                  pulseKey={`${word.id}:${word.count}`}
+                  reduceMotion={Boolean(reduceMotion)}
+                >
+                  {word.text}
+                </PopcornBurst>
               </motion.text>
             ))}
           </AnimatePresence>

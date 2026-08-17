@@ -4,6 +4,11 @@ import { computeWordCloudLayout, fontSizeForCount, rotationForWord } from "./lay
 const measureText = (text: string, fontSize: number) => text.length * fontSize * 0.6;
 
 describe("fontSizeForCount", () => {
+  it("uses an optimized default range that shrinks rare words and doubles the former maximum", () => {
+    expect(fontSizeForCount(1)).toBe(14);
+    expect(fontSizeForCount(50)).toBe(148);
+  });
+
   it("maps the minimum reference count to minSize", () => {
     expect(fontSizeForCount(1, 24, 74)).toBe(24);
   });
