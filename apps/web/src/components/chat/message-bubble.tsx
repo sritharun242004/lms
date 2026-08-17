@@ -185,8 +185,8 @@ export function MessageBubble({
     toast.success("Message copied");
   }
 
-  // Mentees get bigger, always-visible download controls. Copy is kept
-  // inside the message bubble for every role so it stays easy to reach.
+  // Management actions stay compact in their hover/long-press toolbar.
+  // Copy and download use the larger outside controls for every role.
   const btnSize = canManage ? "size-6" : "size-8";
   const iconSize = canManage ? "size-3" : "size-4";
   // Copy only makes sense for actual text — file/document messages are
@@ -284,20 +284,37 @@ export function MessageBubble({
             )}
             </div>
 
-            {canCopy && !isEditing && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-10 shrink-0 rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:bg-accent"
-                aria-label="Copy message"
-                onClick={copyMessage}
-              >
-                <Copy className="size-5" />
-              </Button>
+            {!isEditing && (canCopy || message.attachmentUrl) && (
+              <div className="flex shrink-0 items-center gap-1">
+                {canCopy && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-10 rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:bg-accent"
+                    aria-label="Copy message"
+                    onClick={copyMessage}
+                  >
+                    <Copy className="size-5" />
+                  </Button>
+                )}
+                {message.attachmentUrl && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-10 rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:bg-accent"
+                    aria-label="Download file"
+                    asChild
+                  >
+                    <a href={message.attachmentUrl} download={message.attachmentName ?? undefined}>
+                      <Download className="size-5" />
+                    </a>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
-          {!isEditing && (message.attachmentUrl || canManage) && (
+          {!isEditing && canManage && (
             <div
               className={cn(
                 "mt-1 flex w-fit items-center gap-0.5 rounded-lg border border-primary/35 bg-card p-0.5 shadow-sm transition-opacity",
@@ -307,13 +324,6 @@ export function MessageBubble({
                 isOwn ? "ml-auto" : "mr-auto"
               )}
             >
-              {message.attachmentUrl && (
-                <Button size="icon" className={btnSize} variant="ghost" aria-label="Download file" asChild>
-                  <a href={message.attachmentUrl} download={message.attachmentName ?? undefined}>
-                    <Download className={iconSize} />
-                  </a>
-                </Button>
-              )}
               {canManage && (
                 <Button
                   size="icon"

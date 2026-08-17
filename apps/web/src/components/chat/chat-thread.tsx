@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { JoinToast } from "@/components/chat/join-toast";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { PollFormDialog } from "@/components/chat/poll-form-dialog";
 import { PollMessage } from "@/components/chat/poll-message";
@@ -472,20 +473,21 @@ export function ChatThread({
             }
           />
         ) : (
-          <>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <Avatar>
               <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold">{displayGroupName}</span>
-              {displayGroupDescription && <span className="text-xs text-muted-foreground">{displayGroupDescription}</span>}
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-semibold">{displayGroupName}</span>
+              {displayGroupDescription && <span className="truncate text-xs text-muted-foreground">{displayGroupDescription}</span>}
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Users className="size-3" />
                 {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
               </span>
             </div>
-          </>
+          </div>
         )}
+        {!canManage && <ThemeToggle />}
       </div>
 
       <div
