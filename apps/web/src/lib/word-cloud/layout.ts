@@ -66,6 +66,10 @@ function withinBounds(r: Rect, width: number, height: number): boolean {
   return r.x >= 0 && r.y >= 0 && r.x + r.width <= width && r.y + r.height <= height;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 function collidesWithAny(candidate: Rect, placed: Rect[], padding: number): boolean {
   return placed.some((p) => overlaps(candidate, p, padding));
 }
@@ -123,7 +127,10 @@ function findPosition(
 
   // Bounds exhausted (very crowded cloud) — place it anyway rather than
   // looping forever; a little overlap beats a word that never appears.
-  return fallback;
+  return {
+    x: clamp(fallback.x, width / 2, bounds.width - width / 2),
+    y: clamp(fallback.y, height / 2, bounds.height - height / 2),
+  };
 }
 
 export function computeWordCloudLayout(
@@ -156,7 +163,16 @@ export function computeWordCloudLayout(
   let previousDistance = 0;
 
   for (const word of sorted) {
-    const fontSize = fontSizeForCount(word.count, minFontSize, maxFontSize);
+    const requestedFontSize = fontSizeForCount(word.count, minFontSize, maxFontSize);
+    const requestedWidth = measureText(word.text, requestedFontSize);
+    const usableWidth = Math.max(1, width - padding * 2);
+    const usableHeight = Math.max(1, height - padding * 2);
+    const fitScale = Math.min(
+      1,
+      usableWidth / Math.max(1, requestedWidth),
+      usableHeight / Math.max(1, requestedFontSize * 1.25)
+    );
+    const fontSize = Math.max(1, Math.floor(requestedFontSize * fitScale));
     const textWidth = measureText(word.text, fontSize);
     const textHeight = fontSize * 1.25;
     const rotation = rotationForWord(word.text);

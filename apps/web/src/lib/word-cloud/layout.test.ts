@@ -116,6 +116,45 @@ describe("computeWordCloudLayout", () => {
     expect(new Set(placed.map((p) => p.id)).size).toBe(words.length);
   });
 
+  it("scales an oversized repeated word down to remain inside the canvas", () => {
+    const [placed] = computeWordCloudLayout(
+      [{ id: "wide", text: "extraordinary", count: 12 }],
+      {
+        width: 300,
+        height: 180,
+        minFontSize: 14,
+        maxFontSize: 220,
+        measureText,
+      }
+    );
+    expect(placed.x - placed.width / 2).toBeGreaterThanOrEqual(0);
+    expect(placed.x + placed.width / 2).toBeLessThanOrEqual(300);
+    expect(placed.y - placed.height / 2).toBeGreaterThanOrEqual(0);
+    expect(placed.y + placed.height / 2).toBeLessThanOrEqual(180);
+  });
+
+  it("keeps every word inside the canvas when the cloud is crowded", () => {
+    const words = Array.from({ length: 18 }, (_, index) => ({
+      id: String(index),
+      text: `response${index}`,
+      count: Math.max(1, 12 - index),
+    }));
+    const placed = computeWordCloudLayout(words, {
+      width: 420,
+      height: 260,
+      minFontSize: 14,
+      maxFontSize: 120,
+      measureText,
+      padding: 4,
+    });
+    for (const word of placed) {
+      expect(word.x - word.width / 2).toBeGreaterThanOrEqual(0);
+      expect(word.x + word.width / 2).toBeLessThanOrEqual(420);
+      expect(word.y - word.height / 2).toBeGreaterThanOrEqual(0);
+      expect(word.y + word.height / 2).toBeLessThanOrEqual(260);
+    }
+  });
+
   it("gives the highest-count word the largest font size", () => {
     const words = [
       { id: "small", text: "small", count: 1 },
