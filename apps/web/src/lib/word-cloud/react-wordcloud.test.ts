@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,6 +10,17 @@ import {
 } from './react-wordcloud';
 
 describe('deterministic word-cloud adapter', () => {
+  it('migrates the canvas to the client-only package renderer', () => {
+    const canvasSource = readFileSync(
+      fileURLToPath(new URL('../../components/chat/word-cloud-canvas.tsx', import.meta.url)),
+      'utf8'
+    );
+
+    expect(canvasSource).toContain('import("@cp949/react-wordcloud")');
+    expect(canvasSource).toContain('toWordcloudWords');
+    expect(canvasSource).not.toContain('useWordCloudLayout');
+  });
+
   it('sorts by descending count, then case-insensitive text, then id', () => {
     const words = toWordcloudWords([
       { id: 'z', text: 'beta', count: 2, color: '#333' },
