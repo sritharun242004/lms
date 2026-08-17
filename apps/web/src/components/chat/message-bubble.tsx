@@ -216,14 +216,15 @@ export function MessageBubble({
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <div
-            className={cn(
-              "rounded-xl px-3.5 py-2 text-sm",
-              isOwn
-                ? "rounded-br-sm bg-primary text-primary-foreground"
-                : "rounded-bl-sm bg-muted text-foreground"
-            )}
-          >
+          <div className="flex items-end gap-2">
+            <div
+              className={cn(
+                "rounded-xl px-3.5 py-2 text-sm",
+                isOwn
+                  ? "rounded-br-sm bg-primary text-primary-foreground"
+                  : "rounded-bl-sm bg-muted text-foreground"
+              )}
+            >
             {message.isPinned && (
               <span className="mb-1 flex items-center gap-1 text-xs opacity-80">
                 <Pin className="size-3" />
@@ -262,23 +263,10 @@ export function MessageBubble({
                 </div>
               </div>
             ) : (
-              <div className="flex items-end gap-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <AttachmentPreview message={message} />
-                  {message.content && (
-                    <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
-                  )}
-                </div>
-                {canCopy && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-10 shrink-0 rounded-lg bg-background/85 text-foreground shadow-sm hover:bg-background"
-                    aria-label="Copy message"
-                    onClick={copyMessage}
-                  >
-                    <Copy className="size-5" />
-                  </Button>
+              <div className="flex min-w-0 flex-col gap-2">
+                <AttachmentPreview message={message} />
+                {message.content && (
+                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
                 )}
               </div>
             )}
@@ -293,6 +281,19 @@ export function MessageBubble({
                 {message.isEdited && "edited · "}
                 {format(new Date(message.createdAt), "h:mm a")}
               </span>
+            )}
+            </div>
+
+            {canCopy && !isEditing && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-10 shrink-0 rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:bg-accent"
+                aria-label="Copy message"
+                onClick={copyMessage}
+              >
+                <Copy className="size-5" />
+              </Button>
             )}
           </div>
 
