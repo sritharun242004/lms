@@ -82,7 +82,7 @@ export function ChatThread({
   canManage: boolean;
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
-  backHref: string;
+  backHref: string | null;
 }) {
   const [messages, setMessages] = React.useState(initialMessages);
   const searchParams = useSearchParams();
@@ -440,11 +440,13 @@ export function ChatThread({
         />
       )}
       <div className="flex items-center gap-3 border-b border-border/60 bg-white/28 px-4 py-3 backdrop-blur-xl dark:bg-white/[.02]">
-        <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>
-          <Link href={backHref} aria-label="Back">
-            <ArrowLeft className="size-4" />
-          </Link>
-        </Button>
+        {backHref && (
+          <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>
+            <Link href={backHref} aria-label="Back">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+        )}
         {canManage ? (
           <GroupMembersDialog
             groupId={groupId}

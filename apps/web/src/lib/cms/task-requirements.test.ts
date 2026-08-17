@@ -17,10 +17,9 @@ describe("focused group navigation", () => {
     expect(isFocusedGroupPath("/dashboard")).toBe(false);
   });
 
-  it("returns managers to the dashboard and participants to their available group exit", () => {
-    expect(chatBackHref(true, 5)).toBe("/dashboard");
-    expect(chatBackHref(false, 3)).toBe("/chat");
-    expect(chatBackHref(false, 1)).toBe("/");
+  it("returns managers to the dashboard and hides back navigation for participants", () => {
+    expect(chatBackHref(true)).toBe("/dashboard");
+    expect(chatBackHref(false)).toBeNull();
   });
 });
 

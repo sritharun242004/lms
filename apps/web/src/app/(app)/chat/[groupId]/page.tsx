@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
-import { getJoinedGroupCount } from "@/lib/groups/queries";
 import { getGroupHeader, getInitialMessages } from "@/lib/messages/queries";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { chatBackHref } from "@/lib/cms/task-requirements";
@@ -23,8 +22,6 @@ export default async function GroupChatPage({
 
   const { messages, hasMore } = await getInitialMessages(groupId, user.id);
 
-  const joinedGroupCount = access.canManage ? 0 : await getJoinedGroupCount(user.id);
-
   return (
     <ChatThread
       key={groupId}
@@ -36,7 +33,7 @@ export default async function GroupChatPage({
       canManage={access.canManage}
       initialMessages={messages}
       initialHasMore={hasMore}
-      backHref={chatBackHref(access.canManage, joinedGroupCount)}
+      backHref={chatBackHref(access.canManage)}
     />
   );
 }

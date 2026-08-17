@@ -4,9 +4,8 @@ export function isFocusedGroupPath(pathname: string): boolean {
   return /^\/chat\/[^/]+\/?$/.test(pathname);
 }
 
-export function chatBackHref(canManage: boolean, joinedGroupCount: number): string {
-  if (canManage) return "/dashboard";
-  return joinedGroupCount > 1 ? "/chat" : "/";
+export function chatBackHref(canManage: boolean): string | null {
+  return canManage ? "/dashboard" : null;
 }
 
 export function visibleRoleLabel(role: UserRole | string): string {
