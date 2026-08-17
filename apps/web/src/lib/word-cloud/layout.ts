@@ -66,10 +66,6 @@ function withinBounds(r: Rect, width: number, height: number): boolean {
   return r.x >= 0 && r.y >= 0 && r.x + r.width <= width && r.y + r.height <= height;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
 function collidesWithAny(candidate: Rect, placed: Rect[], padding: number): boolean {
   return placed.some((p) => overlaps(candidate, p, padding));
 }
@@ -88,7 +84,7 @@ function findPosition(
   bounds: { width: number; height: number },
   padding: number,
   minimumDistance: number
-): { x: number; y: number } {
+): { x: number; y: number } | null {
   const first = toRect(startX, startY, width, height);
   if (
     minimumDistance === 0 &&
@@ -104,15 +100,11 @@ function findPosition(
 
   let angle = 0;
   let radius = Math.max(radiusGrowth, minimumDistance);
-  let fallback = { x: startX, y: startY };
-
   while (radius < maxRadius) {
     const cx = startX + radius * Math.cos(angle);
     const cy = startY + radius * Math.sin(angle) * 0.62; // wider than tall, like most word clouds
     const candidate = toRect(cx, cy, width, height);
     const distanceFromCenter = Math.hypot(cx - startX, cy - startY);
-    fallback = { x: cx, y: cy };
-
     if (
       distanceFromCenter >= minimumDistance &&
       withinBounds(candidate, bounds.width, bounds.height) &&
@@ -125,11 +117,24 @@ function findPosition(
     radius += (radiusGrowth * angleStep) / (2 * Math.PI);
   }
 
-  // Bounds exhausted (very crowded cloud) — place it anyway rather than
-  // looping forever; a little overlap beats a word that never appears.
+  return null;
+}
+
+function scaledWord(
+  word: WordLayoutInput,
+  scale: number,
+  minFontSize: number,
+  maxFontSize: number,
+  measureText: (text: string, fontSize: number) => number
+) {
+  const requested = fontSizeForCount(word.count, minFontSize, maxFontSize);
+  const fontSize = Math.max(1, Math.floor(requested * scale));
   return {
-    x: clamp(fallback.x, width / 2, bounds.width - width / 2),
-    y: clamp(fallback.y, height / 2, bounds.height - height / 2),
+    ...word,
+    fontSize,
+    width: measureText(word.text, fontSize),
+    height: fontSize * 1.25,
+    rotation: rotationForWord(word.text),
   };
 }
 
@@ -145,7 +150,15 @@ export function computeWordCloudLayout(
     padding?: number;
   }
 ): PlacedWord[] {
-  const { width, height, minFontSize, maxFontSize, measureText, padding = 6 } = options;
+  const {
+    width,
+    height,
+    minFontSize,
+    maxFontSize,
+    measureText,
+    previousPositions,
+    padding = 6,
+  } = options;
   const centerX = width / 2;
   const centerY = height / 2;
 
@@ -153,54 +166,104 @@ export function computeWordCloudLayout(
   // smaller ones fill in around them.
   const sorted = [...words].sort((a, b) => b.count - a.count);
 
-  // `placed` holds each word's center (what callers/rendering use); collision
-  // checks need top-left rects instead, so those are tracked separately —
-  // conflating the two under the same x/y previously let words overlap
-  // because a placed word's *center* was compared as if it were a rect's
-  // top-left corner.
-  const placed: PlacedWord[] = [];
-  const placedRects: Rect[] = [];
-  let previousDistance = 0;
+  if (sorted.length === 0) return [];
 
-  for (const word of sorted) {
-    const requestedFontSize = fontSizeForCount(word.count, minFontSize, maxFontSize);
-    const requestedWidth = measureText(word.text, requestedFontSize);
-    const usableWidth = Math.max(1, width - padding * 2);
-    const usableHeight = Math.max(1, height - padding * 2);
-    const fitScale = Math.min(
-      1,
-      usableWidth / Math.max(1, requestedWidth),
-      usableHeight / Math.max(1, requestedFontSize * 1.25)
-    );
-    const fontSize = Math.max(1, Math.floor(requestedFontSize * fitScale));
-    const textWidth = measureText(word.text, fontSize);
-    const textHeight = fontSize * 1.25;
-    const rotation = rotationForWord(word.text);
+  // Preserve the existing slots. If leadership changes, swap the former
+  // center word into the new leader's old slot; every other word remains
+  // exactly where it was.
+  const targets = new Map<string, { x: number; y: number }>();
+  const dominant = sorted[0];
+  targets.set(dominant.id, { x: centerX, y: centerY });
 
-    const minimumDistance = placed.length === 0 ? 0 : previousDistance + padding;
-    const { x, y } = findPosition(
-      centerX,
-      centerY,
-      textWidth,
-      textHeight,
-      placedRects,
-      { width, height },
-      padding,
-      minimumDistance
-    );
-    previousDistance = Math.hypot(x - centerX, y - centerY);
+  if (previousPositions?.size) {
+    const activePrevious = sorted.filter((word) => previousPositions.has(word.id));
+    const previousCenter = activePrevious.reduce<WordLayoutInput | null>((closest, word) => {
+      if (!closest) return word;
+      const point = previousPositions.get(word.id)!;
+      const closestPoint = previousPositions.get(closest.id)!;
+      return Math.hypot(point.x - centerX, point.y - centerY) <
+        Math.hypot(closestPoint.x - centerX, closestPoint.y - centerY)
+        ? word
+        : closest;
+    }, null);
+    const dominantPrevious = previousPositions.get(dominant.id);
 
-    placed.push({
-      ...word,
-      x,
-      y,
-      width: textWidth,
-      height: textHeight,
-      fontSize,
-      rotation,
-    });
-    placedRects.push(toRect(x, y, textWidth, textHeight));
+    for (const word of activePrevious) {
+      if (word.id !== dominant.id && word.id !== previousCenter?.id) {
+        targets.set(word.id, previousPositions.get(word.id)!);
+      }
+    }
+    if (previousCenter && previousCenter.id !== dominant.id && dominantPrevious) {
+      targets.set(previousCenter.id, dominantPrevious);
+    }
   }
 
+  // Retry the whole cloud at a smaller uniform scale when any requested size
+  // would overlap. This guarantees visibility without changing stable slots.
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const scale = Math.pow(0.92, attempt);
+    const placed: PlacedWord[] = [];
+    const placedRects: Rect[] = [];
+    let failed = false;
+    let previousDistance = 0;
+
+    for (const word of sorted) {
+      const dimensions = scaledWord(word, scale, minFontSize, maxFontSize, measureText);
+      const fixed = targets.get(word.id);
+      let position: { x: number; y: number } | null = fixed ?? null;
+
+      if (fixed) {
+        const fixedRect = toRect(fixed.x, fixed.y, dimensions.width, dimensions.height);
+        if (
+          !withinBounds(fixedRect, width, height) ||
+          collidesWithAny(fixedRect, placedRects, padding)
+        ) {
+          failed = true;
+          break;
+        }
+      } else {
+        position = findPosition(
+          centerX,
+          centerY,
+          dimensions.width,
+          dimensions.height,
+          placedRects,
+          { width, height },
+          padding,
+          previousDistance + padding
+        );
+        if (!position) {
+          failed = true;
+          break;
+        }
+      }
+
+      previousDistance = Math.max(
+        previousDistance,
+        Math.hypot(position!.x - centerX, position!.y - centerY)
+      );
+      placed.push({ ...dimensions, x: position!.x, y: position!.y });
+      placedRects.push(toRect(position!.x, position!.y, dimensions.width, dimensions.height));
+    }
+
+    if (!failed && placed.length === sorted.length) return placed;
+  }
+
+  // A 1px retry is a deterministic last resort for extremely small canvases.
+  // It still uses collision checks and never intentionally overlays entries.
+  const placed: PlacedWord[] = [];
+  const rects: Rect[] = [];
+  for (const word of sorted) {
+    const dimensions = scaledWord(word, 0, minFontSize, maxFontSize, measureText);
+    const fixed = targets.get(word.id);
+    const position =
+      fixed ??
+      findPosition(centerX, centerY, dimensions.width, dimensions.height, rects, { width, height }, 0, 0);
+    if (!position) continue;
+    const rect = toRect(position.x, position.y, dimensions.width, dimensions.height);
+    if (!withinBounds(rect, width, height) || collidesWithAny(rect, rects, 0)) continue;
+    placed.push({ ...dimensions, x: position.x, y: position.y });
+    rects.push(rect);
+  }
   return placed;
 }

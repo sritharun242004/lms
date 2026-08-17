@@ -3,6 +3,25 @@ import { computeWordCloudLayout, fontSizeForCount, rotationForWord } from "./lay
 
 const measureText = (text: string, fontSize: number) => text.length * fontSize * 0.6;
 
+function expectNoOverlaps(placed: ReturnType<typeof computeWordCloudLayout>) {
+  const bounds = placed.map((word) => ({
+    left: word.x - word.width / 2,
+    right: word.x + word.width / 2,
+    top: word.y - word.height / 2,
+    bottom: word.y + word.height / 2,
+  }));
+
+  for (let i = 0; i < bounds.length; i++) {
+    for (let j = i + 1; j < bounds.length; j++) {
+      const a = bounds[i];
+      const b = bounds[j];
+      expect(
+        a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top
+      ).toBe(true);
+    }
+  }
+}
+
 describe("fontSizeForCount", () => {
   it("uses a high-contrast default range for rare and repeated words", () => {
     expect(fontSizeForCount(1)).toBe(14);
@@ -76,28 +95,10 @@ describe("computeWordCloudLayout", () => {
       padding: 4,
     });
 
-    // x/y are each word's center (the canvas renders with textAnchor="middle"),
-    // so convert to top-left bounds before checking for overlap.
-    const bounds = placed.map((p) => ({
-      left: p.x - p.width / 2,
-      right: p.x + p.width / 2,
-      top: p.y - p.height / 2,
-      bottom: p.y + p.height / 2,
-    }));
-
-    for (let i = 0; i < bounds.length; i++) {
-      for (let j = i + 1; j < bounds.length; j++) {
-        const a = bounds[i];
-        const b = bounds[j];
-        const overlaps = !(
-          a.right < b.left || b.right < a.left || a.bottom < b.top || b.bottom < a.top
-        );
-        expect(overlaps).toBe(false);
-      }
-    }
+    expectNoOverlaps(placed);
   });
 
-  it("still places every word when the canvas is too crowded to avoid overlap", () => {
+  it("shrinks a crowded cloud until every word fits without overlap", () => {
     const words = Array.from({ length: 12 }, (_, i) => ({
       id: String(i),
       text: `word${i}`,
@@ -114,6 +115,7 @@ describe("computeWordCloudLayout", () => {
 
     expect(placed).toHaveLength(words.length);
     expect(new Set(placed.map((p) => p.id)).size).toBe(words.length);
+    expectNoOverlaps(placed);
   });
 
   it("scales an oversized repeated word down to remain inside the canvas", () => {
@@ -153,6 +155,7 @@ describe("computeWordCloudLayout", () => {
       expect(word.y - word.height / 2).toBeGreaterThanOrEqual(0);
       expect(word.y + word.height / 2).toBeLessThanOrEqual(260);
     }
+    expectNoOverlaps(placed);
   });
 
   it("gives the highest-count word the largest font size", () => {
@@ -194,6 +197,71 @@ describe("computeWordCloudLayout", () => {
     expect(high.y).toBe(200);
   });
 
+  it("keeps positions fixed when counts grow without changing the dominant word", () => {
+    const initial = computeWordCloudLayout(
+      [
+        { id: "core", text: "mohan", count: 8 },
+        { id: "left", text: "design", count: 3 },
+        { id: "right", text: "coach", count: 1 },
+      ],
+      { width: 700, height: 420, minFontSize: 14, maxFontSize: 100, measureText }
+    );
+    const previousPositions = new Map(initial.map(({ id, x, y }) => [id, { x, y }]));
+    const updated = computeWordCloudLayout(
+      [
+        { id: "core", text: "mohan", count: 10 },
+        { id: "left", text: "design", count: 5 },
+        { id: "right", text: "coach", count: 2 },
+      ],
+      {
+        width: 700,
+        height: 420,
+        minFontSize: 14,
+        maxFontSize: 100,
+        measureText,
+        previousPositions,
+      }
+    );
+
+    for (const word of updated) {
+      expect({ x: word.x, y: word.y }).toEqual(previousPositions.get(word.id));
+    }
+    expectNoOverlaps(updated);
+  });
+
+  it("swaps a new dominant word into the center without moving other words", () => {
+    const initial = computeWordCloudLayout(
+      [
+        { id: "old", text: "mohan", count: 8 },
+        { id: "new", text: "logesh", count: 4 },
+        { id: "other", text: "coach", count: 2 },
+      ],
+      { width: 700, height: 420, minFontSize: 14, maxFontSize: 100, measureText }
+    );
+    const prior = new Map(initial.map(({ id, x, y }) => [id, { x, y }]));
+    const updated = computeWordCloudLayout(
+      [
+        { id: "old", text: "mohan", count: 8 },
+        { id: "new", text: "logesh", count: 12 },
+        { id: "other", text: "coach", count: 2 },
+      ],
+      {
+        width: 700,
+        height: 420,
+        minFontSize: 14,
+        maxFontSize: 100,
+        measureText,
+        previousPositions: prior,
+      }
+    );
+    const byId = new Map(updated.map((word) => [word.id, word]));
+
+    expect({ x: byId.get("new")!.x, y: byId.get("new")!.y }).toEqual({ x: 350, y: 210 });
+    expect({ x: byId.get("old")!.x, y: byId.get("old")!.y }).toEqual(prior.get("new"));
+    expect({ x: byId.get("other")!.x, y: byId.get("other")!.y }).toEqual(prior.get("other"));
+    expectNoOverlaps(updated);
+  });
+
   it("places lower-frequency words farther from the center", () => {
     const words = [
       { id: "high", text: "core", count: 12 },
@@ -206,11 +274,6 @@ describe("computeWordCloudLayout", () => {
       minFontSize: 16,
       maxFontSize: 80,
       measureText,
-      previousPositions: new Map([
-        ["high", { x: 100, y: 100 }],
-        ["medium", { x: 400, y: 300 }],
-        ["low", { x: 420, y: 300 }],
-      ]),
     });
     const distance = (id: string) => {
       const word = placed.find((entry) => entry.id === id)!;
