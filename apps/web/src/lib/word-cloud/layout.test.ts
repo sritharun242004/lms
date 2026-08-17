@@ -4,9 +4,15 @@ import { computeWordCloudLayout, fontSizeForCount, rotationForWord } from "./lay
 const measureText = (text: string, fontSize: number) => text.length * fontSize * 0.6;
 
 describe("fontSizeForCount", () => {
-  it("uses an optimized default range that shrinks rare words and doubles the former maximum", () => {
+  it("uses a high-contrast default range for rare and repeated words", () => {
     expect(fontSizeForCount(1)).toBe(14);
-    expect(fontSizeForCount(50)).toBe(148);
+    expect(fontSizeForCount(12)).toBe(220);
+  });
+
+  it("makes repeated words visibly larger after only a few mentions", () => {
+    expect(fontSizeForCount(2)).toBeGreaterThanOrEqual(48);
+    expect(fontSizeForCount(5)).toBeGreaterThanOrEqual(110);
+    expect(fontSizeForCount(5) - fontSizeForCount(1)).toBeGreaterThanOrEqual(96);
   });
 
   it("maps the minimum reference count to minSize", () => {
@@ -30,15 +36,9 @@ describe("fontSizeForCount", () => {
 });
 
 describe("rotationForWord", () => {
-  it("is deterministic for the same text", () => {
-    expect(rotationForWord("creative")).toBe(rotationForWord("creative"));
-  });
-
-  it("stays within roughly -6deg..+6deg", () => {
+  it("keeps every word horizontal", () => {
     for (const word of ["a", "creative", "innovative", "well-being"]) {
-      const rotation = rotationForWord(word);
-      expect(rotation).toBeGreaterThanOrEqual(-6);
-      expect(rotation).toBeLessThanOrEqual(6);
+      expect(rotationForWord(word)).toBe(0);
     }
   });
 });

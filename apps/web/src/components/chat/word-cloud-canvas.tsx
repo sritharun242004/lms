@@ -82,7 +82,7 @@ export function WordCloudCanvas({
 
   const responsiveMaxFontSize = Math.min(
     WORD_CLOUD_MAX_FONT_SIZE,
-    Math.max(88, Math.round(size.width * 0.3))
+    Math.max(148, Math.round(size.width * 0.42))
   );
 
   const placed = useWordCloudLayout(words, {

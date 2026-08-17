@@ -24,9 +24,9 @@ interface Rect {
 // min/max, so a word tracks its own count over time and never jumps just
 // because another word received a response.
 const REFERENCE_MIN_COUNT = 1;
-const REFERENCE_MAX_COUNT = 50;
+const REFERENCE_MAX_COUNT = 12;
 export const WORD_CLOUD_MIN_FONT_SIZE = 14;
-export const WORD_CLOUD_MAX_FONT_SIZE = 148;
+export const WORD_CLOUD_MAX_FONT_SIZE = 220;
 
 export function fontSizeForCount(
   count: number,
@@ -34,18 +34,19 @@ export function fontSizeForCount(
   maxSize = WORD_CLOUD_MAX_FONT_SIZE
 ): number {
   const clamped = Math.max(REFERENCE_MIN_COUNT, Math.min(count, REFERENCE_MAX_COUNT));
-  const ratio =
-    (Math.sqrt(clamped) - Math.sqrt(REFERENCE_MIN_COUNT)) /
-    (Math.sqrt(REFERENCE_MAX_COUNT) - Math.sqrt(REFERENCE_MIN_COUNT));
+  const linearRatio =
+    (clamped - REFERENCE_MIN_COUNT) /
+    (REFERENCE_MAX_COUNT - REFERENCE_MIN_COUNT);
+  // Accelerate the first few repetitions so frequency changes are obvious
+  // during a live session instead of becoming visible only at high counts.
+  const ratio = Math.pow(linearRatio, 0.72);
   return Math.round(minSize + (maxSize - minSize) * ratio);
 }
 
-// A word's tilt is derived from its own text, never re-randomized, so it
-// stays fixed across re-layouts instead of jittering as counts change.
+// Keep every response horizontal for fast scanning and consistent alignment.
 export function rotationForWord(text: string): number {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) | 0;
-  return ((Math.abs(hash) % 21) - 10) * 0.6; // roughly -6deg..+6deg
+  void text;
+  return 0;
 }
 
 function toRect(cx: number, cy: number, width: number, height: number): Rect {
