@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="relative z-10 flex min-h-svh flex-col gap-6 p-5 sm:p-8 md:p-10 lg:p-12">
         <div className="flex justify-center md:justify-start">
           <Link href="/" className="flex items-center gap-3 font-semibold tracking-wide">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(71,102,75,.22)]">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(37,99,235,.22)]">
               <MessagesSquare className="size-4" />
             </span>
             AI Empowerment

@@ -27,7 +27,7 @@ export default async function AppLayout({
           <div className="flex items-center gap-2">
             <MobileNav isMentee={isMentee} isSuperAdmin={user.role === "ADMIN"} />
             <Link href={homeHref} className="flex items-center gap-2 font-semibold">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_24px_rgba(71,102,75,.2)]">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_24px_rgba(37,99,235,.2)]">
                 <MessagesSquare className="size-4" />
               </span>
               <span className="hidden sm:inline">AI Empowerment</span>
