@@ -185,9 +185,8 @@ export function MessageBubble({
     toast.success("Message copied");
   }
 
-  // Mentees get bigger, always-visible copy/download controls so they can
-  // grab any message or file with an easy tap; mentors keep the compact
-  // hover/long-press toolbar that also carries edit/delete/pin.
+  // Mentees get bigger, always-visible download controls. Copy is kept
+  // inside the message bubble for every role so it stays easy to reach.
   const btnSize = canManage ? "size-6" : "size-8";
   const iconSize = canManage ? "size-3" : "size-4";
   // Copy only makes sense for actual text — file/document messages are
@@ -219,7 +218,7 @@ export function MessageBubble({
         >
           <div
             className={cn(
-              "rounded-2xl px-3.5 py-2 text-sm",
+              "rounded-xl px-3.5 py-2 text-sm",
               isOwn
                 ? "rounded-br-sm bg-primary text-primary-foreground"
                 : "rounded-bl-sm bg-muted text-foreground"
@@ -263,10 +262,23 @@ export function MessageBubble({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <AttachmentPreview message={message} />
-                {message.content && (
-                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
+              <div className="flex items-end gap-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <AttachmentPreview message={message} />
+                  {message.content && (
+                    <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
+                  )}
+                </div>
+                {canCopy && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-10 shrink-0 rounded-lg bg-background/85 text-foreground shadow-sm hover:bg-background"
+                    aria-label="Copy message"
+                    onClick={copyMessage}
+                  >
+                    <Copy className="size-5" />
+                  </Button>
                 )}
               </div>
             )}
@@ -284,7 +296,7 @@ export function MessageBubble({
             )}
           </div>
 
-          {!isEditing && (
+          {!isEditing && (message.attachmentUrl || canManage) && (
             <div
               className={cn(
                 "mt-1 flex w-fit items-center gap-0.5 rounded-lg border border-primary/35 bg-card p-0.5 shadow-sm transition-opacity",
@@ -294,17 +306,6 @@ export function MessageBubble({
                 isOwn ? "ml-auto" : "mr-auto"
               )}
             >
-              {canCopy && (
-                <Button
-                  size="icon"
-                  className={btnSize}
-                  variant="ghost"
-                  aria-label="Copy message"
-                  onClick={copyMessage}
-                >
-                  <Copy className={iconSize} />
-                </Button>
-              )}
               {message.attachmentUrl && (
                 <Button size="icon" className={btnSize} variant="ghost" aria-label="Download file" asChild>
                   <a href={message.attachmentUrl} download={message.attachmentName ?? undefined}>
