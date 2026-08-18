@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
 import { MessagesSquare } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { getJoinedGroups, getManagedGroups } from "@/lib/groups/queries";
+import { getJoinedGroups } from "@/lib/groups/queries";
 
 export default async function ChatIndexPage() {
   const user = await getCurrentUser();
   const canManage = user?.role === "ADMIN" || user?.role === "MENTOR";
 
-  if (user && canManage) {
-    const groups = await getManagedGroups(user.role === "ADMIN" ? {} : { userId: user.id });
-    if (groups.length > 0) redirect(`/chat/${groups[0].id}`);
-  }
+  if (user && canManage) redirect("/dashboard");
   if (user && user.role !== "ADMIN" && user.role !== "MENTOR") {
     const groups = await getJoinedGroups(user.id);
     if (groups.length === 1) redirect(`/chat/${groups[0].id}`);

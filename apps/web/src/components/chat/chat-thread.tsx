@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   BarChart3,
   Cloud,
+  Copy,
   Loader2,
   Lock,
   MessageSquareText,
@@ -67,6 +68,19 @@ const POLL_INTERVAL_MS = 2000;
 
 const MANAGER_ANSWER_REFRESH_ERROR =
   "Response received, but participant details could not be refreshed. Reload to try again.";
+
+export async function copyGroupCode(
+  groupCode: string,
+  clipboard: Pick<Clipboard, "writeText">,
+  feedback: { success: (message: string) => unknown; error: (message: string) => unknown }
+): Promise<void> {
+  try {
+    await clipboard.writeText(groupCode);
+    feedback.success("Group code copied");
+  } catch {
+    feedback.error("Couldn't copy group code. Copy it manually.");
+  }
+}
 
 interface OpenQuestionAnswerHandlerOptions {
   canManage: boolean;
@@ -149,6 +163,7 @@ export function ChatThread({
   initialMessages,
   initialHasMore,
   backHref,
+  groupCode,
 }: {
   groupId: string;
   groupName: string;
@@ -159,6 +174,7 @@ export function ChatThread({
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
   backHref: string | null;
+  groupCode: string | null;
 }) {
   const [messages, setMessages] = React.useState(initialMessages);
   const searchParams = useSearchParams();
@@ -502,6 +518,11 @@ export function ChatThread({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, wordCloud } : m)));
   }
 
+  function handleCopyGroupCode() {
+    if (!groupCode) return;
+    void copyGroupCode(groupCode, navigator.clipboard, toast);
+  }
+
   let lastDateLabel = "";
 
   return (
@@ -560,6 +581,22 @@ export function ChatThread({
                 {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
               </span>
             </div>
+          </div>
+        )}
+        {canManage && groupCode && (
+          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-primary/15 bg-primary/[.055] px-2 py-1 text-xs text-primary sm:gap-2 sm:px-3">
+            <span className="hidden font-medium sm:inline">Group code</span>
+            <span className="max-w-24 truncate font-mono font-semibold tracking-wide sm:max-w-none">{groupCode}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 text-primary hover:bg-primary/10 hover:text-primary"
+              aria-label="Copy group code"
+              onClick={handleCopyGroupCode}
+            >
+              <Copy className="size-3.5" />
+            </Button>
           </div>
         )}
         {!canManage && <ThemeToggle />}

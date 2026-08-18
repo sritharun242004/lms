@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
+import { getActiveInviteCode } from "@/lib/groups/queries";
 import { getGroupHeader, getInitialMessages } from "@/lib/messages/queries";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { chatBackHref } from "@/lib/cms/task-requirements";
@@ -17,6 +18,8 @@ export default async function GroupChatPage({
   const access = await getGroupAccess(groupId, user);
   if (!access.canView) notFound();
 
+  const inviteCode = access.canManage ? await getActiveInviteCode(groupId) : null;
+
   const group = await getGroupHeader(groupId);
   if (!group) notFound();
 
@@ -31,6 +34,7 @@ export default async function GroupChatPage({
       memberCount={group._count.members}
       currentUserId={user.id}
       canManage={access.canManage}
+      groupCode={inviteCode?.code ?? null}
       initialMessages={messages}
       initialHasMore={hasMore}
       backHref={chatBackHref(access.canManage)}
