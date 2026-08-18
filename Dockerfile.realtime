@@ -7,12 +7,18 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY apps/realtime/package.json ./apps/realtime/
+COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 
 RUN npm ci --workspaces --include-workspace-root
 
 COPY apps/realtime ./apps/realtime
+COPY apps/web/prisma/schema.prisma ./apps/web/prisma/schema.prisma
 COPY packages/shared ./packages/shared
+
+# Generate into /app/node_modules/@prisma/client, the same hoisted location
+# resolved by the realtime process at runtime.
+RUN npx prisma generate --schema apps/web/prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=4000

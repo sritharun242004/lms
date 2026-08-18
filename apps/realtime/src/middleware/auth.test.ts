@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AUTH_REVALIDATION_INTERVAL_MS,
+  AUTH_LOOKUP_TIMEOUT_MS,
   createAuthMiddleware,
   startAuthRevalidation,
   type RealtimeAuthUser,
@@ -89,6 +90,36 @@ describe("realtime authentication", () => {
     expect(error?.message).toBe("Authentication service unavailable.");
     expect(error?.message).not.toContain("database offline");
   });
+
+  it("denies an initial handshake when the database lookup never settles", async () => {
+    vi.useFakeTimers();
+    const authentication = authenticate(vi.fn(
+      () => new Promise<RealtimeAuthUser | null>(() => undefined)
+    ));
+
+    await vi.advanceTimersByTimeAsync(AUTH_LOOKUP_TIMEOUT_MS);
+    const { error } = await authentication;
+
+    expect(error?.message).toBe("Authentication service unavailable.");
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("handles a lookup rejection that arrives after the handshake deadline", async () => {
+    vi.useFakeTimers();
+    const lookup = vi.fn(() => new Promise<RealtimeAuthUser | null>((_resolve, reject) => {
+      setTimeout(() => reject(new Error("late database failure")), AUTH_LOOKUP_TIMEOUT_MS + 1_000);
+    }));
+    const authentication = authenticate(lookup);
+
+    await vi.advanceTimersByTimeAsync(AUTH_LOOKUP_TIMEOUT_MS);
+    const { error } = await authentication;
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(error?.message).toBe("Authentication service unavailable.");
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
 });
 
 describe("connected realtime session revocation", () => {
@@ -111,5 +142,27 @@ describe("connected realtime session revocation", () => {
     expect(lookup).toHaveBeenCalledWith("user-1");
     expect(socket.disconnect).toHaveBeenCalledWith(true);
     stop();
+  });
+
+  it("fails closed by interval plus timeout when a connected lookup is too slow", async () => {
+    const socket = socketWith() as ReturnType<typeof socketWith> & {
+      data: { userId: string; authVersion: number };
+    };
+    socket.data = { userId: "user-1", authVersion: 3 };
+    const lookup = vi.fn(() => new Promise<RealtimeAuthUser | null>((resolve) => {
+      setTimeout(() => resolve(currentUser), AUTH_LOOKUP_TIMEOUT_MS + 1_000);
+    }));
+
+    const stop = startAuthRevalidation(socket as never, lookup);
+    await vi.advanceTimersByTimeAsync(
+      AUTH_REVALIDATION_INTERVAL_MS + AUTH_LOOKUP_TIMEOUT_MS - 1
+    );
+    expect(socket.disconnect).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+    stop();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
