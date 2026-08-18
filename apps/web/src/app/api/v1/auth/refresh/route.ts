@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
         avatarUrl: true,
         emailVerified: true,
         isActive: true,
+        authVersion: true,
       },
     });
 
@@ -79,6 +80,12 @@ export async function POST(req: NextRequest) {
       await revokeRefreshToken(token);
       await clearAuthCookies();
       return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 401);
+    }
+
+    if (payload.authVersion !== user.authVersion) {
+      await revokeRefreshToken(token);
+      await clearAuthCookies();
+      return errorResponse("This session is no longer valid", "STALE_SESSION", 401);
     }
 
     // Rotate tokens (revoke old, issue new), carrying the original
@@ -93,10 +100,15 @@ export async function POST(req: NextRequest) {
     await storeRefreshToken(user.id, newRefreshToken, rememberMe);
     await setAuthCookies(newAccessToken, newRefreshToken, rememberMe);
 
+    const publicUser = {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      avatarUrl: user.avatarUrl, emailVerified: user.emailVerified,
+    };
+
     return successResponse({
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
-      user,
+      user: publicUser,
     });
   } catch (error) {
     console.error("Token refresh error:", error);

@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: { name, email, password: await hashPassword(password), role: "MENTOR", emailVerified: true },
-        select: { id: true, name: true, email: true, role: true, avatarUrl: true, emailVerified: true },
+        select: {
+          id: true, name: true, email: true, role: true, avatarUrl: true,
+          emailVerified: true, authVersion: true,
+        },
       });
       await tx.coachEmailApproval.update({
         where: { id: approval.id },
@@ -37,7 +40,11 @@ export async function POST(req: NextRequest) {
     await storeRefreshToken(user.id, refreshToken, true);
     await setAuthCookies(accessToken, refreshToken, true);
 
-    return successResponse({ user, accessToken, refreshToken }, undefined, 201);
+    const publicUser = {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      avatarUrl: user.avatarUrl, emailVerified: user.emailVerified,
+    };
+    return successResponse({ user: publicUser, accessToken, refreshToken }, undefined, 201);
   } catch (error) {
     console.error("Coach signup error:", error);
     return errorResponse("Unable to create coach account", "COACH_SIGNUP_ERROR", 500);

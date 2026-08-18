@@ -100,6 +100,20 @@ export async function proxy(request: NextRequest) {
 
   const initialToken = request.cookies.get("access_token")?.value ?? null;
   let payload = initialToken ? verifyAccessToken(initialToken) : null;
+  let shouldClearAuthCookies = false;
+
+  // A valid signature is not enough: password resets and deactivation bump
+  // authVersion so already-issued access tokens stop authorizing immediately.
+  if (payload) {
+    const accessUser = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, isActive: true, authVersion: true },
+    });
+    if (!accessUser?.isActive || accessUser.authVersion !== payload.authVersion) {
+      payload = null;
+      shouldClearAuthCookies = true;
+    }
+  }
 
   // The access token is short-lived (15 min) by design. Rather than
   // bouncing every user back to /login once it expires, silently rotate
@@ -110,7 +124,6 @@ export async function proxy(request: NextRequest) {
   // the 15-minute mark). Proxy runs on the Node.js runtime in this
   // Next.js version, so a direct Prisma call here is safe.
   let rotated: { accessToken: string; refreshToken: string; rememberMe: boolean } | null = null;
-  let shouldClearAuthCookies = false;
   if (!payload) {
     const refreshCookie = request.cookies.get("refresh_token")?.value;
     if (refreshCookie) {
@@ -118,10 +131,12 @@ export async function proxy(request: NextRequest) {
       if (refreshPayload && (await isRefreshTokenValid(refreshCookie))) {
         const user = await prisma.user.findUnique({
           where: { id: refreshPayload.sub },
-          select: { id: true, name: true, email: true, role: true, isActive: true },
+          select: {
+            id: true, name: true, email: true, role: true, isActive: true, authVersion: true,
+          },
         });
 
-        if (user?.isActive) {
+        if (user?.isActive && user.authVersion === refreshPayload.authVersion) {
           const rememberMe = Boolean(refreshPayload.rememberMe);
           await revokeRefreshToken(refreshCookie);
 

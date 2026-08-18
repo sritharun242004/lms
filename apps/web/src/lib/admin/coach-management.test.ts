@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   updateApproval: vi.fn(),
   deleteRefreshTokens: vi.fn(),
   disableSessions: vi.fn(),
+  createAuditLog: vi.fn(),
   transaction: vi.fn(),
   hashPassword: vi.fn(),
 }));
@@ -63,9 +64,11 @@ beforeEach(() => {
       coachEmailApproval: { updateMany: mocks.updateApproval },
       refreshToken: { deleteMany: mocks.deleteRefreshTokens },
       session: { updateMany: mocks.disableSessions },
+      auditLog: { create: mocks.createAuditLog },
     })
   );
   mocks.hashPassword.mockResolvedValue("bcrypt-cost-12-hash");
+  mocks.createAuditLog.mockResolvedValue({});
 });
 
 describe("coach account management service", () => {
@@ -139,6 +142,10 @@ describe("coach account management service", () => {
       where: { claimedById: "coach-1" },
       data: { email: "coach.updated@example.com" },
     });
+    expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
+      userId: "admin-1", action: "MENTOR_UPDATED", entityType: "User", entityId: "coach-1",
+      metadata: { actorId: "admin-1", targetUserId: "coach-1" },
+    }) });
     expect(result.email).toBe("coach.updated@example.com");
   });
 
@@ -154,14 +161,19 @@ describe("coach account management service", () => {
     expect(mocks.hashPassword).toHaveBeenCalledWith("StrongPass1!");
     expect(mocks.updateUser).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "coach-1" },
-      data: { password: "bcrypt-cost-12-hash" },
+      data: { password: "bcrypt-cost-12-hash", authVersion: { increment: 1 } },
     }));
     expect(mocks.deleteRefreshTokens).toHaveBeenCalledWith({ where: { userId: "coach-1" } });
     expect(mocks.disableSessions).toHaveBeenCalledWith({
       where: { userId: "coach-1", isActive: true },
       data: { isActive: false },
     });
-    expect(JSON.stringify(mocks.updateUser.mock.calls)).not.toContain("StrongPass1!");
+    expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
+      userId: "admin-1", action: "MENTOR_PASSWORD_RESET", entityType: "User", entityId: "coach-1",
+      metadata: { actorId: "admin-1", targetUserId: "coach-1" },
+    }) });
+    expect(JSON.stringify({ update: mocks.updateUser.mock.calls, audit: mocks.createAuditLog.mock.calls }))
+      .not.toContain("StrongPass1!");
   });
 
   it("logically deactivates a MENTOR and revokes refresh tokens and active sessions", async () => {
@@ -169,13 +181,19 @@ describe("coach account management service", () => {
 
     expect(mocks.updateUser).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "coach-1" },
-      data: { isActive: false, disabledAt: expect.any(Date), status: "OFFLINE" },
+      data: {
+        isActive: false, disabledAt: expect.any(Date), status: "OFFLINE",
+        authVersion: { increment: 1 },
+      },
     }));
     expect(mocks.deleteRefreshTokens).toHaveBeenCalledWith({ where: { userId: "coach-1" } });
     expect(mocks.disableSessions).toHaveBeenCalledWith({
       where: { userId: "coach-1", isActive: true },
       data: { isActive: false },
     });
+    expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
+      userId: "admin-1", action: "MENTOR_DEACTIVATED", entityType: "User", entityId: "coach-1",
+    }) });
   });
 
   it("reactivates a MENTOR without restoring revoked sessions", async () => {
@@ -187,6 +205,9 @@ describe("coach account management service", () => {
       where: { id: "coach-1" },
       data: { isActive: true, disabledAt: null },
     }));
+    expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
+      userId: "admin-1", action: "MENTOR_REACTIVATED", entityType: "User", entityId: "coach-1",
+    }) });
     expect(mocks.deleteRefreshTokens).not.toHaveBeenCalled();
     expect(mocks.disableSessions).not.toHaveBeenCalled();
   });

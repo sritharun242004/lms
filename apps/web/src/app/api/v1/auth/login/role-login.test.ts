@@ -44,6 +44,7 @@ function user(role: "MENTEE" | "MENTOR" | "ADMIN") {
     emailVerified: true,
     status: "OFFLINE",
     isActive: true,
+    authVersion: 0,
   };
 }
 
@@ -128,7 +129,21 @@ describe("role-specific staff login", () => {
     expect(mocks.setAuthCookies).toHaveBeenCalledWith("access-token", "refresh-token", false);
   });
 
-  it("rejects an inactive coach before verifying credentials or issuing tokens", async () => {
+  it("returns invalid credentials for a wrong password on an inactive email before exposing status", async () => {
+    mocks.findUser.mockResolvedValue({ ...user("MENTOR"), isActive: false });
+    mocks.verifyPassword.mockResolvedValue(false);
+
+    const response = await coachLogin(request("coach"));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.error.code).toBe("INVALID_CREDENTIALS");
+    expect(mocks.verifyPassword).toHaveBeenCalledWith("Password123!", "hash");
+    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
+    expect(mocks.setAuthCookies).not.toHaveBeenCalled();
+  });
+
+  it("returns inactive status only after the submitted password is verified", async () => {
     mocks.findUser.mockResolvedValue({ ...user("MENTOR"), isActive: false });
 
     const response = await coachLogin(request("coach"));
@@ -136,8 +151,6 @@ describe("role-specific staff login", () => {
 
     expect(response.status).toBe(403);
     expect(body.error.code).toBe("ACCOUNT_DISABLED");
-    expect(mocks.verifyPassword).not.toHaveBeenCalled();
-    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
-    expect(mocks.setAuthCookies).not.toHaveBeenCalled();
+    expect(mocks.verifyPassword).toHaveBeenCalledOnce();
   });
 });

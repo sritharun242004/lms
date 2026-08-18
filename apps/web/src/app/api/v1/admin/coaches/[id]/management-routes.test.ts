@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateApproval: vi.fn(),
   deleteRefreshTokens: vi.fn(),
   disableSessions: vi.fn(),
+  createAuditLog: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -72,6 +73,7 @@ beforeEach(() => {
       coachEmailApproval: { updateMany: mocks.updateApproval },
       refreshToken: { deleteMany: mocks.deleteRefreshTokens },
       session: { updateMany: mocks.disableSessions },
+      auditLog: { create: mocks.createAuditLog },
     })
   );
 });
@@ -120,7 +122,7 @@ describe("ADMIN-only coach account routes", () => {
     expect(body.data.message).toMatch(/password/i);
     expect(JSON.stringify(body)).not.toContain("StrongPass1!");
     expect(mocks.updateUser).toHaveBeenCalledWith(expect.objectContaining({
-      data: { password: "bcrypt-cost-12-hash" },
+      data: expect.objectContaining({ password: "bcrypt-cost-12-hash" }),
     }));
     expect(JSON.stringify(mocks.updateUser.mock.calls)).not.toContain("StrongPass1!");
   });
@@ -132,7 +134,9 @@ describe("ADMIN-only coach account routes", () => {
     expect(response.status).toBe(200);
     expect(body.data.coach.isActive).toBe(false);
     expect(mocks.updateUser).toHaveBeenCalledWith(expect.objectContaining({
-      data: { isActive: false, disabledAt: expect.any(Date), status: "OFFLINE" },
+      data: expect.objectContaining({
+        isActive: false, disabledAt: expect.any(Date), status: "OFFLINE",
+      }),
     }));
     expect(mocks.deleteRefreshTokens).toHaveBeenCalled();
     expect(mocks.disableSessions).toHaveBeenCalled();

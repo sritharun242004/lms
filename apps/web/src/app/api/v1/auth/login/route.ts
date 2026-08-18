@@ -43,6 +43,7 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
         emailVerified: true,
         status: true,
         isActive: true,
+        authVersion: true,
       },
     });
 
@@ -52,14 +53,15 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
       return errorResponse("Invalid email or password", "INVALID_CREDENTIALS", 401);
     }
 
-    if (!user.isActive) {
-      return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 403);
-    }
-
     // Verify password
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return errorResponse("Invalid email or password", "INVALID_CREDENTIALS", 401);
+    }
+
+    // Only reveal account status after proving knowledge of the password.
+    if (!user.isActive) {
+      return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 403);
     }
 
     if (user.role !== expectedRole) {

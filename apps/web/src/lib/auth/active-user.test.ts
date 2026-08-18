@@ -31,6 +31,7 @@ const persistedUser = {
   avatarUrl: null,
   emailVerified: true,
   isActive: true,
+  authVersion: 0,
 };
 
 beforeEach(() => {
@@ -56,6 +57,12 @@ describe("current user active-account enforcement", () => {
       avatarUrl: null,
       emailVerified: true,
     });
+  });
+
+  it("rejects a validly signed access token after the durable auth version changes", async () => {
+    mocks.findUser.mockResolvedValue({ ...persistedUser, authVersion: 1 });
+
+    await expect(getCurrentUser()).resolves.toBeNull();
   });
 });
 

@@ -67,6 +67,7 @@ model User {
   password           String?
   role               UserRole   @default(MENTEE)
   isActive           Boolean    @default(true) @map("is_active")
+  authVersion        Int        @default(0) @map("auth_version")
   disabledAt         DateTime?  @map("disabled_at")
   // Set only for guest mentees, from the request IP at join time. Used
   // server-side to avoid creating a duplicate mentee record when the same

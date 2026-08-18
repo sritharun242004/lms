@@ -26,7 +26,7 @@ function request(path: string, authenticatedRole?: "MENTOR" | "ADMIN" | "MENTEE"
   const req = new NextRequest(`http://localhost${path}`);
   if (authenticatedRole) {
     req.cookies.set("access_token", "valid-token");
-    mocks.verifyAccessToken.mockReturnValue({ sub: "u1", role: authenticatedRole });
+    mocks.verifyAccessToken.mockReturnValue({ sub: "u1", role: authenticatedRole, authVersion: 0 });
   }
   return req;
 }
@@ -35,6 +35,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.verifyAccessToken.mockReturnValue(null);
   mocks.revokeRefreshToken.mockResolvedValue(undefined);
+  mocks.findUser.mockResolvedValue({
+    id: "u1", name: "User", email: "user@example.com", role: "MENTOR",
+    isActive: true, authVersion: 0,
+  });
 });
 
 describe("portal-aware proxy redirects", () => {
@@ -63,7 +67,7 @@ describe("portal-aware proxy redirects", () => {
   it("refuses silent refresh for an inactive account and clears the stale session", async () => {
     const req = request("/admin/coaches");
     req.cookies.set("refresh_token", "stored-refresh-token");
-    mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR", authVersion: 0 });
     mocks.isRefreshTokenValid.mockResolvedValue(true);
     mocks.findUser.mockResolvedValue({
       id: "coach-1",
@@ -71,6 +75,7 @@ describe("portal-aware proxy redirects", () => {
       email: "coach@example.com",
       role: "MENTOR",
       isActive: false,
+      authVersion: 0,
     });
 
     const response = await proxy(req);
@@ -81,5 +86,34 @@ describe("portal-aware proxy redirects", () => {
     expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("stored-refresh-token");
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
     expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("rejects an otherwise valid unexpired access JWT when its auth version is stale", async () => {
+    const req = request("/mentor/dashboard", "MENTOR");
+    mocks.findUser.mockResolvedValue({
+      id: "u1", name: "Coach", email: "coach@example.com", role: "MENTOR",
+      isActive: true, authVersion: 1,
+    });
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/coach/login?redirect=%2Fmentor%2Fdashboard"
+    );
+    expect(response.cookies.get("access_token")?.value).toBe("");
+    expect(mocks.findUser).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "u1" } }));
+  });
+
+  it("does not redirect-loop on a public login page with a stale access JWT", async () => {
+    const req = request("/coach/login", "MENTOR");
+    mocks.findUser.mockResolvedValue({
+      id: "u1", name: "Coach", email: "coach@example.com", role: "MENTOR",
+      isActive: true, authVersion: 2,
+    });
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("access_token")?.value).toBe("");
   });
 });

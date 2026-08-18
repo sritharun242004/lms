@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { createElement } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CoachOnboarding } from "./coach-onboarding";
@@ -17,6 +17,12 @@ const approvals = [
     email: "pending@example.com",
     createdAt: "2026-08-18T00:00:00.000Z",
     claimedAt: null,
+  },
+  {
+    id: "approval-2",
+    email: "coach@example.com",
+    createdAt: "2026-08-17T00:00:00.000Z",
+    claimedAt: "2026-08-17T01:00:00.000Z",
   },
 ];
 
@@ -82,5 +88,26 @@ describe("super-admin coach account management", () => {
     expect(screen.getByLabelText("New password").getAttribute("type")).toBe("password");
     expect(screen.getByLabelText("Confirm new password").getAttribute("type")).toBe("password");
     expect(screen.queryByRole("button", { name: "Show password" })).toBeNull();
+  });
+
+  it("updates the linked claimed approval email immediately after editing a coach", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: { coach: { ...coaches[0], name: "Coach Updated", email: "updated@example.com" } },
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const user = userEvent.setup();
+    render(createElement(CoachOnboarding, { approvals, coaches }));
+
+    await user.click(screen.getByRole("button", { name: "Edit coach Coach One" }));
+    const dialog = screen.getByRole("dialog");
+    await user.clear(within(dialog).getByLabelText("Coach name"));
+    await user.type(within(dialog).getByLabelText("Coach name"), "Coach Updated");
+    await user.clear(within(dialog).getByLabelText("Coach email"));
+    await user.type(within(dialog).getByLabelText("Coach email"), "updated@example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByText("Coach Updated")).toBeTruthy();
+    expect(screen.getAllByText("updated@example.com")).toHaveLength(2);
+    expect(screen.queryByText("coach@example.com")).toBeNull();
   });
 });

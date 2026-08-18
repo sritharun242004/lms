@@ -116,6 +116,14 @@ export function CoachOnboarding({
         }
       );
       replaceCoach(data.coach);
+      const priorEmail = editCoach.email?.toLowerCase();
+      if (priorEmail && data.coach.email) {
+        setApprovals((current) => current.map((approval) =>
+          approval.claimedAt && approval.email.toLowerCase() === priorEmail
+            ? { ...approval, email: data.coach.email! }
+            : approval
+        ));
+      }
       setEditCoach(null);
       showFeedback("success", "Coach account updated");
     } catch (error) {

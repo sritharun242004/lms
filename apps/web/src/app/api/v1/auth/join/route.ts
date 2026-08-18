@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
       role: true,
       avatarUrl: true,
       emailVerified: true,
+      authVersion: true,
     } as const;
 
     const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -156,6 +157,10 @@ export async function POST(req: NextRequest) {
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
+    const publicUser = {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      avatarUrl: user.avatarUrl, emailVerified: user.emailVerified,
+    };
 
     await storeRefreshToken(user.id, refreshToken);
     await setAuthCookies(accessToken, refreshToken, true);
@@ -176,7 +181,7 @@ export async function POST(req: NextRequest) {
 
     return successResponse(
       {
-        user,
+        user: publicUser,
         accessToken,
         refreshToken,
         joinedGroup: { id: invite.groupId, name: invite.group.name },

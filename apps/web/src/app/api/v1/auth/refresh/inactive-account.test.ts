@@ -34,7 +34,7 @@ import { POST } from "./route";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
+  mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR", authVersion: 0 });
   mocks.isRefreshTokenValid.mockResolvedValue(true);
   mocks.revokeRefreshToken.mockResolvedValue(undefined);
   mocks.clearAuthCookies.mockResolvedValue(undefined);
@@ -50,6 +50,7 @@ describe("refresh active-account enforcement", () => {
       avatarUrl: null,
       emailVerified: true,
       isActive: false,
+      authVersion: 0,
     });
     const request = new NextRequest("http://localhost/api/v1/auth/refresh", {
       method: "POST",
@@ -66,5 +67,25 @@ describe("refresh active-account enforcement", () => {
     expect(mocks.clearAuthCookies).toHaveBeenCalledOnce();
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
     expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("revokes and rejects a refresh token whose auth version is stale", async () => {
+    mocks.findUser.mockResolvedValue({
+      id: "coach-1", name: "Coach One", email: "coach@example.com", role: "MENTOR",
+      avatarUrl: null, emailVerified: true, isActive: true, authVersion: 1,
+    });
+    const request = new NextRequest("http://localhost/api/v1/auth/refresh", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: "refresh-token" }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.error.code).toBe("STALE_SESSION");
+    expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("refresh-token");
+    expect(mocks.clearAuthCookies).toHaveBeenCalledOnce();
+    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
   });
 });

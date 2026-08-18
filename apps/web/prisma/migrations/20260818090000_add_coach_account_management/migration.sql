@@ -1,5 +1,6 @@
 ALTER TABLE "users"
   ADD COLUMN "is_active" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN "auth_version" INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN "disabled_at" TIMESTAMP(3);
 
 ALTER TABLE "coach_email_approvals"

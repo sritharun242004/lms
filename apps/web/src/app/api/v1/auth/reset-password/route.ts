@@ -3,8 +3,6 @@ import { prisma } from "@/lib/db/prisma";
 import {
   hashPassword,
   hashPasswordResetToken,
-  revokeAllUserRefreshTokens,
-  revokeAllUserSessions,
 } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { resetPasswordSchema, AuditAction } from "@cms/shared";
@@ -36,30 +34,30 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await hashPassword(password);
 
-    await prisma.$transaction([
-      prisma.user.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
         where: { id: user.id },
         data: {
           password: hashedPassword,
+          authVersion: { increment: 1 },
           passwordResetToken: null,
           passwordResetExpiry: null,
         },
-      }),
-      prisma.auditLog.create({
+      });
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+      await tx.session.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
+      await tx.auditLog.create({
         data: {
           userId: user.id,
           action: AuditAction.PASSWORD_RESET,
           entityType: "User",
           entityId: user.id,
         },
-      }),
-    ]);
-
-    // Force re-authentication on every device after a password reset.
-    await Promise.all([
-      revokeAllUserRefreshTokens(user.id),
-      revokeAllUserSessions(user.id),
-    ]);
+      });
+    });
 
     return successResponse({
       message: "Password reset successful. Please log in with your new password.",

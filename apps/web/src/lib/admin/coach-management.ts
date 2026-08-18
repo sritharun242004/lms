@@ -1,4 +1,4 @@
-import { securePasswordSchema } from "@cms/shared";
+import { AuditAction, securePasswordSchema } from "@cms/shared";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -142,6 +142,15 @@ export async function updateCoachAccount(
           data: { email },
         });
       }
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          action: AuditAction.MENTOR_UPDATED,
+          entityType: "User",
+          entityId: coach.id,
+          metadata: { actorId: actor.id, targetUserId: coach.id },
+        },
+      });
       return user;
     });
     return safeCoach(updated);
@@ -165,13 +174,22 @@ export async function setCoachPassword(
   const updated = await prisma.$transaction(async (tx) => {
     const user = await tx.user.update({
       where: { id: coach.id },
-      data: { password: passwordHash },
+      data: { password: passwordHash, authVersion: { increment: 1 } },
       select: COACH_SELECT,
     });
     await tx.refreshToken.deleteMany({ where: { userId: coach.id } });
     await tx.session.updateMany({
       where: { userId: coach.id, isActive: true },
       data: { isActive: false },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        action: AuditAction.MENTOR_PASSWORD_RESET,
+        entityType: "User",
+        entityId: coach.id,
+        metadata: { actorId: actor.id, targetUserId: coach.id },
+      },
     });
     return user;
   });
@@ -186,13 +204,27 @@ export async function deactivateCoachAccount(
   const updated = await prisma.$transaction(async (tx) => {
     const user = await tx.user.update({
       where: { id: coach.id },
-      data: { isActive: false, disabledAt: new Date(), status: "OFFLINE" },
+      data: {
+        isActive: false,
+        disabledAt: new Date(),
+        status: "OFFLINE",
+        authVersion: { increment: 1 },
+      },
       select: COACH_SELECT,
     });
     await tx.refreshToken.deleteMany({ where: { userId: coach.id } });
     await tx.session.updateMany({
       where: { userId: coach.id, isActive: true },
       data: { isActive: false },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        action: AuditAction.MENTOR_DEACTIVATED,
+        entityType: "User",
+        entityId: coach.id,
+        metadata: { actorId: actor.id, targetUserId: coach.id },
+      },
     });
     return user;
   });
@@ -204,12 +236,22 @@ export async function reactivateCoachAccount(
   coachId: string
 ): Promise<CoachAccount> {
   const coach = await findCoachTarget(actor, coachId);
-  const updated = await prisma.$transaction(async (tx) =>
-    tx.user.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
       where: { id: coach.id },
       data: { isActive: true, disabledAt: null },
       select: COACH_SELECT,
-    })
-  );
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        action: AuditAction.MENTOR_REACTIVATED,
+        entityType: "User",
+        entityId: coach.id,
+        metadata: { actorId: actor.id, targetUserId: coach.id },
+      },
+    });
+    return user;
+  });
   return safeCoach(updated);
 }

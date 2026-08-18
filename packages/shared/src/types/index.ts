@@ -51,6 +51,7 @@ export interface JwtPayload {
   name: string;
   email: string | null;
   role: UserRole;
+  authVersion: number;
   // Only present on refresh tokens — carried across rotations so a
   // "remember me" session keeps its long expiry instead of resetting
   // to the default on every silent refresh.

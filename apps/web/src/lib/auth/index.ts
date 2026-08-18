@@ -62,6 +62,7 @@ export function generateAccessToken(user: {
   name: string;
   email: string | null;
   role: UserRole | string;
+  authVersion: number;
 }): string {
   return jwt.sign(
     {
@@ -69,6 +70,7 @@ export function generateAccessToken(user: {
       name: user.name,
       email: user.email,
       role: user.role,
+      authVersion: user.authVersion,
     },
     JWT_SECRET,
     { expiresIn: JWT_ACCESS_EXPIRY }
@@ -81,6 +83,7 @@ export function generateRefreshToken(
     name: string;
     email: string | null;
     role: UserRole | string;
+    authVersion: number;
   },
   rememberMe = false
 ): string {
@@ -90,6 +93,7 @@ export function generateRefreshToken(
       name: user.name,
       email: user.email,
       role: user.role,
+      authVersion: user.authVersion,
       rememberMe,
       // Refresh tokens are stored with a unique DB constraint on the raw
       // token string; without a nonce, two tokens minted for the same user
@@ -202,10 +206,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         avatarUrl: true,
         emailVerified: true,
         isActive: true,
+        authVersion: true,
       },
     });
 
-    if (!user || !user.isActive) return null;
+    if (!user || !user.isActive || payload.authVersion !== user.authVersion) return null;
 
     return {
       id: user.id,
