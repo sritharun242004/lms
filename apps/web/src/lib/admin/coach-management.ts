@@ -1,4 +1,4 @@
-import { AuditAction, securePasswordSchema } from "@cms/shared";
+import { AuditAction, coachAccountCreateSchema, securePasswordSchema } from "@cms/shared";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -11,6 +11,7 @@ export const coachAccountUpdateSchema = z.object({
 });
 
 export const coachPasswordSchema = z.object({ password: securePasswordSchema });
+export { coachAccountCreateSchema };
 
 export type CoachAccount = {
   id: string;
@@ -96,6 +97,53 @@ export async function listCoachAccounts(actor: AdminActor): Promise<CoachAccount
   return coaches.map(safeCoach);
 }
 
+export async function createCoachAccount(
+  actor: AdminActor,
+  input: z.infer<typeof coachAccountCreateSchema>
+): Promise<CoachAccount> {
+  requireAdmin(actor);
+  const parsed = coachAccountCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new CoachManagementError("Invalid coach account details", "VALIDATION_ERROR", 400);
+  }
+
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: parsed.data.email, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new CoachManagementError("This email is already in use", "EMAIL_IN_USE", 409);
+  }
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          password: await hashPassword(parsed.data.password),
+          role: "MENTOR",
+          emailVerified: true,
+        },
+        select: COACH_SELECT,
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          action: AuditAction.MENTOR_CREATED,
+          entityType: "User",
+          entityId: user.id,
+          metadata: { actorId: actor.id, targetUserId: user.id },
+        },
+      });
+      return user;
+    });
+    return safeCoach(created);
+  } catch (error) {
+    rethrowUniqueConstraint(error);
+  }
+}
+
 export async function updateCoachAccount(
   actor: AdminActor,
   coachId: string,
@@ -109,23 +157,14 @@ export async function updateCoachAccount(
   const coach = await findCoachTarget(actor, coachId);
   const email = parsed.data.email;
 
-  const [userCollision, approvalCollision] = await Promise.all([
-    prisma.user.findFirst({
-      where: {
-        id: { not: coachId },
-        email: { equals: email, mode: "insensitive" },
-      },
-      select: { id: true },
-    }),
-    prisma.coachEmailApproval.findFirst({
-      where: {
-        email: { equals: email, mode: "insensitive" },
-        NOT: { claimedById: coachId },
-      },
-      select: { id: true },
-    }),
-  ]);
-  if (userCollision || approvalCollision) {
+  const userCollision = await prisma.user.findFirst({
+    where: {
+      id: { not: coachId },
+      email: { equals: email, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  if (userCollision) {
     throw new CoachManagementError("This email is already in use", "EMAIL_IN_USE", 409);
   }
 
@@ -136,12 +175,6 @@ export async function updateCoachAccount(
         data: { name: parsed.data.name, email },
         select: COACH_SELECT,
       });
-      if (email !== coach.email) {
-        await tx.coachEmailApproval.updateMany({
-          where: { claimedById: coach.id },
-          data: { email },
-        });
-      }
       await tx.auditLog.create({
         data: {
           userId: actor.id,

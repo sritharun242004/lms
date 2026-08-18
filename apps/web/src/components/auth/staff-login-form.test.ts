@@ -36,7 +36,6 @@ describe("common staff login form", () => {
 
     expect(html).toContain("Staff sign in");
     expect(html).toContain("Coach or Super Admin");
-    expect(html).toContain('href="/coach/signup"');
     expect(html).toContain('href="/forgot-password?portal=admin"');
     expect(html).toContain("text-black");
   });

@@ -4,9 +4,8 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   findUser: vi.fn(),
   findEmailCollision: vi.fn(),
-  findApprovalCollision: vi.fn(),
+  createUser: vi.fn(),
   updateUser: vi.fn(),
-  updateApproval: vi.fn(),
   deleteRefreshTokens: vi.fn(),
   disableSessions: vi.fn(),
   createAuditLog: vi.fn(),
@@ -23,7 +22,6 @@ vi.mock("@/lib/db/prisma", () => ({
         return call === 0 ? mocks.findUser(...args) : mocks.findEmailCollision(...args);
       },
     },
-    coachEmailApproval: { findFirst: mocks.findApprovalCollision },
     $transaction: mocks.transaction,
   },
 }));
@@ -31,6 +29,7 @@ vi.mock("@/lib/db/prisma", () => ({
 vi.mock("@/lib/auth", () => ({ hashPassword: mocks.hashPassword }));
 
 import {
+  createCoachAccount,
   deactivateCoachAccount,
   listCoachAccounts,
   reactivateCoachAccount,
@@ -53,15 +52,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.findUser.mockResolvedValue(coach);
   mocks.findEmailCollision.mockResolvedValue(null);
-  mocks.findApprovalCollision.mockResolvedValue(null);
   mocks.updateUser.mockImplementation(async ({ data }) => ({ ...coach, ...data }));
-  mocks.updateApproval.mockResolvedValue({ count: 1 });
+  mocks.createUser.mockImplementation(async ({ data }) => ({ ...coach, id: "coach-new", ...data }));
   mocks.deleteRefreshTokens.mockResolvedValue({ count: 2 });
   mocks.disableSessions.mockResolvedValue({ count: 3 });
   mocks.transaction.mockImplementation(async (callback) =>
     callback({
-      user: { update: mocks.updateUser },
-      coachEmailApproval: { updateMany: mocks.updateApproval },
+      user: { update: mocks.updateUser, create: mocks.createUser },
       refreshToken: { deleteMany: mocks.deleteRefreshTokens },
       session: { updateMany: mocks.disableSessions },
       auditLog: { create: mocks.createAuditLog },
@@ -128,7 +125,7 @@ describe("coach account management service", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("updates the coach and linked approval email atomically using normalized email", async () => {
+  it("updates the coach using a normalized email", async () => {
     const result = await updateCoachAccount(admin, "coach-1", {
       name: "  Coach Updated  ",
       email: "Coach.Updated@Example.com",
@@ -138,15 +135,46 @@ describe("coach account management service", () => {
       where: { id: "coach-1" },
       data: { name: "Coach Updated", email: "coach.updated@example.com" },
     }));
-    expect(mocks.updateApproval).toHaveBeenCalledWith({
-      where: { claimedById: "coach-1" },
-      data: { email: "coach.updated@example.com" },
-    });
     expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
       userId: "admin-1", action: "MENTOR_UPDATED", entityType: "User", entityId: "coach-1",
       metadata: { actorId: "admin-1", targetUserId: "coach-1" },
     }) });
     expect(result.email).toBe("coach.updated@example.com");
+  });
+
+  it("creates a coach account directly with a hashed password and audit log, never returning the plaintext", async () => {
+    mocks.findUser.mockResolvedValueOnce(null);
+
+    const result = await createCoachAccount(admin, {
+      name: "  New Coach  ",
+      email: "New.Coach@Example.com",
+      password: "StrongPass1!",
+    });
+
+    expect(mocks.hashPassword).toHaveBeenCalledWith("StrongPass1!");
+    expect(mocks.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        name: "New Coach",
+        email: "new.coach@example.com",
+        password: "bcrypt-cost-12-hash",
+        role: "MENTOR",
+        emailVerified: true,
+      }),
+    }));
+    expect(mocks.createAuditLog).toHaveBeenCalledWith({ data: expect.objectContaining({
+      userId: "admin-1", action: "MENTOR_CREATED",
+    }) });
+    expect(result.email).toBe("new.coach@example.com");
+    expect(JSON.stringify(result)).not.toContain("StrongPass1!");
+  });
+
+  it("rejects creating a coach account for an email already in use", async () => {
+    mocks.findUser.mockResolvedValueOnce({ id: "existing-user" });
+
+    await expect(
+      createCoachAccount(admin, { name: "New Coach", email: "coach@example.com", password: "StrongPass1!" })
+    ).rejects.toMatchObject({ code: "EMAIL_IN_USE", status: 409 });
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("uses the strong-password policy, persists only a hash, and revokes every login session", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { KeyRound, Loader2, MailPlus, Pencil, Power, PowerOff } from "lucide-react";
+import { Copy, KeyRound, Loader2, Pencil, Power, PowerOff, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -25,13 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-
-type CoachApproval = {
-  id: string;
-  email: string;
-  createdAt: string;
-  claimedAt: string | null;
-};
+import { PasswordInput } from "@/components/ui/password-input";
 
 type CoachAccount = {
   id: string;
@@ -54,20 +48,18 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
 }
 
 export function CoachOnboarding({
-  approvals: initialApprovals,
   coaches: initialCoaches,
 }: {
-  approvals: CoachApproval[];
   coaches: CoachAccount[];
 }) {
-  const [approvals, setApprovals] = React.useState(initialApprovals);
   const [coaches, setCoaches] = React.useState(initialCoaches);
-  const [isApproving, setIsApproving] = React.useState(false);
+  const [isCreating, setIsCreating] = React.useState(false);
   const [editCoach, setEditCoach] = React.useState<CoachAccount | null>(null);
   const [passwordCoach, setPasswordCoach] = React.useState<CoachAccount | null>(null);
   const [statusCoach, setStatusCoach] = React.useState<CoachAccount | null>(null);
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [feedback, setFeedback] = React.useState<Feedback>(null);
+  const [newPassword, setNewPassword] = React.useState("");
 
   function replaceCoach(coach: CoachAccount) {
     setCoaches((current) => current.map((item) => (item.id === coach.id ? coach : item)));
@@ -79,24 +71,35 @@ export function CoachOnboarding({
     else toast.error(message);
   }
 
-  async function approveCoach(event: React.FormEvent<HTMLFormElement>) {
+  async function copyNewPassword() {
+    if (!newPassword) {
+      toast.error("Enter a password first");
+      return;
+    }
+    await navigator.clipboard.writeText(newPassword);
+    toast.success("Password copied");
+  }
+
+  async function createCoach(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    setIsApproving(true);
+    setIsCreating(true);
     setFeedback(null);
     try {
-      const data = await requestJson<{ approval: CoachApproval }>("/api/v1/admin/coach-onboarding", {
+      const body = { ...Object.fromEntries(new FormData(form)), password: newPassword };
+      const data = await requestJson<{ coach: CoachAccount }>("/api/v1/admin/coaches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: new FormData(form).get("email") }),
+        body: JSON.stringify(body),
       });
-      setApprovals((current) => [data.approval, ...current]);
+      setCoaches((current) => [data.coach, ...current]);
       form.reset();
-      showFeedback("success", "Coach email approved for signup");
+      setNewPassword("");
+      showFeedback("success", "Coach account created. Share the password with them.");
     } catch (error) {
-      showFeedback("error", error instanceof Error ? error.message : "Unable to approve email");
+      showFeedback("error", error instanceof Error ? error.message : "Unable to create coach account");
     } finally {
-      setIsApproving(false);
+      setIsCreating(false);
     }
   }
 
@@ -116,14 +119,6 @@ export function CoachOnboarding({
         }
       );
       replaceCoach(data.coach);
-      const priorEmail = editCoach.email?.toLowerCase();
-      if (priorEmail && data.coach.email) {
-        setApprovals((current) => current.map((approval) =>
-          approval.claimedAt && approval.email.toLowerCase() === priorEmail
-            ? { ...approval, email: data.coach.email! }
-            : approval
-        ));
-      }
       setEditCoach(null);
       showFeedback("success", "Coach account updated");
     } catch (error) {
@@ -187,7 +182,7 @@ export function CoachOnboarding({
         <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Access management</p>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Coach account management</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Approve coach signups, update account details, reset credentials, and manage access without deleting history.
+          Create coach accounts, update account details, reset credentials, and manage access without deleting history.
         </p>
       </div>
 
@@ -253,45 +248,36 @@ export function CoachOnboarding({
 
       <Card>
         <CardHeader>
-          <CardTitle>Approve coach email</CardTitle>
-          <CardDescription>The coach can use an approved email once at /coach/signup.</CardDescription>
+          <CardTitle>Create coach account</CardTitle>
+          <CardDescription>Set the coach&apos;s name, email, and password directly, then share the password with them.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={approveCoach} className="flex flex-col gap-3 sm:flex-row">
-            <Input name="email" type="email" required placeholder="coach@example.com" aria-label="Coach email" />
-            <Button type="submit" disabled={isApproving} className="shrink-0">
-              {isApproving ? <Loader2 className="size-4 animate-spin" /> : <MailPlus className="size-4" />}
-              {isApproving ? "Approving..." : "Approve email"}
+          <form onSubmit={createCoach} className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium">
+              Name
+              <Input name="name" required minLength={2} maxLength={100} placeholder="Coach name" />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              Email
+              <Input name="email" type="email" required placeholder="coach@example.com" />
+            </label>
+            <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+              Password
+              <div className="flex gap-2">
+                <PasswordInput value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required minLength={8} maxLength={128} autoComplete="new-password" placeholder="Create a secure password" />
+                <Button type="button" variant="outline" size="icon" onClick={copyNewPassword} aria-label="Copy password">
+                  <Copy />
+                </Button>
+              </div>
+              <span className="text-xs font-normal text-muted-foreground">
+                Use uppercase, lowercase, a number, and a special character.
+              </span>
+            </label>
+            <Button type="submit" disabled={isCreating} className="sm:col-span-2 sm:w-fit">
+              {isCreating ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+              {isCreating ? "Creating..." : "Create coach account"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Approved coach emails</CardTitle>
-          <CardDescription>Track pending and completed coach signups.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {approvals.length === 0 ? (
-            <p className="px-6 pb-6 text-sm text-muted-foreground">No coach emails have been approved yet.</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {approvals.map((approval) => (
-                <div key={approval.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{approval.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Approved {new Date(approval.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className={approval.claimedAt ? "text-sm text-emerald-600" : "text-sm text-amber-600"}>
-                    {approval.claimedAt ? "Account created" : "Awaiting signup"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -299,7 +285,7 @@ export function CoachOnboarding({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit coach account</DialogTitle>
-            <DialogDescription>Changes apply to this coach account and its linked approval email.</DialogDescription>
+            <DialogDescription>Changes apply to this coach account immediately.</DialogDescription>
           </DialogHeader>
           {editCoach ? (
             <form onSubmit={submitEdit} className="grid gap-4">

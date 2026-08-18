@@ -26,20 +26,10 @@ export const securePasswordSchema = z
   .regex(/[0-9]/, "Password must contain at least one number")
   .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character");
 
-export const coachSignupSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters").max(100).trim(),
-    email: z.string().trim().min(1, "Email is required").email("Invalid email address").toLowerCase(),
-    password: securePasswordSchema,
-    confirmPassword: z.string().min(1, "Please confirm your password"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
-
-export const coachEmailApprovalSchema = z.object({
+export const coachAccountCreateSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(100).trim(),
   email: z.string().trim().min(1, "Email is required").email("Invalid email address").toLowerCase(),
+  password: securePasswordSchema,
 });
 
 
@@ -306,8 +296,7 @@ export const paginationSchema = z.object({
 // ============================================================
 
 export type LoginInput = z.infer<typeof loginSchema>;
-export type CoachSignupInput = z.infer<typeof coachSignupSchema>;
-export type CoachEmailApprovalInput = z.infer<typeof coachEmailApprovalSchema>;
+export type CoachAccountCreateInput = z.infer<typeof coachAccountCreateSchema>;
 export type MenteeJoinInput = z.infer<typeof menteeJoinSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

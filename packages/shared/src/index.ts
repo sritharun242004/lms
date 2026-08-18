@@ -24,8 +24,7 @@ export { isAuthVersionCurrent, isValidJwtIdentity, isValidJwtSessionClaims } fro
 export {
   loginSchema,
   securePasswordSchema,
-  coachSignupSchema,
-  coachEmailApprovalSchema,
+  coachAccountCreateSchema,
   menteeJoinSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -51,8 +50,7 @@ export {
 // Inferred Types from Schemas
 export type {
   LoginInput,
-  CoachSignupInput,
-  CoachEmailApprovalInput,
+  CoachAccountCreateInput,
   MenteeJoinInput,
   ForgotPasswordInput,
   ResetPasswordInput,
