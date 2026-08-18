@@ -19,6 +19,9 @@ const PUBLIC_ROUTES = [
   "/login",
   "/signup",
   "/join",
+  "/coach/login",
+  "/coach/signup",
+  "/super-admin/login",
   "/forgot-password",
   "/reset-password",
   "/verify-email",
@@ -27,6 +30,8 @@ const PUBLIC_ROUTES = [
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   "/api/v1/auth/login",
+  "/api/v1/auth/coach/login",
+  "/api/v1/auth/super-admin/login",
   "/api/v1/auth/signup",
   "/api/v1/auth/join",
   "/api/v1/auth/refresh",
@@ -49,6 +54,16 @@ const ROLE_DASHBOARD: Record<string, string> = {
   MENTOR: "/mentor/dashboard",
   MENTEE: "/chat",
 };
+
+function unauthenticatedEntry(pathname: string): string {
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return "/super-admin/login";
+  }
+  if (pathname === "/mentor" || pathname.startsWith("/mentor/")) {
+    return "/coach/login";
+  }
+  return "/";
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -147,8 +162,9 @@ export async function proxy(request: NextRequest) {
           { status: 401 }
         )
       : (() => {
-          const loginUrl = new URL("/login", request.url);
-          loginUrl.searchParams.set("redirect", pathname);
+          const entryPath = unauthenticatedEntry(pathname);
+          const loginUrl = new URL(entryPath, request.url);
+          if (entryPath !== "/") loginUrl.searchParams.set("redirect", pathname);
           return NextResponse.redirect(loginUrl);
         })();
     // Clear whatever's left of a dead session so we don't keep

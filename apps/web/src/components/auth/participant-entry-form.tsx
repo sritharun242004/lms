@@ -35,13 +35,12 @@ export function ParticipantEntryForm({ standalone = false }: { standalone?: bool
 
   const formContent = (
     <div className="flex flex-col gap-6">
-      <div className="text-center"><p className="text-xs font-semibold tracking-[.15em] text-primary uppercase">Participant portal</p><h1 className="mt-3 text-3xl font-bold tracking-tight">Enter your meeting</h1></div>
+      <div className="text-center"><p className="text-xs font-semibold tracking-[.15em] text-primary uppercase">Participant portal</p><h1 className="mt-3 text-3xl font-bold tracking-tight">Let’s get started</h1></div>
       <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <FormField control={form.control} name="name" render={({ field }) => <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="Enter your name" autoComplete="name" autoFocus {...field} /></FormControl><FormMessage /></FormItem>} />
         <FormField control={form.control} name="inviteCode" render={({ field }) => <FormItem><FormLabel>Meeting or course code</FormLabel><FormControl><Input placeholder="CMS-A8KD" className="uppercase" {...field} /></FormControl><FormMessage /></FormItem>} />
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}Enter meeting</Button>
       </form></Form>
-      <Link href="/login" className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline">Staff sign in</Link>
     </div>
   );
 

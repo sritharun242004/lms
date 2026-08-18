@@ -14,7 +14,14 @@ import {
 } from "@/lib/api/response";
 import { loginSchema, AuditAction } from "@cms/shared";
 
-export async function POST(req: NextRequest) {
+type StaffLoginRole = "MENTOR" | "ADMIN";
+
+const ROLE_BY_LOGIN_PATH: Record<string, StaffLoginRole> = {
+  "/api/v1/auth/coach/login": "MENTOR",
+  "/api/v1/auth/super-admin/login": "ADMIN",
+};
+
+export async function loginForRole(req: NextRequest, expectedRole: StaffLoginRole) {
   // Parse and validate body
   const parsed = await parseBody(req, loginSchema);
   if (parsed.error) return parsed.error;
@@ -47,6 +54,10 @@ export async function POST(req: NextRequest) {
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return errorResponse("Invalid email or password", "INVALID_CREDENTIALS", 401);
+    }
+
+    if (user.role !== expectedRole) {
+      return errorResponse("These credentials belong to a different staff portal", "WRONG_PORTAL", 403);
     }
 
     // Generate tokens
@@ -109,4 +120,12 @@ export async function POST(req: NextRequest) {
     console.error("Login error:", error);
     return errorResponse("An error occurred during login", "LOGIN_ERROR", 500);
   }
+}
+
+export async function POST(req: NextRequest) {
+  const expectedRole = ROLE_BY_LOGIN_PATH[req.nextUrl.pathname];
+  if (!expectedRole) {
+    return errorResponse("Choose the coach or Super Admin login portal", "PORTAL_REQUIRED", 404);
+  }
+  return loginForRole(req, expectedRole);
 }

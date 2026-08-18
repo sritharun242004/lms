@@ -14,8 +14,11 @@ export interface AuthSession {
   refreshToken: string;
 }
 
+export type StaffPortal = "coach" | "super-admin";
+
 export const authService = {
-  login: (input: LoginInput) => apiClient.post<AuthSession>("/auth/login", input),
+  login: (input: LoginInput, portal: StaffPortal) =>
+    apiClient.post<AuthSession>(`/auth/${portal}/login`, input),
 
   join: (input: MenteeJoinInput) =>
     apiClient.post<AuthSession & { joinedGroup: { id: string; name: string } }>(
