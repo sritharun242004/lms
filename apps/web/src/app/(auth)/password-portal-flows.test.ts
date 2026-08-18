@@ -37,18 +37,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("password portal context", () => {
-  it("returns the forgot-password flow to the explicit coach portal", () => {
-    mocks.search = "portal=coach";
+  it("returns the forgot-password flow to the common staff portal", () => {
+    mocks.search = "portal=admin";
     const html = renderToStaticMarkup(createElement(ForgotPasswordPage));
 
-    expect(html).toContain('href="/coach/login"');
+    expect(html).toContain('href="/admin/login"');
   });
 
   it("defaults an invalid forgot-password portal to participant", () => {
     mocks.search = "portal=javascript%3Aalert(1)";
     const html = renderToStaticMarkup(createElement(ForgotPasswordPage));
 
-    expect(html).toContain('href="/participant/login"');
+    expect(html).toContain('href="/"');
   });
 
   it("preserves the portal when an invalid reset link requests a replacement", () => {
@@ -67,7 +67,7 @@ describe("password portal context", () => {
     await user.type(screen.getByLabelText("Confirm new password"), "Password123!");
     await user.click(screen.getByRole("button", { name: "Reset password" }));
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/super-admin/login"));
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/admin/login"));
   });
 
   it("truthfully shows password recovery unavailable when delivery is not configured", async () => {

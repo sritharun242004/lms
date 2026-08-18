@@ -1,6 +1,5 @@
-import * as React from "react";
-import { StaffLoginForm } from "@/components/auth/staff-login-form";
+import { redirect } from "next/navigation";
 
 export default function ParticipantLoginPage() {
-  return <React.Suspense fallback={null}><StaffLoginForm portal="participant" /></React.Suspense>;
+  redirect("/");
 }

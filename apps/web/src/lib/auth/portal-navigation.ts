@@ -1,17 +1,19 @@
 import type { UserRole } from "@cms/shared";
 
-export type AuthPortal = "participant" | "coach" | "super-admin";
+export type AuthPortal = "participant" | "coach" | "super-admin" | "admin";
 
 const LOGIN_PATHS: Record<AuthPortal, string> = {
-  participant: "/participant/login",
-  coach: "/coach/login",
-  "super-admin": "/super-admin/login",
+  participant: "/",
+  coach: "/admin/login",
+  "super-admin": "/admin/login",
+  admin: "/admin/login",
 };
 
 const PORTAL_PATHS: Record<AuthPortal, readonly string[]> = {
   participant: ["/dashboard", "/chat", "/mentee", "/profile"],
-  coach: ["/dashboard", "/mentor", "/questions", "/chat", "/profile"],
+  coach: ["/dashboard", "/coach", "/mentor", "/questions", "/chat", "/profile"],
   "super-admin": ["/dashboard", "/admin", "/questions", "/chat", "/profile"],
+  admin: ["/dashboard", "/admin", "/coach", "/mentor", "/questions", "/chat", "/profile"],
 };
 
 function pathMatchesPrefix(value: string, prefix: string): boolean {
@@ -54,7 +56,7 @@ export function sanitizeReturnPath(
 }
 
 export function parseAuthPortal(value: string | null | undefined): AuthPortal {
-  return value === "coach" || value === "super-admin" || value === "participant"
+  return value === "coach" || value === "super-admin" || value === "participant" || value === "admin"
     ? value
     : "participant";
 }
@@ -73,5 +75,12 @@ export function safePortalDestination(
   portal: AuthPortal,
   value: string | null | undefined
 ): string {
-  return sanitizeReturnPath(value, "/dashboard", PORTAL_PATHS[portal]);
+  const fallback = portal === "coach"
+    ? "/coach/dashboard"
+    : portal === "super-admin"
+      ? "/admin/dashboard"
+      : portal === "participant"
+        ? "/"
+        : "/admin/login";
+  return sanitizeReturnPath(value, fallback, PORTAL_PATHS[portal]);
 }

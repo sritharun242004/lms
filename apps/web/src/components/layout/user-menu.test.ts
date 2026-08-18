@@ -36,9 +36,9 @@ afterEach(cleanup);
 
 describe("role-aware logout", () => {
   it.each([
-    ["ADMIN", "/super-admin/login"],
-    ["MENTOR", "/coach/login"],
-    ["MENTEE", "/participant/login"],
+    ["ADMIN", "/admin/login"],
+    ["MENTOR", "/admin/login"],
+    ["MENTEE", "/"],
   ] as const)("returns %s users to %s", async (role, expected) => {
     const user = userEvent.setup();
     render(createElement(UserMenu, { user: authUser(role as UserRole) }));

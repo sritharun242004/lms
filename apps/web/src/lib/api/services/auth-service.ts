@@ -5,7 +5,6 @@ import type {
   MenteeJoinInput,
   ForgotPasswordInput,
   ResetPasswordInput,
-  ClaimAccountInput,
 } from "@cms/shared";
 import type { AuthPortal } from "@/lib/auth/portal-navigation";
 
@@ -16,8 +15,8 @@ export interface AuthSession {
 }
 
 export const authService = {
-  login: (input: LoginInput, portal: AuthPortal) =>
-    apiClient.post<AuthSession>(`/auth/${portal}/login`, input),
+  login: (input: LoginInput) =>
+    apiClient.post<AuthSession>("/auth/admin/login", input),
 
   join: (input: MenteeJoinInput) =>
     apiClient.post<AuthSession & { joinedGroup: { id: string; name: string } }>(
@@ -36,9 +35,6 @@ export const authService = {
 
   resetPassword: (input: ResetPasswordInput) =>
     apiClient.post<{ message: string }>("/auth/reset-password", input),
-
-  claimAccount: (input: ClaimAccountInput) =>
-    apiClient.post<{ user: AuthUser }>("/auth/claim-account", input),
 
   socketToken: () => apiClient.get<{ token: string }>("/auth/socket-token"),
 };

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 const ROLE_DASHBOARD: Record<string, string> = {
   ADMIN: "/admin/dashboard",
-  MENTOR: "/mentor/dashboard",
+  MENTOR: "/coach/dashboard",
   // Mentees have no dashboard — chat is their home.
   MENTEE: "/chat",
 };

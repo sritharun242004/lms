@@ -4,7 +4,6 @@ import { getMenteeDashboardStats } from "@/lib/dashboard/queries";
 import { getJoinedGroups } from "@/lib/groups/queries";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { GroupsSection } from "@/components/groups/groups-section";
-import { SecureAccountBanner } from "@/components/auth/secure-account-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -29,7 +28,6 @@ export default async function MenteeDashboardPage() {
         </p>
       </div>
 
-      {!user.email && <SecureAccountBanner />}
 
       {stats.joinedGroups === 0 ? (
         <GroupsSection groups={groups} canCreate={false} />

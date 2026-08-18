@@ -30,45 +30,38 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("separate staff portal forms", () => {
-  it("renders participant credential login without staff or coach copy", () => {
-    expect(() => renderToStaticMarkup(createElement(StaffLoginForm, { portal: "participant" }))).not.toThrow();
-    const html = renderToStaticMarkup(createElement(StaffLoginForm, { portal: "participant" }));
+describe("common staff login form", () => {
+  it("renders one login for coaches and Super Admins", () => {
+    const html = renderToStaticMarkup(createElement(StaffLoginForm));
 
-    expect(html).toContain("Participant sign in");
-    expect(html).not.toContain("Coach sign in");
-    expect(html).not.toContain("Super Admin sign in");
-    expect(html).not.toContain('href="/coach/signup"');
-    expect(html).toContain('href="/forgot-password?portal=participant"');
-  });
-
-  it("renders coach-specific login copy and approved coach signup access", () => {
-    const html = renderToStaticMarkup(createElement(StaffLoginForm, { portal: "coach" }));
-
-    expect(html).toContain("Coach sign in");
-    expect(html).toContain("approved coach email");
+    expect(html).toContain("Staff sign in");
+    expect(html).toContain("Coach or Super Admin");
     expect(html).toContain('href="/coach/signup"');
-    expect(html).toContain('href="/forgot-password?portal=coach"');
-    expect(html).not.toContain("Super Admin sign in");
+    expect(html).toContain('href="/forgot-password?portal=admin"');
+    expect(html).toContain("text-black");
   });
 
-  it("renders super-admin-specific login copy without coach signup", () => {
-    const html = renderToStaticMarkup(createElement(StaffLoginForm, { portal: "super-admin" }));
-
-    expect(html).toContain("Super Admin sign in");
-    expect(html).not.toContain('href="/coach/signup"');
-    expect(html).toContain('href="/forgot-password?portal=super-admin"');
-  });
-
-  it("never sends an untrusted redirect value to the client router", async () => {
+  it("routes a coach to the canonical coach dashboard and rejects an unsafe redirect", async () => {
     mocks.search = "redirect=javascript%3Aalert(1)";
     const user = userEvent.setup();
-    render(createElement(StaffLoginForm, { portal: "coach" }));
+    render(createElement(StaffLoginForm));
 
     await user.type(screen.getByLabelText("Email"), "coach@example.com");
     await user.type(screen.getByLabelText("Password"), "Password123!");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/coach/dashboard"));
+  });
+
+  it("routes a Super Admin to the canonical admin dashboard", async () => {
+    mocks.login.mockResolvedValue({ id: "admin-1", name: "Admin One", role: "ADMIN" });
+    const user = userEvent.setup();
+    render(createElement(StaffLoginForm));
+
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password"), "Password123!");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/admin/dashboard"));
   });
 });

@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/signup",
   "/join",
+  "/admin/login",
   "/participant/login",
   "/coach/login",
   "/coach/signup",
@@ -32,7 +33,7 @@ const PUBLIC_ROUTES = [
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   "/api/v1/auth/login",
-  "/api/v1/auth/participant/login",
+  "/api/v1/auth/admin/login",
   "/api/v1/auth/coach/login",
   "/api/v1/auth/super-admin/login",
   "/api/v1/auth/signup",
@@ -47,6 +48,7 @@ const PUBLIC_API_ROUTES = [
 const ROLE_ROUTES: Record<string, UserRole[]> = {
   "/admin": ["ADMIN"] as UserRole[],
   "/mentor": ["ADMIN", "MENTOR"] as UserRole[],
+  "/coach": ["ADMIN", "MENTOR"] as UserRole[],
   "/mentee": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
   "/dashboard": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
   "/questions": ["ADMIN", "MENTOR"] as UserRole[],
@@ -55,19 +57,22 @@ const ROLE_ROUTES: Record<string, UserRole[]> = {
 // Landing page redirect by role — mentees have no dashboard, chat is their home.
 const ROLE_DASHBOARD: Record<string, string> = {
   ADMIN: "/admin/dashboard",
-  MENTOR: "/mentor/dashboard",
+  MENTOR: "/coach/dashboard",
   MENTEE: "/chat",
 };
 
 function unauthenticatedEntry(pathname: string): string {
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    return "/super-admin/login";
+    return "/admin/login";
   }
   if (pathname === "/mentor" || pathname.startsWith("/mentor/")) {
-    return "/coach/login";
+    return "/admin/login";
+  }
+  if (pathname === "/coach" || pathname.startsWith("/coach/")) {
+    return "/admin/login";
   }
   if (pathname === "/questions" || pathname.startsWith("/questions/") || pathname === "/dashboard") {
-    return "/coach/login";
+    return "/admin/login";
   }
   return "/";
 }

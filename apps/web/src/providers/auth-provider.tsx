@@ -7,7 +7,6 @@ import type {
   AuthUser,
   LoginInput,
   MenteeJoinInput,
-  ClaimAccountInput,
 } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 import type { AuthPortal } from "@/lib/auth/portal-navigation";
@@ -29,11 +28,10 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (input: LoginInput, portal: AuthPortal) => Promise<AuthUser>;
+  login: (input: LoginInput) => Promise<AuthUser>;
   join: (
     input: MenteeJoinInput
   ) => Promise<{ user: AuthUser; joinedGroup: { id: string; name: string } }>;
-  claimAccount: (input: ClaimAccountInput) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -53,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const login = React.useCallback(
-    async (input: LoginInput, portal: AuthPortal) => {
-      const res = await authService.login(input, portal);
+    async (input: LoginInput) => {
+      const res = await authService.login(input);
       if (!res.success) {
         throw new Error(apiErrorMessage(res.error, "Login failed"));
       }
@@ -76,18 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient]
   );
 
-  const claimAccount = React.useCallback(
-    async (input: ClaimAccountInput) => {
-      const res = await authService.claimAccount(input);
-      if (!res.success) {
-        throw new Error(apiErrorMessage(res.error, "Failed to set up login credentials"));
-      }
-      queryClient.setQueryData(AUTH_QUERY_KEY, res.data!.user);
-      return res.data!.user;
-    },
-    [queryClient]
-  );
-
   const logout = React.useCallback(async () => {
     await authService.logout();
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
@@ -101,10 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!data,
       login,
       join,
-      claimAccount,
       logout,
     }),
-    [data, isLoading, login, join, claimAccount, logout]
+    [data, isLoading, login, join, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

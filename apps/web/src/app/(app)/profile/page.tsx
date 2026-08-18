@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { SecureAccountBanner } from "@/components/auth/secure-account-banner";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -53,7 +52,6 @@ export default async function ProfilePage() {
           {!user.email && (
             <>
               <Separator />
-              <SecureAccountBanner />
             </>
           )}
         </CardContent>

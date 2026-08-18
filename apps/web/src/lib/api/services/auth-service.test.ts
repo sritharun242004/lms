@@ -4,10 +4,7 @@ import { authService } from "./auth-service";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("staff auth service", () => {
-  it.each([
-    ["coach", "/api/v1/auth/coach/login"],
-    ["super-admin", "/api/v1/auth/super-admin/login"],
-  ] as const)("posts %s credentials only to its guarded endpoint", async (portal, expectedPath) => {
+  it("posts credentials only to the common guarded staff endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -16,11 +13,10 @@ describe("staff auth service", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await authService.login(
-      { email: "person@example.com", password: "Password123!", rememberMe: false },
-      portal
+      { email: "person@example.com", password: "Password123!", rememberMe: false }
     );
 
-    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(expectedPath);
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe("/api/v1/auth/admin/login");
   });
 
   it("preserves a validated portal when requesting a password reset", async () => {
@@ -31,10 +27,10 @@ describe("staff auth service", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await authService.forgotPassword({ email: "coach@example.com" }, "coach");
+    await authService.forgotPassword({ email: "coach@example.com" }, "admin");
 
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.pathname).toBe("/api/v1/auth/forgot-password");
-    expect(url.searchParams.get("portal")).toBe("coach");
+    expect(url.searchParams.get("portal")).toBe("admin");
   });
 });
