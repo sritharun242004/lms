@@ -8,7 +8,7 @@ import type { ChatMessage } from "@/lib/api/services/message-service";
  * else's. Never broadcast the result of this select directly; the
  * `poll:vote` socket event carries counts only for exactly this reason.
  */
-export function messageSelect(viewerId: string) {
+export function messageSelect(viewerId: string, canManage = false) {
   return {
     id: true,
     content: true,
@@ -48,7 +48,15 @@ export function messageSelect(viewerId: string) {
         // `userId` stays server-side only — serializeMessage strips it
         // before this ever reaches a client, keeping the wall anonymous.
         answers: {
-          select: { id: true, text: true, userId: true, createdAt: true },
+          select: {
+            id: true,
+            text: true,
+            userId: true,
+            createdAt: true,
+            ...(canManage && {
+              user: { select: { name: true, avatarUrl: true } },
+            }),
+          },
           orderBy: { createdAt: "asc" },
         },
       },
@@ -106,7 +114,13 @@ interface RawMessage {
   openQuestion: {
     id: string;
     question: string;
-    answers: { id: string; text: string; userId: string; createdAt: Date }[];
+    answers: {
+      id: string;
+      text: string;
+      userId: string;
+      createdAt: Date;
+      user?: { name: string; avatarUrl: string | null };
+    }[];
   } | null;
   wordCloud: {
     id: string;
@@ -120,7 +134,11 @@ interface RawMessage {
   } | null;
 }
 
-export function serializeMessage<T extends RawMessage>(m: T, viewerId: string): ChatMessage {
+export function serializeMessage<T extends RawMessage>(
+  m: T,
+  viewerId: string,
+  canManage = false
+): ChatMessage {
   const poll = m.poll
     ? {
         id: m.poll.id,
@@ -145,6 +163,14 @@ export function serializeMessage<T extends RawMessage>(m: T, viewerId: string): 
           id: a.id,
           text: a.text,
           createdAt: a.createdAt.toISOString(),
+          ...(canManage && a.user
+            ? {
+                participant: {
+                  name: a.user.name,
+                  avatarUrl: a.user.avatarUrl,
+                },
+              }
+            : {}),
         })),
         myAnswerId: m.openQuestion.answers.find((a) => a.userId === viewerId)?.id ?? null,
       }

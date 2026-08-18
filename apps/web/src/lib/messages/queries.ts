@@ -6,19 +6,20 @@ const PAGE_SIZE = 50;
 
 export async function getInitialMessages(
   groupId: string,
-  viewerId: string
+  viewerId: string,
+  canManage: boolean
 ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
   const messages = await prisma.message.findMany({
     where: { groupId, isDeleted: false },
     orderBy: { createdAt: "desc" },
     take: PAGE_SIZE,
-    select: messageSelect(viewerId),
+    select: messageSelect(viewerId, canManage),
   });
 
   return {
     messages: messages
       .reverse()
-      .map((m: (typeof messages)[number]) => serializeMessage(m, viewerId)),
+      .map((m: (typeof messages)[number]) => serializeMessage(m, viewerId, canManage)),
     hasMore: messages.length === PAGE_SIZE,
   };
 }

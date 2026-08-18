@@ -20,7 +20,7 @@ export default async function GroupChatPage({
   const group = await getGroupHeader(groupId);
   if (!group) notFound();
 
-  const { messages, hasMore } = await getInitialMessages(groupId, user.id);
+  const { messages, hasMore } = await getInitialMessages(groupId, user.id, access.canManage);
 
   return (
     <ChatThread

@@ -218,7 +218,18 @@ export function ChatThread({
           return { ...m, poll: { ...m.poll, options: merged, totalVotes } };
         })
       ),
-    onOpenQuestionAnswer: ({ messageId, answer }) =>
+    onOpenQuestionAnswer: ({ messageId, answer }) => {
+      if (canManage) {
+        // The room-wide event is intentionally anonymous. Managers refetch
+        // the role-shaped REST payload instead of receiving identity over the
+        // shared socket boundary.
+        void messageService.list(groupId).then((res) => {
+          if (!res.success || !res.data) return;
+          setMessages((prev) => mergeLatest(prev, res.data!.messages));
+        });
+        return;
+      }
+
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== messageId || !m.openQuestion) return m;
@@ -229,7 +240,8 @@ export function ChatThread({
               : m.openQuestion.answers.map((a) => (a.id === answer.id ? answer : a));
           return { ...m, openQuestion: { ...m.openQuestion, answers } };
         })
-      ),
+      );
+    },
     onWordCloudUpdate: ({ messageId, entry }) =>
       setMessages((prev) =>
         prev.map((m) => {
@@ -541,6 +553,7 @@ export function ChatThread({
                     openQuestion={message.openQuestion}
                     groupId={groupId}
                     isOwn={message.senderId === currentUserId}
+                    canManage={canManage}
                     onAnswered={(openQuestion) => handleAnswered(message.id, openQuestion)}
                     onDelete={handleDelete}
                   />

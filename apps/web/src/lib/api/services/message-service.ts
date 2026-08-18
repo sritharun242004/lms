@@ -36,6 +36,11 @@ export interface OpenAnswerResult {
   id: string;
   text: string;
   createdAt: string;
+  /** Display-only attribution returned to authorized managers. */
+  participant?: {
+    name: string;
+    avatarUrl: string | null;
+  };
 }
 
 export interface OpenQuestionData {

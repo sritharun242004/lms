@@ -53,7 +53,14 @@ export async function POST(
     const allAnswers = await prisma.openAnswer.findMany({
       where: { openQuestionId: openQuestion.id },
       orderBy: { createdAt: "asc" },
-      select: { id: true, text: true, createdAt: true },
+      select: {
+        id: true,
+        text: true,
+        createdAt: true,
+        ...(access.canManage && {
+          user: { select: { name: true, avatarUrl: true } },
+        }),
+      },
     });
 
     // Anonymous — the broadcast carries the answer text but never who
@@ -72,6 +79,14 @@ export async function POST(
           id: a.id,
           text: a.text,
           createdAt: a.createdAt.toISOString(),
+          ...(access.canManage && "user" in a
+            ? {
+                participant: {
+                  name: a.user.name,
+                  avatarUrl: a.user.avatarUrl,
+                },
+              }
+            : {}),
         })),
         myAnswerId: answer.id,
       },

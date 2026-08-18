@@ -37,13 +37,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       orderBy: { createdAt: "desc" },
       take: PAGE_SIZE,
-      select: messageSelect(user.id),
+      select: messageSelect(user.id, access.canManage),
     });
 
     return successResponse({
       messages: messages
         .reverse()
-        .map((m: (typeof messages)[number]) => serializeMessage(m, user.id)),
+        .map((m: (typeof messages)[number]) =>
+          serializeMessage(m, user.id, access.canManage)
+        ),
       hasMore: messages.length === PAGE_SIZE,
     });
   } catch (error) {
