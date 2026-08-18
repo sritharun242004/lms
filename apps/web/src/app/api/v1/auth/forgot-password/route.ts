@@ -1,16 +1,31 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { generatePasswordResetToken } from "@/lib/auth";
-import { successResponse, parseBody } from "@/lib/api/response";
+import { errorResponse, successResponse, parseBody } from "@/lib/api/response";
 import { forgotPasswordSchema } from "@cms/shared";
 import { parseAuthPortal } from "@/lib/auth/portal-navigation";
 
 const GENERIC_MESSAGE =
   "If an account exists for that email, a password reset link has been sent.";
 
+function deliverResetLinkToDevelopmentConsole(email: string, resetUrl: string) {
+  if (process.env.NODE_ENV === "production") return;
+  console.log(`[password-reset] ${email} → ${resetUrl}`);
+}
+
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, forgotPasswordSchema);
   if (parsed.error) return parsed.error;
+
+  // No transactional email provider is configured. Production must not mint
+  // a credential that it cannot deliver safely, and must never log raw links.
+  if (process.env.NODE_ENV === "production") {
+    return errorResponse(
+      "Password recovery is temporarily unavailable. Please contact your administrator.",
+      "PASSWORD_RECOVERY_UNAVAILABLE",
+      503
+    );
+  }
 
   const { email } = parsed.data;
   const portal = parseAuthPortal(req.nextUrl.searchParams.get("portal"));
@@ -40,9 +55,7 @@ export async function POST(req: NextRequest) {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(token)}&portal=${portal}`;
 
-    // TODO: wire up a transactional email provider. For now, log the
-    // reset link so it can be used during local development.
-    console.log(`[password-reset] ${email} → ${resetUrl}`);
+    deliverResetLinkToDevelopmentConsole(email, resetUrl);
 
     return successResponse({ message: GENERIC_MESSAGE });
   } catch (error) {

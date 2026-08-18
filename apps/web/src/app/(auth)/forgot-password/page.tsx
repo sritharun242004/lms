@@ -30,6 +30,7 @@ function ForgotPasswordForm() {
   const loginPath = canonicalLoginPath(portal);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [serviceError, setServiceError] = React.useState<string | null>(null);
 
   const form = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -38,13 +39,16 @@ function ForgotPasswordForm() {
 
   async function onSubmit(values: ForgotPasswordInput) {
     setIsSubmitting(true);
+    setServiceError(null);
     try {
-      await authService.forgotPassword(values, portal);
-    } finally {
-      // Always show the confirmation screen — the API never reveals
-      // whether an account exists for the given email.
-      setIsSubmitting(false);
+      const result = await authService.forgotPassword(values, portal);
+      if (!result.success) {
+        setServiceError(result.error?.message || "Password recovery is currently unavailable.");
+        return;
+      }
       setSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -95,6 +99,8 @@ function ForgotPasswordForm() {
           </Button>
         </form>
       </Form>
+
+      {serviceError ? <p role="alert" className="text-sm text-destructive">{serviceError}</p> : null}
 
       <Link
         href={loginPath}

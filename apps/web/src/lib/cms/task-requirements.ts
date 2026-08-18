@@ -9,7 +9,8 @@ export function chatBackHref(canManage: boolean): string | null {
 }
 
 export function visibleRoleLabel(role: UserRole | string): string {
-  return role === "ADMIN" ? "Super Admin" : "Participant";
+  if (role === "ADMIN") return "Super Admin";
+  return role === "MENTOR" ? "Coach" : "Participant";
 }
 
 export function isSupportedChatFile(file: { name: string; size: number }): { ok: true } | { ok: false; message: string } {

@@ -69,4 +69,24 @@ describe("password portal context", () => {
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/super-admin/login"));
   });
+
+  it("truthfully shows password recovery unavailable when delivery is not configured", async () => {
+    mocks.forgotPassword.mockResolvedValue({
+      success: false,
+      error: {
+        code: "PASSWORD_RECOVERY_UNAVAILABLE",
+        message: "Password recovery is temporarily unavailable. Please contact your administrator.",
+      },
+    });
+    const user = userEvent.setup();
+    render(createElement(ForgotPasswordPage));
+
+    await user.type(screen.getByLabelText("Email"), "person@example.com");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Password recovery is temporarily unavailable"
+    );
+    expect(screen.queryByRole("heading", { name: "Check your email" })).toBeNull();
+  });
 });

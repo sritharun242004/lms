@@ -47,4 +47,13 @@ describe("role-aware logout", () => {
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(expected));
   });
+
+  it.each([
+    ["MENTOR", "Coach"],
+    ["MENTEE", "Participant"],
+  ] as const)("shows %s users as %s", (role, label) => {
+    render(createElement(UserMenu, { user: authUser(role as UserRole) }));
+
+    expect(screen.getByText(new RegExp(`${label}$`))).toBeTruthy();
+  });
 });

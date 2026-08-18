@@ -18,6 +18,7 @@ export {
   WORD_CLOUD_MAX_WORD_LENGTH,
 } from "./constants";
 export type { Permission } from "./constants";
+export { isAuthVersionCurrent, isValidJwtIdentity, isValidJwtSessionClaims } from "./auth";
 
 // Validation Schemas
 export {

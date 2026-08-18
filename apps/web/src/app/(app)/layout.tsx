@@ -42,7 +42,7 @@ export default async function AppLayout({
             )}
             {user.role === "ADMIN" && (
               <Link href="/admin/coaches" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Participant onboarding
+                Coach account management
               </Link>
             )}
           </nav>

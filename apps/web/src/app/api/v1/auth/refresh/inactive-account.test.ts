@@ -88,4 +88,34 @@ describe("refresh active-account enforcement", () => {
     expect(mocks.clearAuthCookies).toHaveBeenCalledOnce();
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
   });
+
+  it("accepts a legacy missing-version refresh token only for database version zero", async () => {
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
+    const user = {
+      id: "coach-1", name: "Coach One", email: "coach@example.com", role: "MENTOR",
+      avatarUrl: null, emailVerified: true, isActive: true, authVersion: 0,
+    };
+    mocks.findUser.mockResolvedValue(user);
+    mocks.generateAccessToken.mockReturnValue("new-access");
+    mocks.generateRefreshToken.mockReturnValue("new-refresh");
+    const request = new NextRequest("http://localhost/api/v1/auth/refresh", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: "legacy-refresh" }),
+    });
+
+    const accepted = await POST(request);
+    expect(accepted.status).toBe(200);
+    expect(mocks.generateAccessToken).toHaveBeenCalledWith(user);
+
+    vi.clearAllMocks();
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
+    mocks.isRefreshTokenValid.mockResolvedValue(true);
+    mocks.findUser.mockResolvedValue({ ...user, authVersion: 1 });
+    const rejected = await POST(new NextRequest("http://localhost/api/v1/auth/refresh", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: "legacy-refresh" }),
+    }));
+    expect(rejected.status).toBe(401);
+    expect((await rejected.json()).error.code).toBe("STALE_SESSION");
+  });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
@@ -28,6 +28,7 @@ function request(portal: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("NODE_ENV", "development");
   mocks.findUser.mockResolvedValue({ id: "u1" });
   mocks.updateUser.mockResolvedValue({});
   mocks.generatePasswordResetToken.mockReturnValue({
@@ -36,6 +37,11 @@ beforeEach(() => {
     expiresAt: new Date("2026-08-18T15:00:00.000Z"),
   });
   vi.spyOn(console, "log").mockImplementation(mocks.log);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("portal-aware password reset links", () => {
@@ -53,5 +59,28 @@ describe("portal-aware password reset links", () => {
     expect(mocks.log).toHaveBeenCalledWith(
       "[password-reset] person@example.com → http://localhost:3000/reset-password?token=raw-token&portal=participant"
     );
+  });
+});
+
+describe("production password recovery safety", () => {
+  it("fails closed before lookup or token creation and never logs a raw token or URL", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await POST(request("coach"));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toEqual({
+      code: "PASSWORD_RECOVERY_UNAVAILABLE",
+      message: "Password recovery is temporarily unavailable. Please contact your administrator.",
+    });
+    expect(mocks.findUser).not.toHaveBeenCalled();
+    expect(mocks.generatePasswordResetToken).not.toHaveBeenCalled();
+    expect(mocks.updateUser).not.toHaveBeenCalled();
+    expect(mocks.log).not.toHaveBeenCalled();
+    expect(errorLog).not.toHaveBeenCalled();
+    expect(JSON.stringify(body)).not.toContain("raw-token");
+    expect(JSON.stringify(body)).not.toContain("reset-password?");
   });
 });

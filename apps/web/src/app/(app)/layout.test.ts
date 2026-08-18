@@ -33,4 +33,15 @@ describe("desktop shared navigation", () => {
 
     expect(markup).not.toContain("Chats");
   });
+
+  it("labels the ADMIN coach route as Coach account management", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "admin-1", role: "ADMIN", name: "Admin" });
+
+    const tree = await AppLayout({ children: createElement("main", null, "Content") });
+    const markup = renderToStaticMarkup(tree);
+
+    expect(markup).toContain('href="/admin/coaches"');
+    expect(markup).toContain("Coach account management");
+    expect(markup).not.toContain("Participant onboarding");
+  });
 });

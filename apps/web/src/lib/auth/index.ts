@@ -2,7 +2,7 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import type { JwtPayload, AuthUser, UserRole } from "@cms/shared";
+import { isAuthVersionCurrent, isValidJwtSessionClaims, type JwtPayload, type AuthUser, type UserRole } from "@cms/shared";
 import { prisma } from "@/lib/db/prisma";
 
 // ============================================================
@@ -193,7 +193,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (!token) return null;
 
   const payload = verifyAccessToken(token);
-  if (!payload) return null;
+  if (!payload || !isValidJwtSessionClaims(payload)) return null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -210,7 +210,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       },
     });
 
-    if (!user || !user.isActive || payload.authVersion !== user.authVersion) return null;
+    if (!user || !user.isActive || !isAuthVersionCurrent(payload.authVersion, user.authVersion)) return null;
 
     return {
       id: user.id,

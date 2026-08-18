@@ -116,4 +116,22 @@ describe("portal-aware proxy redirects", () => {
     expect(response.headers.get("location")).toBeNull();
     expect(response.cookies.get("access_token")?.value).toBe("");
   });
+
+  it("accepts a legacy missing-version access token only for a database version of zero", async () => {
+    const req = request("/mentor/dashboard");
+    req.cookies.set("access_token", "legacy-token");
+    mocks.verifyAccessToken.mockReturnValue({ sub: "u1", role: "MENTOR" });
+
+    const accepted = await proxy(req);
+    expect(accepted.headers.get("location")).toBeNull();
+
+    mocks.findUser.mockResolvedValue({
+      id: "u1", name: "Coach", email: "coach@example.com", role: "MENTOR",
+      isActive: true, authVersion: 1,
+    });
+    const rejected = await proxy(req);
+    expect(rejected.headers.get("location")).toBe(
+      "http://localhost/coach/login?redirect=%2Fmentor%2Fdashboard"
+    );
+  });
 });

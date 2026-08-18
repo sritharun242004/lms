@@ -11,7 +11,7 @@ import {
   getRefreshCookieOptions,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
-import type { UserRole } from "@cms/shared";
+import { isAuthVersionCurrent, isValidJwtSessionClaims, type UserRole } from "@cms/shared";
 import { sanitizeReturnPath } from "@/lib/auth/portal-navigation";
 
 // Routes that don't require authentication
@@ -101,6 +101,10 @@ export async function proxy(request: NextRequest) {
   const initialToken = request.cookies.get("access_token")?.value ?? null;
   let payload = initialToken ? verifyAccessToken(initialToken) : null;
   let shouldClearAuthCookies = false;
+  if (payload && !isValidJwtSessionClaims(payload)) {
+    payload = null;
+    shouldClearAuthCookies = true;
+  }
 
   // A valid signature is not enough: password resets and deactivation bump
   // authVersion so already-issued access tokens stop authorizing immediately.
@@ -109,7 +113,7 @@ export async function proxy(request: NextRequest) {
       where: { id: payload.sub },
       select: { id: true, isActive: true, authVersion: true },
     });
-    if (!accessUser?.isActive || accessUser.authVersion !== payload.authVersion) {
+    if (!accessUser?.isActive || !isAuthVersionCurrent(payload.authVersion, accessUser.authVersion)) {
       payload = null;
       shouldClearAuthCookies = true;
     }
@@ -128,7 +132,7 @@ export async function proxy(request: NextRequest) {
     const refreshCookie = request.cookies.get("refresh_token")?.value;
     if (refreshCookie) {
       const refreshPayload = verifyRefreshToken(refreshCookie);
-      if (refreshPayload && (await isRefreshTokenValid(refreshCookie))) {
+      if (refreshPayload && isValidJwtSessionClaims(refreshPayload) && (await isRefreshTokenValid(refreshCookie))) {
         const user = await prisma.user.findUnique({
           where: { id: refreshPayload.sub },
           select: {
@@ -136,7 +140,7 @@ export async function proxy(request: NextRequest) {
           },
         });
 
-        if (user?.isActive && user.authVersion === refreshPayload.authVersion) {
+        if (user?.isActive && isAuthVersionCurrent(refreshPayload.authVersion, user.authVersion)) {
           const rememberMe = Boolean(refreshPayload.rememberMe);
           await revokeRefreshToken(refreshCookie);
 

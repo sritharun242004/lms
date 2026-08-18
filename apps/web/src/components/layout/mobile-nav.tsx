@@ -15,7 +15,7 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
   const links = [
     ...(!isMentee ? [{ href: "/questions", label: "Quiz repository", icon: Library }] : []),
     ...(!isMentee ? [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-    ...(isSuperAdmin ? [{ href: "/admin/coaches", label: "Participant onboarding", icon: UserPlus }] : []),
+    ...(isSuperAdmin ? [{ href: "/admin/coaches", label: "Coach account management", icon: UserPlus }] : []),
   ];
 
   return (

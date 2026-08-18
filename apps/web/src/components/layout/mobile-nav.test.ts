@@ -33,4 +33,12 @@ describe("mobile navigation", () => {
 
     expect(screen.queryByRole("link", { name: "Chats" })).toBeNull();
   });
+
+  it("labels the Super Admin coach route as Coach account management", () => {
+    render(createElement(MobileNav, { isMentee: false, isSuperAdmin: true }));
+
+    expect(screen.getByRole("link", { name: "Coach account management" }).getAttribute("href"))
+      .toBe("/admin/coaches");
+    expect(screen.queryByText("Participant onboarding")).toBeNull();
+  });
 });

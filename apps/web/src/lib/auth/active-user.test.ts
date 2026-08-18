@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import jwt from "jsonwebtoken";
 
 const mocks = vi.hoisted(() => ({
   accessToken: "",
@@ -62,6 +63,17 @@ describe("current user active-account enforcement", () => {
   it("rejects a validly signed access token after the durable auth version changes", async () => {
     mocks.findUser.mockResolvedValue({ ...persistedUser, authVersion: 1 });
 
+    await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
+  it("accepts a legacy missing-version token only while the database version remains zero", async () => {
+    mocks.accessToken = jwt.sign({
+      sub: persistedUser.id, name: persistedUser.name, email: persistedUser.email, role: persistedUser.role,
+    }, process.env.JWT_SECRET || "dev-secret-change-in-production", { expiresIn: "5m" });
+    mocks.findUser.mockResolvedValue(persistedUser);
+    await expect(getCurrentUser()).resolves.toMatchObject({ id: "coach-1", role: "MENTOR" });
+
+    mocks.findUser.mockResolvedValue({ ...persistedUser, authVersion: 1 });
     await expect(getCurrentUser()).resolves.toBeNull();
   });
 });

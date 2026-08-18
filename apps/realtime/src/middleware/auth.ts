@@ -1,6 +1,6 @@
 import type { Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-import type { JwtPayload } from "@cms/shared";
+import { isAuthVersionCurrent, isValidJwtSessionClaims, type JwtPayload } from "@cms/shared";
 import { prisma } from "../lib/prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
@@ -89,10 +89,10 @@ export const findRealtimeAuthUser: AuthUserLookup = (userId) =>
 function hasCurrentAuthorization(
   user: RealtimeAuthUser | null,
   userId: string,
-  authVersion: number
+  authVersion: unknown
 ): user is RealtimeAuthUser {
   return Boolean(
-    user && user.id === userId && user.isActive && user.authVersion === authVersion
+    user && user.id === userId && user.isActive && isAuthVersionCurrent(authVersion, user.authVersion)
   );
 }
 
@@ -120,12 +120,7 @@ export function createAuthMiddleware(lookup: AuthUserLookup = findRealtimeAuthUs
       return next(new Error("Authentication failed."));
     }
 
-    if (
-      typeof payload.sub !== "string" ||
-      payload.sub.length === 0 ||
-      !Number.isInteger(payload.authVersion) ||
-      payload.authVersion < 0
-    ) {
+    if (!isValidJwtSessionClaims(payload)) {
       return next(new Error("Invalid token. Authentication failed."));
     }
 

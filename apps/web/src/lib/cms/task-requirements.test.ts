@@ -24,8 +24,8 @@ describe("focused group navigation", () => {
 });
 
 describe("participant terminology", () => {
-  it("does not expose mentor or mentee role names", () => {
-    expect(visibleRoleLabel("MENTOR")).toBe("Participant");
+  it("labels coaches separately while keeping mentees as participants", () => {
+    expect(visibleRoleLabel("MENTOR")).toBe("Coach");
     expect(visibleRoleLabel("MENTEE")).toBe("Participant");
     expect(visibleRoleLabel("ADMIN")).toBe("Super Admin");
   });

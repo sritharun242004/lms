@@ -12,6 +12,7 @@ import {
   clearAuthCookies,
 } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { isAuthVersionCurrent, isValidJwtSessionClaims } from "@cms/shared";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Verify the token cryptographically
     const payload = verifyRefreshToken(token);
-    if (!payload) {
+    if (!payload || !isValidJwtSessionClaims(payload)) {
       return errorResponse(
         "Invalid or expired refresh token",
         "INVALID_REFRESH_TOKEN",
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
       return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 401);
     }
 
-    if (payload.authVersion !== user.authVersion) {
+    if (!isAuthVersionCurrent(payload.authVersion, user.authVersion)) {
       await revokeRefreshToken(token);
       await clearAuthCookies();
       return errorResponse("This session is no longer valid", "STALE_SESSION", 401);

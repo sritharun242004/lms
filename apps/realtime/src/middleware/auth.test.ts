@@ -77,12 +77,30 @@ describe("realtime authentication", () => {
     expect(error?.message).toBe("Authentication failed.");
   });
 
-  it("rejects legacy signed tokens with no auth version", async () => {
-    const { error } = await authenticate(
-      vi.fn().mockResolvedValue({ ...currentUser, authVersion: 0 }),
-      token({ authVersion: undefined })
+  it("accepts a legacy missing-version token only for database version zero", async () => {
+    const legacyToken = token({ authVersion: undefined });
+    const accepted = await authenticate(
+      vi.fn().mockResolvedValue({ ...currentUser, authVersion: 0 }), legacyToken
     );
+    expect(accepted.error).toBeUndefined();
+    expect(accepted.socket.data).toMatchObject({ userId: "user-1", role: "MENTOR", authVersion: 0 });
+
+    const rejected = await authenticate(
+      vi.fn().mockResolvedValue({ ...currentUser, authVersion: 1 }), legacyToken
+    );
+    expect(rejected.error?.message).toBe("Authentication failed.");
+  });
+
+  it.each([
+    ["user id", { sub: undefined }],
+    ["role", { role: undefined }],
+    ["valid auth version", { authVersion: null }],
+  ])("still rejects a signed token missing its %s", async (_field, overrides) => {
+    const lookup = vi.fn().mockResolvedValue({ ...currentUser, authVersion: 0 });
+    const { error } = await authenticate(lookup, token(overrides));
+
     expect(error?.message).toBe("Invalid token. Authentication failed.");
+    expect(lookup).not.toHaveBeenCalled();
   });
 
   it("fails closed without leaking details when the database lookup fails", async () => {
@@ -141,6 +159,20 @@ describe("connected realtime session revocation", () => {
 
     expect(lookup).toHaveBeenCalledWith("user-1");
     expect(socket.disconnect).toHaveBeenCalledWith(true);
+    stop();
+  });
+
+  it("keeps a legacy-established version-zero socket only while the database stays at zero", async () => {
+    const socket = socketWith() as ReturnType<typeof socketWith> & {
+      data: { userId: string; authVersion: number };
+    };
+    socket.data = { userId: "user-1", authVersion: 0 };
+    const lookup = vi.fn().mockResolvedValue({ ...currentUser, authVersion: 0 });
+
+    const stop = startAuthRevalidation(socket as never, lookup);
+    await vi.advanceTimersByTimeAsync(AUTH_REVALIDATION_INTERVAL_MS);
+
+    expect(socket.disconnect).not.toHaveBeenCalled();
     stop();
   });
 
