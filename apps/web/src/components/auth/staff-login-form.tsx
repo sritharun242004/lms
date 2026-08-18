@@ -48,7 +48,7 @@ export function StaffLoginForm() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Staff sign in</h1>
-        <p className="text-sm text-muted-foreground">Coach or Super Admin? Use your approved email and password.</p>
+        <p className="text-sm text-muted-foreground">Coach or Super Admin? Use your email and password.</p>
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -64,7 +64,6 @@ export function StaffLoginForm() {
           <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting && <Loader2 className="size-4 animate-spin" />}Sign in</Button>
         </form>
       </Form>
-      <p className="text-center text-sm text-muted-foreground">Approved as a coach? <Link href="/coach/signup" className="font-medium text-foreground underline underline-offset-4">Create your coach account</Link></p>
     </div>
   );
 }

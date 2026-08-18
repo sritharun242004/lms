@@ -27,14 +27,4 @@ describe("unified auth route and presentation contracts", () => {
     expect(layout).toContain("Staff workspace");
     expect(layout).not.toContain("Participant portal");
   });
-
-  it("keeps coach signup content while linking to the common staff login", () => {
-    const signup = source("./coach/signup/page.tsx");
-
-    expect(signup).toContain("Create coach account");
-    expect(signup).toContain("approved by your Super Admin");
-    expect(signup).toContain('href="/admin/login"');
-    expect(signup).toContain('router.push("/coach/dashboard")');
-    expect(signup).toContain("text-black");
-  });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   loginSchema,
-  coachSignupSchema,
+  coachAccountCreateSchema,
   menteeJoinSchema,
   resetPasswordSchema,
   securePasswordSchema,
@@ -36,13 +36,12 @@ describe("loginSchema", () => {
   });
 });
 
-describe("coachSignupSchema", () => {
-  it("normalizes an approved coach email and requires matching secure passwords", () => {
-    const result = coachSignupSchema.parse({
+describe("coachAccountCreateSchema", () => {
+  it("normalizes a coach email created directly by an admin", () => {
+    const result = coachAccountCreateSchema.parse({
       name: "Asha Coach",
       email: "ASHA@EXAMPLE.COM ",
       password: "Strong@Pass1",
-      confirmPassword: "Strong@Pass1",
     });
 
     expect(result.email).toBe("asha@example.com");

@@ -31,9 +31,9 @@ describe("legacy and participant entry redirects", () => {
     expect(redirect).toHaveBeenCalledWith("/");
   });
 
-  it("redirects legacy /signup to approved coach signup", async () => {
+  it("redirects legacy /signup to the staff login", async () => {
     LegacySignupPage();
 
-    expect(redirect).toHaveBeenCalledWith("/coach/signup");
+    expect(redirect).toHaveBeenCalledWith("/admin/login");
   });
 });

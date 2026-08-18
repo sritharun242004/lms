@@ -6,9 +6,7 @@ const mocks = vi.hoisted(() => ({
   hashPassword: vi.fn(),
   findTarget: vi.fn(),
   findCollision: vi.fn(),
-  findApprovalCollision: vi.fn(),
   updateUser: vi.fn(),
-  updateApproval: vi.fn(),
   deleteRefreshTokens: vi.fn(),
   disableSessions: vi.fn(),
   createAuditLog: vi.fn(),
@@ -28,7 +26,6 @@ vi.mock("@/lib/db/prisma", () => ({
         return targetCalls === 0 ? mocks.findTarget(...args) : mocks.findCollision(...args);
       },
     },
-    coachEmailApproval: { findFirst: mocks.findApprovalCollision },
     $transaction: mocks.transaction,
   },
 }));
@@ -61,16 +58,13 @@ beforeEach(() => {
   mocks.getCurrentUser.mockResolvedValue({ id: "admin-1", role: "ADMIN" });
   mocks.findTarget.mockResolvedValue(coach);
   mocks.findCollision.mockResolvedValue(null);
-  mocks.findApprovalCollision.mockResolvedValue(null);
   mocks.hashPassword.mockResolvedValue("bcrypt-cost-12-hash");
   mocks.updateUser.mockImplementation(async ({ data }) => ({ ...coach, ...data }));
-  mocks.updateApproval.mockResolvedValue({ count: 1 });
   mocks.deleteRefreshTokens.mockResolvedValue({ count: 2 });
   mocks.disableSessions.mockResolvedValue({ count: 3 });
   mocks.transaction.mockImplementation(async (callback) =>
     callback({
       user: { update: mocks.updateUser },
-      coachEmailApproval: { updateMany: mocks.updateApproval },
       refreshToken: { deleteMany: mocks.deleteRefreshTokens },
       session: { updateMany: mocks.disableSessions },
       auditLog: { create: mocks.createAuditLog },

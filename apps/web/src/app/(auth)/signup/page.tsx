@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LegacySignupPage() {
-  redirect("/coach/signup");
+  redirect("/admin/login");
 }
