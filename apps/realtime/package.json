@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "prebuild": "npm run db:generate --workspace @cms/web",
     "build": "tsc",
+    "test": "vitest run",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cms/shared": "*",
+    "@prisma/client": "^6.9.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "jsonwebtoken": "^9.0.0",
@@ -20,6 +23,7 @@
     "@types/jsonwebtoken": "^9.0.0",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
   }
 }

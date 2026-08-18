@@ -1,7 +1,7 @@
 import "dotenv/config";
 import http from "http";
 import { Server } from "socket.io";
-import { authMiddleware } from "./middleware/auth";
+import { authMiddleware, startAuthRevalidation } from "./middleware/auth";
 import { registerChatHandlers } from "./handlers/chat";
 import { registerPresenceHandlers } from "./handlers/presence";
 import type { SocketEvents } from "@cms/shared";
@@ -118,9 +118,11 @@ io.on("connection", (socket) => {
   // Register event handlers
   registerChatHandlers(io, socket);
   registerPresenceHandlers(io, socket, onlineUsers);
+  const stopAuthRevalidation = startAuthRevalidation(socket);
 
   // Handle disconnect
   socket.on("disconnect", (reason) => {
+    stopAuthRevalidation();
     console.log(`✗ User disconnected: ${userName} (${userId}) - Reason: ${reason}`);
 
     const userSockets = onlineUsers.get(userId);
