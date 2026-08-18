@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { normalizeWord } from "./normalize";
+import { isStopWord } from "./stop-words";
 
 describe("normalizeWord", () => {
-  it("lowercases and trims", () => {
-    expect(normalizeWord("  Creative  ")).toBe("creative");
+  it("preserves submitted letter casing while trimming", () => {
+    expect(normalizeWord("  Creative  ")).toBe("Creative");
   });
 
-  it("collapses case/punctuation variants to the same value", () => {
-    const variants = ["Creative", "creative", "CREATIVE", "creative.", "creative,"];
+  it("keeps case variants as distinct stored and displayed values", () => {
+    const variants = ["Creative", "creative", "CREATIVE"];
     const normalized = new Set(variants.map(normalizeWord));
-    expect(normalized.size).toBe(1);
-    expect([...normalized][0]).toBe("creative");
+    expect(normalized).toEqual(new Set(["Creative", "creative", "CREATIVE"]));
+  });
+
+  it("strips punctuation without changing letter casing", () => {
+    expect(normalizeWord("Creative,")).toBe("Creative");
+  });
+
+  it("keeps stop-word checks case-insensitive after normalization", () => {
+    expect(isStopWord(normalizeWord("THE"))).toBe(true);
   });
 
   it("keeps internal hyphens for short phrases", () => {

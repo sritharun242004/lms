@@ -5,7 +5,7 @@
  * per-locale lists, …) without touching any call site.
  */
 export interface ProfanityFilter {
-  check(normalizedWord: string): boolean;
+  check(word: string): boolean;
 }
 
 // Intentionally small and generic — this is a baseline, not a
@@ -24,15 +24,15 @@ const BLOCKED_WORDS = new Set([
 ]);
 
 export const defaultProfanityFilter: ProfanityFilter = {
-  check(normalizedWord: string): boolean {
-    const tokens = normalizedWord.split(" ");
+  check(word: string): boolean {
+    const tokens = word.toLowerCase().split(" ");
     return tokens.some((token) => BLOCKED_WORDS.has(token));
   },
 };
 
 export function containsProfanity(
-  normalizedWord: string,
+  word: string,
   filter: ProfanityFilter = defaultProfanityFilter
 ): boolean {
-  return filter.check(normalizedWord);
+  return filter.check(word.toLowerCase());
 }

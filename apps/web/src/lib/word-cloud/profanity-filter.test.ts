@@ -3,8 +3,9 @@ import { containsProfanity, defaultProfanityFilter } from "./profanity-filter";
 import { normalizeWord } from "./normalize";
 
 describe("containsProfanity", () => {
-  it("flags a blocked word", () => {
+  it("flags a blocked word regardless of submitted letter casing", () => {
     expect(containsProfanity(normalizeWord("Shit"))).toBe(true);
+    expect(containsProfanity(normalizeWord("SHIT"))).toBe(true);
   });
 
   it("flags a blocked word within a multi-word phrase", () => {

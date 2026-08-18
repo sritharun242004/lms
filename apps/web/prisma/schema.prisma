@@ -436,8 +436,8 @@ model WordCloud {
 model WordCloudEntry {
   id          String   @id @default(cuid())
   wordCloudId String   @map("word_cloud_id")
-  // Normalized (trimmed, lowercased, punctuation-stripped) form — this
-  // is what duplicate detection matches against.
+  // Normalized (trimmed, punctuation-stripped) submitted form — this is
+  // the case-sensitive value duplicate detection matches against.
   text        String
   count       Int      @default(1)
   // Assigned once, at first submission, and never recomputed — a word's

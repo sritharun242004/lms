@@ -21,16 +21,18 @@ describe('deterministic word-cloud adapter', () => {
     expect(canvasSource).not.toContain('useWordCloudLayout');
   });
 
-  it('sorts by descending count, then case-insensitive text, then id', () => {
+  it('sorts equal-frequency entries by case-sensitive text before id', () => {
     const words = toWordcloudWords([
       { id: 'z', text: 'beta', count: 2, color: '#333' },
-      { id: 'b', text: 'Alpha', count: 5, color: '#222' },
-      { id: 'a', text: 'alpha', count: 5, color: '#111' },
+      { id: 'b', text: 'creative', count: 5, color: '#222' },
+      { id: 'a', text: 'Creative', count: 5, color: '#111' },
+      { id: 'c', text: 'CREATIVE', count: 5, color: '#444' },
     ]);
 
     expect(words.map(({ id, text }) => ({ id, text }))).toEqual([
-      { id: 'a', text: 'alpha' },
-      { id: 'b', text: 'Alpha' },
+      { id: 'c', text: 'CREATIVE' },
+      { id: 'a', text: 'Creative' },
+      { id: 'b', text: 'creative' },
       { id: 'z', text: 'beta' },
     ]);
   });

@@ -21,7 +21,7 @@ export function wordcloudValue(count: number): number {
 
 export function toWordcloudWords(entries: readonly CmsWordcloudEntry[]): CmsWordcloudWord[] {
   return [...entries]
-    .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id))
+    .sort((a, b) => b.count - a.count || (a.text < b.text ? -1 : a.text > b.text ? 1 : 0) || a.id.localeCompare(b.id))
     .map((entry) => ({ ...entry, value: wordcloudValue(entry.count) }));
 }
 
