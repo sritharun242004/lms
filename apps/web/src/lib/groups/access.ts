@@ -9,8 +9,8 @@ export interface GroupAccess {
 
 /**
  * Resolves what a user may do in a group: admins see and manage
- * everything; everyone else needs an actual GroupMember row, and
- * only mentors/owners within that membership can post or manage.
+ * everything; everyone else needs an actual GroupMember row, and only a
+ * globally MENTOR user with an OWNER or MENTOR membership can manage.
  */
 export async function getGroupAccess(groupId: string, user: AuthUser): Promise<GroupAccess> {
   if (user.role === "ADMIN") {
@@ -26,6 +26,7 @@ export async function getGroupAccess(groupId: string, user: AuthUser): Promise<G
     return { canView: false, canManage: false };
   }
 
-  const canManage = membership.role === "OWNER" || membership.role === "MENTOR";
+  const canManage =
+    user.role === "MENTOR" && (membership.role === "OWNER" || membership.role === "MENTOR");
   return { canView: true, canManage };
 }
