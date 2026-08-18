@@ -520,7 +520,7 @@ export function ChatThread({
 
   function handleCopyGroupCode() {
     if (!groupCode) return;
-    void copyGroupCode(groupCode, navigator.clipboard, toast);
+    void copyGroupCode(groupCode, window.navigator.clipboard, toast);
   }
 
   let lastDateLabel = "";

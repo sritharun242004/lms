@@ -10,6 +10,9 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...props }, children),
 }));
 vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => [vi.fn(), null] }));
+vi.mock("@/components/groups/group-members-dialog", () => ({
+  GroupMembersDialog: ({ trigger }: { trigger: ReactNode }) => createElement("div", null, trigger),
+}));
 
 afterEach(cleanup);
 
@@ -27,7 +30,7 @@ describe("dashboard group-card navigation", () => {
           mentorName: "Asha Coach",
           memberCount: 4,
           inviteCode: null,
-          canManage: false,
+          canManage: true,
         },
         onChanged: vi.fn(),
       })

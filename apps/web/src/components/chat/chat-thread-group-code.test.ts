@@ -2,10 +2,11 @@
 
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatThread, copyGroupCode } from "./chat-thread";
+import { ChatThread } from "./chat-thread";
 
-const mocks = vi.hoisted(() => ({ toastSuccess: vi.fn(), toastError: vi.fn(), clipboardWrite: vi.fn() }));
+const mocks = vi.hoisted(() => ({ toastSuccess: vi.fn(), toastError: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
@@ -30,11 +31,11 @@ vi.mock("@/components/chat/word-cloud-message", () => ({ WordCloudMessage: () =>
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.clipboardWrite.mockResolvedValue(undefined);
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
@@ -58,29 +59,28 @@ function renderThread(canManage: boolean, groupCode: string | null) {
 
 describe("group-code chat header", () => {
   it("shows a manager the code and announces a successful accessible copy", async () => {
+    const user = userEvent.setup();
+    const clipboardWrite = vi.spyOn(window.navigator.clipboard, "writeText").mockResolvedValue(undefined);
     renderThread(true, "JOIN-42");
 
     expect(screen.getByText("Group code")).toBeTruthy();
     expect(screen.getByText("JOIN-42")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /copy group code/i })).toBeTruthy();
-    await copyGroupCode("JOIN-42", { writeText: mocks.clipboardWrite }, {
-      success: mocks.toastSuccess,
-      error: mocks.toastError,
-    });
+    await user.click(screen.getByRole("button", { name: /copy group code/i }));
 
-    expect(mocks.clipboardWrite).toHaveBeenCalledWith("JOIN-42");
+    expect(clipboardWrite).toHaveBeenCalledWith("JOIN-42");
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Group code copied");
   });
 
   it("reports a copy error without removing the manager's code", async () => {
-    mocks.clipboardWrite.mockRejectedValue(new Error("Clipboard denied"));
+    const user = userEvent.setup();
+    const clipboardWrite = vi
+      .spyOn(window.navigator.clipboard, "writeText")
+      .mockRejectedValue(new Error("Clipboard denied"));
     renderThread(true, "JOIN-42");
 
-    await copyGroupCode("JOIN-42", { writeText: mocks.clipboardWrite }, {
-      success: mocks.toastSuccess,
-      error: mocks.toastError,
-    });
+    await user.click(screen.getByRole("button", { name: /copy group code/i }));
 
+    expect(clipboardWrite).toHaveBeenCalledWith("JOIN-42");
     expect(screen.getByText("JOIN-42")).toBeTruthy();
     expect(mocks.toastError).toHaveBeenCalledWith("Couldn't copy group code. Copy it manually.");
   });
