@@ -43,10 +43,11 @@ beforeEach(() => {
 
 describe("portal-aware proxy redirects", () => {
   it.each([
-    ["/admin/coaches", "/super-admin/login?redirect=%2Fadmin%2Fcoaches"],
-    ["/mentor/dashboard", "/coach/login?redirect=%2Fmentor%2Fdashboard"],
-    ["/questions?returnTo=%2Fchat%2Fgroup-1", "/coach/login?redirect=%2Fquestions%3FreturnTo%3D%252Fchat%252Fgroup-1"],
-    ["/dashboard", "/coach/login?redirect=%2Fdashboard"],
+    ["/admin/coaches", "/admin/login?redirect=%2Fadmin%2Fcoaches"],
+    ["/coach/dashboard", "/admin/login?redirect=%2Fcoach%2Fdashboard"],
+    ["/mentor/dashboard", "/admin/login?redirect=%2Fmentor%2Fdashboard"],
+    ["/questions?returnTo=%2Fchat%2Fgroup-1", "/admin/login?redirect=%2Fquestions%3FreturnTo%3D%252Fchat%252Fgroup-1"],
+    ["/dashboard", "/admin/login?redirect=%2Fdashboard"],
     ["/chat/group-1", "/"],
   ] as const)("redirects unauthenticated %s to %s", async (path, expected) => {
     const response = await proxy(request(path));
@@ -55,8 +56,8 @@ describe("portal-aware proxy redirects", () => {
   });
 
   it.each([
-    ["/coach/login", "MENTOR", "/mentor/dashboard"],
-    ["/super-admin/login", "ADMIN", "/admin/dashboard"],
+    ["/admin/login", "MENTOR", "/coach/dashboard"],
+    ["/admin/login", "ADMIN", "/admin/dashboard"],
     ["/participant/login", "MENTEE", "/chat"],
   ] as const)("redirects an authenticated %s visitor to the existing role destination", async (path, role, expected) => {
     const response = await proxy(request(path, role));
@@ -81,7 +82,7 @@ describe("portal-aware proxy redirects", () => {
     const response = await proxy(req);
 
     expect(response.headers.get("location")).toBe(
-      "http://localhost/super-admin/login?redirect=%2Fadmin%2Fcoaches"
+      "http://localhost/admin/login?redirect=%2Fadmin%2Fcoaches"
     );
     expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("stored-refresh-token");
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
@@ -98,14 +99,14 @@ describe("portal-aware proxy redirects", () => {
     const response = await proxy(req);
 
     expect(response.headers.get("location")).toBe(
-      "http://localhost/coach/login?redirect=%2Fmentor%2Fdashboard"
+      "http://localhost/admin/login?redirect=%2Fmentor%2Fdashboard"
     );
     expect(response.cookies.get("access_token")?.value).toBe("");
     expect(mocks.findUser).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "u1" } }));
   });
 
   it("does not redirect-loop on a public login page with a stale access JWT", async () => {
-    const req = request("/coach/login", "MENTOR");
+    const req = request("/admin/login", "MENTOR");
     mocks.findUser.mockResolvedValue({
       id: "u1", name: "Coach", email: "coach@example.com", role: "MENTOR",
       isActive: true, authVersion: 2,
@@ -131,7 +132,7 @@ describe("portal-aware proxy redirects", () => {
     });
     const rejected = await proxy(req);
     expect(rejected.headers.get("location")).toBe(
-      "http://localhost/coach/login?redirect=%2Fmentor%2Fdashboard"
+      "http://localhost/admin/login?redirect=%2Fmentor%2Fdashboard"
     );
   });
 });

@@ -25,7 +25,7 @@ export default function CoachSignupPage() {
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error?.message || "Unable to create coach account");
       toast.success("Coach account created. Welcome to CMS!");
-      router.push("/mentor/dashboard");
+      router.push("/coach/dashboard");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to create coach account");
@@ -38,13 +38,13 @@ export default function CoachSignupPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 text-center"><h1 className="text-2xl font-semibold tracking-tight">Create coach account</h1><p className="text-sm text-muted-foreground">Use the coach email approved by your Super Admin.</p></div>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-2 text-sm font-medium">Name<Input name="name" required minLength={2} autoComplete="name" placeholder="Your name" /></label>
-        <label className="flex flex-col gap-2 text-sm font-medium">Email<Input name="email" type="email" required autoComplete="email" placeholder="you@example.com" /></label>
-        <label className="flex flex-col gap-2 text-sm font-medium">Password<PasswordInput name="password" required autoComplete="new-password" placeholder="Create a secure password" /></label>
-        <label className="flex flex-col gap-2 text-sm font-medium">Confirm password<PasswordInput name="confirmPassword" required autoComplete="new-password" placeholder="Repeat your password" /></label>
+        <label className="flex flex-col gap-2 text-sm font-medium">Name<Input className="bg-white text-black placeholder:text-slate-500 dark:bg-white dark:text-black" name="name" required minLength={2} autoComplete="name" placeholder="Your name" /></label>
+        <label className="flex flex-col gap-2 text-sm font-medium">Email<Input className="bg-white text-black placeholder:text-slate-500 dark:bg-white dark:text-black" name="email" type="email" required autoComplete="email" placeholder="you@example.com" /></label>
+        <label className="flex flex-col gap-2 text-sm font-medium">Password<PasswordInput className="bg-white text-black placeholder:text-slate-500 dark:bg-white dark:text-black" name="password" required autoComplete="new-password" placeholder="Create a secure password" /></label>
+        <label className="flex flex-col gap-2 text-sm font-medium">Confirm password<PasswordInput className="bg-white text-black placeholder:text-slate-500 dark:bg-white dark:text-black" name="confirmPassword" required autoComplete="new-password" placeholder="Repeat your password" /></label>
         <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting && <Loader2 className="size-4 animate-spin" />}Create coach account</Button>
       </form>
-      <p className="text-center text-sm text-muted-foreground">Already have a coach account? <Link href="/coach/login" className="font-medium text-foreground underline underline-offset-4">Sign in</Link></p>
+      <p className="text-center text-sm text-muted-foreground">Already have a coach account? <Link href="/admin/login" className="font-medium text-foreground underline underline-offset-4">Sign in</Link></p>
     </div>
   );
 }

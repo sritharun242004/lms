@@ -16,13 +16,13 @@ import { loginSchema, AuditAction } from "@cms/shared";
 
 type LoginRole = "MENTEE" | "MENTOR" | "ADMIN";
 
-const ROLE_BY_LOGIN_PATH: Record<string, LoginRole> = {
-  "/api/v1/auth/participant/login": "MENTEE",
-  "/api/v1/auth/coach/login": "MENTOR",
-  "/api/v1/auth/super-admin/login": "ADMIN",
+const ROLES_BY_LOGIN_PATH: Record<string, readonly LoginRole[]> = {
+  "/api/v1/auth/admin/login": ["ADMIN", "MENTOR"],
+  "/api/v1/auth/coach/login": ["MENTOR"],
+  "/api/v1/auth/super-admin/login": ["ADMIN"],
 };
 
-export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
+export async function loginForRoles(req: NextRequest, allowedRoles: readonly LoginRole[]) {
   // Parse and validate body
   const parsed = await parseBody(req, loginSchema);
   if (parsed.error) return parsed.error;
@@ -64,8 +64,8 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
       return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 403);
     }
 
-    if (user.role !== expectedRole) {
-      return errorResponse("These credentials belong to a different staff portal", "WRONG_PORTAL", 403);
+    if (!allowedRoles.includes(user.role)) {
+      return errorResponse("These credentials do not belong to a staff account", "WRONG_PORTAL", 403);
     }
 
     // Generate tokens
@@ -130,10 +130,14 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
   }
 }
 
+export function loginForRole(req: NextRequest, expectedRole: LoginRole) {
+  return loginForRoles(req, [expectedRole]);
+}
+
 export async function POST(req: NextRequest) {
-  const expectedRole = ROLE_BY_LOGIN_PATH[req.nextUrl.pathname];
-  if (!expectedRole) {
-    return errorResponse("Choose the coach or Super Admin login portal", "PORTAL_REQUIRED", 404);
+  const allowedRoles = ROLES_BY_LOGIN_PATH[req.nextUrl.pathname];
+  if (!allowedRoles) {
+    return errorResponse("Use the staff login portal", "PORTAL_REQUIRED", 404);
   }
-  return loginForRole(req, expectedRole);
+  return loginForRoles(req, allowedRoles);
 }

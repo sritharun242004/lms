@@ -29,9 +29,7 @@ vi.mock("@/lib/auth", () => ({
   storeRefreshToken: mocks.storeRefreshToken,
 }));
 
-import { POST as coachLogin } from "../coach/login/route";
-import { POST as participantLogin } from "../participant/login/route";
-import { POST as superAdminLogin } from "../super-admin/login/route";
+import { POST as staffLogin } from "../admin/login/route";
 
 function user(role: "MENTEE" | "MENTOR" | "ADMIN") {
   return {
@@ -48,8 +46,8 @@ function user(role: "MENTEE" | "MENTOR" | "ADMIN") {
   };
 }
 
-function request(portal: "participant" | "coach" | "super-admin") {
-  return new NextRequest(`http://localhost/api/v1/auth/${portal}/login`, {
+function request() {
+  return new NextRequest("http://localhost/api/v1/auth/admin/login", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: "person@example.com", password: "Password123!", rememberMe: false }),
@@ -68,60 +66,25 @@ beforeEach(() => {
   mocks.createAuditLog.mockResolvedValue({});
 });
 
-describe("role-specific staff login", () => {
-  it("authenticates a claimed mentee only at the participant endpoint", async () => {
+describe("common staff login", () => {
+  it("rejects valid participant credentials before issuing tokens", async () => {
     mocks.findUser.mockResolvedValue(user("MENTEE"));
 
-    const response = await participantLogin(request("participant"));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.data.user.role).toBe("MENTEE");
-  });
-
-  it("rejects valid coach credentials at the participant endpoint", async () => {
-    mocks.findUser.mockResolvedValue(user("MENTOR"));
-
-    const response = await participantLogin(request("participant"));
+    const response = await staffLogin(request());
     const body = await response.json();
 
     expect(response.status).toBe(403);
     expect(body.error.code).toBe("WRONG_PORTAL");
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
-  });
-
-  it("rejects valid admin credentials at the coach endpoint before issuing tokens", async () => {
-    mocks.findUser.mockResolvedValue(user("ADMIN"));
-
-    const response = await coachLogin(request("coach"));
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error.code).toBe("WRONG_PORTAL");
-    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
-    expect(mocks.setAuthCookies).not.toHaveBeenCalled();
-  });
-
-  it("rejects valid coach credentials at the super-admin endpoint before issuing tokens", async () => {
-    mocks.findUser.mockResolvedValue(user("MENTOR"));
-
-    const response = await superAdminLogin(request("super-admin"));
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error.code).toBe("WRONG_PORTAL");
-    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
-    expect(mocks.setAuthCookies).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["coach", "MENTOR"],
-    ["super-admin", "ADMIN"],
-  ] as const)("authenticates the expected role at the %s endpoint", async (portal, role) => {
+    "MENTOR",
+    "ADMIN",
+  ] as const)("authenticates %s credentials at the common staff endpoint", async (role) => {
     mocks.findUser.mockResolvedValue(user(role));
 
-    const handler = portal === "coach" ? coachLogin : superAdminLogin;
-    const response = await handler(request(portal));
+    const response = await staffLogin(request());
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -133,7 +96,7 @@ describe("role-specific staff login", () => {
     mocks.findUser.mockResolvedValue({ ...user("MENTOR"), isActive: false });
     mocks.verifyPassword.mockResolvedValue(false);
 
-    const response = await coachLogin(request("coach"));
+    const response = await staffLogin(request());
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -146,7 +109,7 @@ describe("role-specific staff login", () => {
   it("returns inactive status only after the submitted password is verified", async () => {
     mocks.findUser.mockResolvedValue({ ...user("MENTOR"), isActive: false });
 
-    const response = await coachLogin(request("coach"));
+    const response = await staffLogin(request());
     const body = await response.json();
 
     expect(response.status).toBe(403);

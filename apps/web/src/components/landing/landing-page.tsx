@@ -40,9 +40,6 @@ export function LandingPage() {
             </motion.div>
           </div>
 
-          <motion.p {...reveal(.18)} className="relative z-10 text-center text-xs leading-5 text-slate-500">
-            Private, invite-only access for every group.
-          </motion.p>
         </section>
 
       </div>
