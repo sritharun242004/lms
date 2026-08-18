@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getGroupAccess } from "@/lib/groups/access";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
 import { messageSelect, serializeMessage } from "@/lib/messages/serialize";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
@@ -12,6 +13,38 @@ async function loadOwnMessage(groupId: string, messageId: string, userId: string
   });
   if (!message) return { message: null, isOwner: false };
   return { message, isOwner: message.senderId === userId };
+}
+
+/** Load one message with open-answer identity shaped for the authorized viewer. */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string; messageId: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+  }
+
+  const { id: groupId, messageId } = await params;
+  const access = await getGroupAccess(groupId, user);
+  if (!access.canView) {
+    return errorResponse("You don't have access to this group", "FORBIDDEN", 403);
+  }
+
+  try {
+    const message = await prisma.message.findFirst({
+      where: { id: messageId, groupId, isDeleted: false },
+      select: messageSelect(user.id, access.canManage),
+    });
+    if (!message) {
+      return errorResponse("Message not found", "MESSAGE_NOT_FOUND", 404);
+    }
+
+    return successResponse(serializeMessage(message, user.id, access.canManage));
+  } catch (error) {
+    console.error("Get message error:", error);
+    return errorResponse("Failed to load message", "MESSAGE_FETCH_ERROR", 500);
+  }
 }
 
 /** Edit a message. Only the original sender may edit — even admins can't edit others' messages. */

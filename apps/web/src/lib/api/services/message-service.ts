@@ -116,6 +116,9 @@ export const messageService = {
       before,
     }),
 
+  get: (groupId: string, messageId: string) =>
+    apiClient.get<ChatMessage>(`/groups/${groupId}/messages/${messageId}`),
+
   send: (groupId: string, input: SendMessageInput) =>
     apiClient.post<ChatMessage>(`/groups/${groupId}/messages`, input),
 

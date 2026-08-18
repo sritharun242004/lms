@@ -29,6 +29,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { GET } from "./route";
+import { GET as getSingleMessage } from "./[messageId]/route";
 import { POST as submitAnswer } from "./[messageId]/open-question/answer/route";
 
 const answerRow = {
@@ -56,7 +57,7 @@ const rawMessage = {
     email: "asha@example.com",
     role: "MENTOR",
     avatarUrl: null,
-    status: "ACTIVE",
+    status: "ONLINE",
   },
   attachmentUrl: null,
   attachmentName: null,
@@ -95,6 +96,40 @@ beforeEach(() => {
 });
 
 describe("role-shaped open-question APIs", () => {
+  it("loads one authorized manager-shaped message directly by messageId", async () => {
+    mocks.canManage = true;
+    mocks.getCurrentUser.mockResolvedValue({ id: "coach-1", role: "MENTOR" });
+    mocks.findMessage.mockResolvedValue(rawMessage);
+    const response = await getSingleMessage(
+      new NextRequest("http://localhost/api/v1/groups/group-1/messages/message-1"),
+      { params: Promise.resolve({ id: "group-1", messageId: "message-1" }) }
+    );
+    const body = await response.json();
+
+    expect(body.data.id).toBe("message-1");
+    expect(body.data.openQuestion.answers[0].participant).toEqual({
+      name: "Priya Participant",
+      avatarUrl: "https://cdn.example.com/priya.png",
+    });
+  });
+
+  it("keeps the single-message response anonymous for participants", async () => {
+    mocks.canManage = false;
+    mocks.getCurrentUser.mockResolvedValue({ id: "participant-2", role: "MENTEE" });
+    mocks.findMessage.mockResolvedValue(rawMessage);
+
+    const response = await getSingleMessage(
+      new NextRequest("http://localhost/api/v1/groups/group-1/messages/message-1"),
+      { params: Promise.resolve({ id: "group-1", messageId: "message-1" }) }
+    );
+    const payload = JSON.stringify(await response.json());
+
+    expect(payload).not.toContain("Priya Participant");
+    expect(payload).not.toContain("priya@example.com");
+    expect(payload).not.toContain("participant-1");
+    expect(payload).not.toContain('"user"');
+  });
+
   it("returns display-only participant attribution to a manager on message GET", async () => {
     mocks.canManage = true;
     mocks.getCurrentUser.mockResolvedValue({ id: "coach-1", role: "MENTOR" });
@@ -143,6 +178,20 @@ describe("role-shaped open-question APIs", () => {
     );
     const body = await response.json();
 
+    expect(mocks.upsertAnswer).toHaveBeenCalledWith({
+      where: {
+        openQuestionId_userId: {
+          openQuestionId: "question-1",
+          userId: "coach-1",
+        },
+      },
+      update: { text: "Ask clearer questions." },
+      create: {
+        openQuestionId: "question-1",
+        userId: "coach-1",
+        text: "Ask clearer questions.",
+      },
+    });
     expect(body.data.openQuestion.answers[0].participant).toEqual({
       name: "Priya Participant",
       avatarUrl: "https://cdn.example.com/priya.png",

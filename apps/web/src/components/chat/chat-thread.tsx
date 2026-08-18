@@ -23,6 +23,7 @@ import {
 } from "@cms/shared";
 import type {
   ChatMessage,
+  OpenAnswerResult,
   OpenQuestionData,
   PollData,
   WordCloudData,
@@ -63,6 +64,80 @@ function dateSeparatorLabel(date: Date): string {
 }
 
 const POLL_INTERVAL_MS = 2000;
+
+const MANAGER_ANSWER_REFRESH_ERROR =
+  "Response received, but participant details could not be refreshed. Reload to try again.";
+
+interface OpenQuestionAnswerHandlerOptions {
+  canManage: boolean;
+  groupId: string;
+  event: {
+    messageId: string;
+    answer: OpenAnswerResult;
+  };
+  updateMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void;
+  getMessage: (
+    groupId: string,
+    messageId: string
+  ) => Promise<{
+    success: boolean;
+    data?: ChatMessage;
+    error?: { message: string };
+  }>;
+  refreshVersions: Map<string, number>;
+  onRefreshError: (message: string) => void;
+}
+
+/**
+ * Applies the anonymous room event immediately, then replaces only its target
+ * with the authorized manager shape. Per-message versions prevent an older
+ * refetch from overwriting a newer rapid answer event.
+ */
+export async function handleOpenQuestionAnswerEvent({
+  canManage,
+  groupId,
+  event,
+  updateMessages,
+  getMessage,
+  refreshVersions,
+  onRefreshError,
+}: OpenQuestionAnswerHandlerOptions): Promise<void> {
+  updateMessages((messages) =>
+    messages.map((message) => {
+      if (message.id !== event.messageId || !message.openQuestion) return message;
+      const answerIndex = message.openQuestion.answers.findIndex(
+        (answer) => answer.id === event.answer.id
+      );
+      const answers =
+        answerIndex === -1
+          ? [...message.openQuestion.answers, event.answer]
+          : message.openQuestion.answers.map((answer) =>
+              answer.id === event.answer.id ? event.answer : answer
+            );
+      return { ...message, openQuestion: { ...message.openQuestion, answers } };
+    })
+  );
+
+  if (!canManage) return;
+
+  const refreshVersion = (refreshVersions.get(event.messageId) ?? 0) + 1;
+  refreshVersions.set(event.messageId, refreshVersion);
+
+  try {
+    const response = await getMessage(groupId, event.messageId);
+    if (refreshVersions.get(event.messageId) !== refreshVersion) return;
+    const refreshedMessage = response.data;
+    if (!response.success || !refreshedMessage || refreshedMessage.id !== event.messageId) {
+      onRefreshError(MANAGER_ANSWER_REFRESH_ERROR);
+      return;
+    }
+    updateMessages((messages) => upsert(messages, refreshedMessage));
+  } catch {
+    if (refreshVersions.get(event.messageId) === refreshVersion) {
+      onRefreshError(MANAGER_ANSWER_REFRESH_ERROR);
+    }
+  }
+}
 
 export function ChatThread({
   groupId,
@@ -183,6 +258,7 @@ export function ChatThread({
   // thread. Socket reconnects re-emit group:join, so without this a viewer on
   // flaky wifi would be re-announced to everyone every few seconds.
   const announcedJoinsRef = React.useRef<Set<string>>(new Set());
+  const answerRefreshVersionsRef = React.useRef<Map<string, number>>(new Map());
 
   useChatSocket(groupId, {
     onMembersChanged: (event) =>
@@ -218,29 +294,16 @@ export function ChatThread({
           return { ...m, poll: { ...m.poll, options: merged, totalVotes } };
         })
       ),
-    onOpenQuestionAnswer: ({ messageId, answer }) => {
-      if (canManage) {
-        // The room-wide event is intentionally anonymous. Managers refetch
-        // the role-shaped REST payload instead of receiving identity over the
-        // shared socket boundary.
-        void messageService.list(groupId).then((res) => {
-          if (!res.success || !res.data) return;
-          setMessages((prev) => mergeLatest(prev, res.data!.messages));
-        });
-        return;
-      }
-
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== messageId || !m.openQuestion) return m;
-          const index = m.openQuestion.answers.findIndex((a) => a.id === answer.id);
-          const answers =
-            index === -1
-              ? [...m.openQuestion.answers, answer]
-              : m.openQuestion.answers.map((a) => (a.id === answer.id ? answer : a));
-          return { ...m, openQuestion: { ...m.openQuestion, answers } };
-        })
-      );
+    onOpenQuestionAnswer: (event) => {
+      void handleOpenQuestionAnswerEvent({
+        canManage,
+        groupId,
+        event,
+        updateMessages: (updater) => setMessages(updater),
+        getMessage: messageService.get,
+        refreshVersions: answerRefreshVersionsRef.current,
+        onRefreshError: (message) => toast.error(message),
+      });
     },
     onWordCloudUpdate: ({ messageId, entry }) =>
       setMessages((prev) =>

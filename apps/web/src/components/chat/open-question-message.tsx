@@ -46,6 +46,11 @@ export function OpenQuestionMessage({
   const inputId = `open-question-answer-${message.id}`;
   const counterId = `${inputId}-counter`;
   const feedbackId = `${inputId}-feedback`;
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    if (feedback?.type === "error") textareaRef.current?.focus();
+  }, [feedback]);
 
   async function submit() {
     const text = draft.trim();
@@ -123,6 +128,7 @@ export function OpenQuestionMessage({
             </span>
           </div>
           <Textarea
+            ref={textareaRef}
             id={inputId}
             value={draft}
             onChange={(event) => {
@@ -133,6 +139,7 @@ export function OpenQuestionMessage({
             maxLength={MAX_ANSWER_LENGTH}
             rows={3}
             disabled={isSubmitting}
+            aria-invalid={feedback?.type === "error"}
             aria-describedby={`${counterId}${feedback ? ` ${feedbackId}` : ""}`}
             className="min-h-24 resize-y bg-card"
           />
@@ -142,6 +149,7 @@ export function OpenQuestionMessage({
                 <p
                   id={feedbackId}
                   role={feedback.type === "error" ? "alert" : "status"}
+                  aria-live={feedback.type === "error" ? "assertive" : "polite"}
                   className={cn(
                     "flex items-center gap-1.5 text-xs font-medium",
                     feedback.type === "success" ? "text-success" : "text-destructive"
