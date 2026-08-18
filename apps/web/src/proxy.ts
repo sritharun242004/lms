@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import type { UserRole } from "@cms/shared";
+import { sanitizeReturnPath } from "@/lib/auth/portal-navigation";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -19,6 +20,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/signup",
   "/join",
+  "/participant/login",
   "/coach/login",
   "/coach/signup",
   "/super-admin/login",
@@ -30,6 +32,7 @@ const PUBLIC_ROUTES = [
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
   "/api/v1/auth/login",
+  "/api/v1/auth/participant/login",
   "/api/v1/auth/coach/login",
   "/api/v1/auth/super-admin/login",
   "/api/v1/auth/signup",
@@ -46,6 +49,7 @@ const ROLE_ROUTES: Record<string, UserRole[]> = {
   "/mentor": ["ADMIN", "MENTOR"] as UserRole[],
   "/mentee": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
   "/dashboard": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
+  "/questions": ["ADMIN", "MENTOR"] as UserRole[],
 };
 
 // Landing page redirect by role — mentees have no dashboard, chat is their home.
@@ -60,6 +64,9 @@ function unauthenticatedEntry(pathname: string): string {
     return "/super-admin/login";
   }
   if (pathname === "/mentor" || pathname.startsWith("/mentor/")) {
+    return "/coach/login";
+  }
+  if (pathname === "/questions" || pathname.startsWith("/questions/") || pathname === "/dashboard") {
     return "/coach/login";
   }
   return "/";
@@ -164,7 +171,10 @@ export async function proxy(request: NextRequest) {
       : (() => {
           const entryPath = unauthenticatedEntry(pathname);
           const loginUrl = new URL(entryPath, request.url);
-          if (entryPath !== "/") loginUrl.searchParams.set("redirect", pathname);
+          if (entryPath !== "/") {
+            const requestedPath = `${pathname}${request.nextUrl.search}`;
+            loginUrl.searchParams.set("redirect", sanitizeReturnPath(requestedPath, pathname));
+          }
           return NextResponse.redirect(loginUrl);
         })();
     // Clear whatever's left of a dead session so we don't keep

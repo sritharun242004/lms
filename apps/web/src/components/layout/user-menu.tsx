@@ -8,6 +8,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { visibleRoleLabel } from "@/lib/cms/task-requirements";
+import { canonicalLoginPath, portalForRole } from "@/lib/auth/portal-navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +25,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
   async function handleLogout() {
     await logout();
     toast.success("Signed out");
-    router.push("/login");
+    router.push(canonicalLoginPath(portalForRole(user.role)));
   }
 
   return (

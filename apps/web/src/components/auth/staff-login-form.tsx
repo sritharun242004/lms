@@ -10,13 +10,20 @@ import { Loader2 } from "lucide-react";
 import type { z } from "zod";
 import { loginSchema, type LoginInput } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
-import type { StaffPortal } from "@/lib/api/services/auth-service";
+import {
+  safePortalDestination,
+  type AuthPortal,
+} from "@/lib/auth/portal-navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const portalContent = {
+  participant: {
+    title: "Participant sign in",
+    description: "Use the credentials you created when you claimed your participant account.",
+  },
   coach: {
     title: "Coach sign in",
     description: "Use your approved coach email and password to continue.",
@@ -27,7 +34,7 @@ const portalContent = {
   },
 } as const;
 
-export function StaffLoginForm({ portal }: { portal: StaffPortal }) {
+export function StaffLoginForm({ portal }: { portal: AuthPortal }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -43,7 +50,7 @@ export function StaffLoginForm({ portal }: { portal: StaffPortal }) {
     try {
       const user = await login(values, portal);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}!`);
-      router.push(searchParams.get("redirect") || "/dashboard");
+      router.push(safePortalDestination(portal, searchParams.get("redirect")));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Login failed");
     } finally {
@@ -64,7 +71,7 @@ export function StaffLoginForm({ portal }: { portal: StaffPortal }) {
           )} />
           <FormField control={form.control} name="password" render={({ field }) => (
             <FormItem>
-              <div className="flex items-center justify-between"><FormLabel>Password</FormLabel><Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground">Forgot password?</Link></div>
+              <div className="flex items-center justify-between"><FormLabel>Password</FormLabel><Link href={`/forgot-password?portal=${portal}`} className="text-sm text-muted-foreground hover:text-foreground">Forgot password?</Link></div>
               <FormControl><PasswordInput placeholder="••••••••" autoComplete="current-password" {...field} /></FormControl><FormMessage />
             </FormItem>
           )} />

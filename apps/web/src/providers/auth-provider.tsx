@@ -10,7 +10,7 @@ import type {
   ClaimAccountInput,
 } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
-import type { StaffPortal } from "@/lib/api/services/auth-service";
+import type { AuthPortal } from "@/lib/auth/portal-navigation";
 
 const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
@@ -29,7 +29,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (input: LoginInput, portal: StaffPortal) => Promise<AuthUser>;
+  login: (input: LoginInput, portal: AuthPortal) => Promise<AuthUser>;
   join: (
     input: MenteeJoinInput
   ) => Promise<{ user: AuthUser; joinedGroup: { id: string; name: string } }>;
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const login = React.useCallback(
-    async (input: LoginInput, portal: StaffPortal) => {
+    async (input: LoginInput, portal: AuthPortal) => {
       const res = await authService.login(input, portal);
       if (!res.success) {
         throw new Error(apiErrorMessage(res.error, "Login failed"));

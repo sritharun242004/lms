@@ -7,6 +7,7 @@ import type {
   ResetPasswordInput,
   ClaimAccountInput,
 } from "@cms/shared";
+import type { AuthPortal } from "@/lib/auth/portal-navigation";
 
 export interface AuthSession {
   user: AuthUser;
@@ -14,10 +15,8 @@ export interface AuthSession {
   refreshToken: string;
 }
 
-export type StaffPortal = "coach" | "super-admin";
-
 export const authService = {
-  login: (input: LoginInput, portal: StaffPortal) =>
+  login: (input: LoginInput, portal: AuthPortal) =>
     apiClient.post<AuthSession>(`/auth/${portal}/login`, input),
 
   join: (input: MenteeJoinInput) =>
@@ -32,8 +31,8 @@ export const authService = {
 
   refresh: () => apiClient.post<AuthSession>("/auth/refresh"),
 
-  forgotPassword: (input: ForgotPasswordInput) =>
-    apiClient.post<{ message: string }>("/auth/forgot-password", input),
+  forgotPassword: (input: ForgotPasswordInput, portal: AuthPortal) =>
+    apiClient.post<{ message: string }>(`/auth/forgot-password?portal=${portal}`, input),
 
   resetPassword: (input: ResetPasswordInput) =>
     apiClient.post<{ message: string }>("/auth/reset-password", input),

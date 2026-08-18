@@ -11,6 +11,7 @@ import { resetPasswordSchema, type ResetPasswordInput } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
+import { canonicalLoginPath, parseAuthPortal } from "@/lib/auth/portal-navigation";
 import {
   Form,
   FormControl,
@@ -32,6 +33,8 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
+  const portal = parseAuthPortal(searchParams.get("portal"));
+  const loginPath = canonicalLoginPath(portal);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<ResetPasswordInput>({
@@ -47,7 +50,7 @@ function ResetPasswordForm() {
         <p className="text-sm text-muted-foreground">
           This password reset link is missing its token. Request a new one below.
         </p>
-        <Link href="/forgot-password" className="text-sm font-medium underline underline-offset-4">
+        <Link href={`/forgot-password?portal=${portal}`} className="text-sm font-medium underline underline-offset-4">
           Request a new link
         </Link>
       </div>
@@ -62,7 +65,7 @@ function ResetPasswordForm() {
         throw new Error(res.error?.message || "Failed to reset password");
       }
       toast.success("Password reset — please sign in with your new password.");
-      router.push("/login");
+      router.push(loginPath);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to reset password");
     } finally {

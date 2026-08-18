@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generatePasswordResetToken } from "@/lib/auth";
 import { successResponse, parseBody } from "@/lib/api/response";
 import { forgotPasswordSchema } from "@cms/shared";
+import { parseAuthPortal } from "@/lib/auth/portal-navigation";
 
 const GENERIC_MESSAGE =
   "If an account exists for that email, a password reset link has been sent.";
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
   if (parsed.error) return parsed.error;
 
   const { email } = parsed.data;
+  const portal = parseAuthPortal(req.nextUrl.searchParams.get("portal"));
 
   try {
     const user = await prisma.user.findUnique({
@@ -35,7 +37,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/reset-password?token=${token}`;
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+    const resetUrl = `${appUrl}/reset-password?token=${encodeURIComponent(token)}&portal=${portal}`;
 
     // TODO: wire up a transactional email provider. For now, log the
     // reset link so it can be used during local development.

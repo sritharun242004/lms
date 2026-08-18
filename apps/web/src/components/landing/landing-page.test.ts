@@ -23,6 +23,8 @@ describe("participant landing", () => {
     expect(html).not.toContain("Coach or staff sign in");
     expect(html).not.toContain("Staff sign in");
     expect(html).not.toContain("Keep every participant in the loop");
+    expect(html).toContain('href="/participant/login"');
+    expect(html).toContain("Already claimed your account?");
   });
 
   it("prefills the participant invite code from the landing query", () => {

@@ -41,6 +41,7 @@ export function ParticipantEntryForm({ standalone = false }: { standalone?: bool
         <FormField control={form.control} name="inviteCode" render={({ field }) => <FormItem><FormLabel>Meeting or course code</FormLabel><FormControl><Input placeholder="CMS-A8KD" className="uppercase" {...field} /></FormControl><FormMessage /></FormItem>} />
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}Enter meeting</Button>
       </form></Form>
+      <p className="text-center text-sm text-muted-foreground">Already claimed your account? <Link href="/participant/login" className="font-medium text-foreground underline underline-offset-4">Sign in</Link></p>
     </div>
   );
 

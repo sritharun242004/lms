@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
@@ -9,6 +10,7 @@ import { forgotPasswordSchema, type ForgotPasswordInput } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { canonicalLoginPath, parseAuthPortal } from "@/lib/auth/portal-navigation";
 import {
   Form,
   FormControl,
@@ -19,6 +21,13 @@ import {
 } from "@/components/ui/form";
 
 export default function ForgotPasswordPage() {
+  return <React.Suspense fallback={null}><ForgotPasswordForm /></React.Suspense>;
+}
+
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams();
+  const portal = parseAuthPortal(searchParams.get("portal"));
+  const loginPath = canonicalLoginPath(portal);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
 
@@ -30,7 +39,7 @@ export default function ForgotPasswordPage() {
   async function onSubmit(values: ForgotPasswordInput) {
     setIsSubmitting(true);
     try {
-      await authService.forgotPassword(values);
+      await authService.forgotPassword(values, portal);
     } finally {
       // Always show the confirmation screen — the API never reveals
       // whether an account exists for the given email.
@@ -48,7 +57,7 @@ export default function ForgotPasswordPage() {
           If an account exists for <strong>{form.getValues("email")}</strong>, we&apos;ve
           sent a link to reset your password. It expires in 1 hour.
         </p>
-        <Link href="/login" className="text-sm font-medium underline underline-offset-4">
+        <Link href={loginPath} className="text-sm font-medium underline underline-offset-4">
           Back to sign in
         </Link>
       </div>
@@ -88,7 +97,7 @@ export default function ForgotPasswordPage() {
       </Form>
 
       <Link
-        href="/login"
+        href={loginPath}
         className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />

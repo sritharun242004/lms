@@ -39,6 +39,8 @@ describe("portal-aware proxy redirects", () => {
   it.each([
     ["/admin/coaches", "/super-admin/login?redirect=%2Fadmin%2Fcoaches"],
     ["/mentor/dashboard", "/coach/login?redirect=%2Fmentor%2Fdashboard"],
+    ["/questions?returnTo=%2Fchat%2Fgroup-1", "/coach/login?redirect=%2Fquestions%3FreturnTo%3D%252Fchat%252Fgroup-1"],
+    ["/dashboard", "/coach/login?redirect=%2Fdashboard"],
     ["/chat/group-1", "/"],
   ] as const)("redirects unauthenticated %s to %s", async (path, expected) => {
     const response = await proxy(request(path));
@@ -49,6 +51,7 @@ describe("portal-aware proxy redirects", () => {
   it.each([
     ["/coach/login", "MENTOR", "/mentor/dashboard"],
     ["/super-admin/login", "ADMIN", "/admin/dashboard"],
+    ["/participant/login", "MENTEE", "/chat"],
   ] as const)("redirects an authenticated %s visitor to the existing role destination", async (path, role, expected) => {
     const response = await proxy(request(path, role));
 

@@ -30,9 +30,10 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import { POST as coachLogin } from "../coach/login/route";
+import { POST as participantLogin } from "../participant/login/route";
 import { POST as superAdminLogin } from "../super-admin/login/route";
 
-function user(role: "MENTOR" | "ADMIN") {
+function user(role: "MENTEE" | "MENTOR" | "ADMIN") {
   return {
     id: `${role.toLowerCase()}-1`,
     name: role === "MENTOR" ? "Coach One" : "Admin One",
@@ -45,7 +46,7 @@ function user(role: "MENTOR" | "ADMIN") {
   };
 }
 
-function request(portal: "coach" | "super-admin") {
+function request(portal: "participant" | "coach" | "super-admin") {
   return new NextRequest(`http://localhost/api/v1/auth/${portal}/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -66,6 +67,27 @@ beforeEach(() => {
 });
 
 describe("role-specific staff login", () => {
+  it("authenticates a claimed mentee only at the participant endpoint", async () => {
+    mocks.findUser.mockResolvedValue(user("MENTEE"));
+
+    const response = await participantLogin(request("participant"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.user.role).toBe("MENTEE");
+  });
+
+  it("rejects valid coach credentials at the participant endpoint", async () => {
+    mocks.findUser.mockResolvedValue(user("MENTOR"));
+
+    const response = await participantLogin(request("participant"));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe("WRONG_PORTAL");
+    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
+  });
+
   it("rejects valid admin credentials at the coach endpoint before issuing tokens", async () => {
     mocks.findUser.mockResolvedValue(user("ADMIN"));
 

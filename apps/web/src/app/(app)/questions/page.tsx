@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { sanitizeReturnPath } from "@/lib/auth/portal-navigation";
 
 type Item = {
   id: string;
@@ -105,7 +106,7 @@ export default function QuizRepositoryPage() {
       options: item.options.map((option) => option.text),
       chartType: item.chartType,
     }));
-    const returnTo = params.get("returnTo") || "/chat";
+    const returnTo = sanitizeReturnPath(params.get("returnTo"), "/chat", ["/chat"]);
     router.push(`${returnTo}${returnTo.includes("?") ? "&" : "?"}openPoll=1`);
   }
 

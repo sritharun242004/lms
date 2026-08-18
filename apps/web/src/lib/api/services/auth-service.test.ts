@@ -22,4 +22,19 @@ describe("staff auth service", () => {
 
     expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(expectedPath);
   });
+
+  it("preserves a validated portal when requesting a password reset", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { message: "Check your email" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await authService.forgotPassword({ email: "coach@example.com" }, "coach");
+
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.pathname).toBe("/api/v1/auth/forgot-password");
+    expect(url.searchParams.get("portal")).toBe("coach");
+  });
 });

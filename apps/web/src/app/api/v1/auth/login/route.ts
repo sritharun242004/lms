@@ -14,14 +14,15 @@ import {
 } from "@/lib/api/response";
 import { loginSchema, AuditAction } from "@cms/shared";
 
-type StaffLoginRole = "MENTOR" | "ADMIN";
+type LoginRole = "MENTEE" | "MENTOR" | "ADMIN";
 
-const ROLE_BY_LOGIN_PATH: Record<string, StaffLoginRole> = {
+const ROLE_BY_LOGIN_PATH: Record<string, LoginRole> = {
+  "/api/v1/auth/participant/login": "MENTEE",
   "/api/v1/auth/coach/login": "MENTOR",
   "/api/v1/auth/super-admin/login": "ADMIN",
 };
 
-export async function loginForRole(req: NextRequest, expectedRole: StaffLoginRole) {
+export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
   // Parse and validate body
   const parsed = await parseBody(req, loginSchema);
   if (parsed.error) return parsed.error;
