@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   isRefreshTokenValid: vi.fn(),
   revokeRefreshToken: vi.fn(),
   storeRefreshToken: vi.fn(),
+  findUser: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -17,7 +18,7 @@ vi.mock("@/lib/auth", () => ({
   getRefreshCookieOptions: () => ({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 604800 }),
 }));
 
-vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findUnique: mocks.findUser } } }));
 
 import { proxy } from "./proxy";
 
@@ -33,6 +34,7 @@ function request(path: string, authenticatedRole?: "MENTOR" | "ADMIN" | "MENTEE"
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.verifyAccessToken.mockReturnValue(null);
+  mocks.revokeRefreshToken.mockResolvedValue(undefined);
 });
 
 describe("portal-aware proxy redirects", () => {
@@ -56,5 +58,28 @@ describe("portal-aware proxy redirects", () => {
     const response = await proxy(request(path, role));
 
     expect(response.headers.get("location")).toBe(`http://localhost${expected}`);
+  });
+
+  it("refuses silent refresh for an inactive account and clears the stale session", async () => {
+    const req = request("/admin/coaches");
+    req.cookies.set("refresh_token", "stored-refresh-token");
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
+    mocks.isRefreshTokenValid.mockResolvedValue(true);
+    mocks.findUser.mockResolvedValue({
+      id: "coach-1",
+      name: "Coach One",
+      email: "coach@example.com",
+      role: "MENTOR",
+      isActive: false,
+    });
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/super-admin/login?redirect=%2Fadmin%2Fcoaches"
+    );
+    expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("stored-refresh-token");
+    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
+    expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
   });
 });

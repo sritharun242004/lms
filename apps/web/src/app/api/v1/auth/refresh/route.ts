@@ -9,6 +9,7 @@ import {
   revokeRefreshToken,
   isRefreshTokenValid,
   getRefreshTokenFromCookies,
+  clearAuthCookies,
 } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 
@@ -66,11 +67,18 @@ export async function POST(req: NextRequest) {
         role: true,
         avatarUrl: true,
         emailVerified: true,
+        isActive: true,
       },
     });
 
     if (!user) {
       return errorResponse("User not found", "USER_NOT_FOUND", 401);
+    }
+
+    if (!user.isActive) {
+      await revokeRefreshToken(token);
+      await clearAuthCookies();
+      return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 401);
     }
 
     // Rotate tokens (revoke old, issue new), carrying the original

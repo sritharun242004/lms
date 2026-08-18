@@ -4,6 +4,7 @@ import {
   hashPassword,
   hashPasswordResetToken,
   revokeAllUserRefreshTokens,
+  revokeAllUserSessions,
 } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { resetPasswordSchema, AuditAction } from "@cms/shared";
@@ -55,7 +56,10 @@ export async function POST(req: NextRequest) {
     ]);
 
     // Force re-authentication on every device after a password reset.
-    await revokeAllUserRefreshTokens(user.id);
+    await Promise.all([
+      revokeAllUserRefreshTokens(user.id),
+      revokeAllUserSessions(user.id),
+    ]);
 
     return successResponse({
       message: "Password reset successful. Please log in with your new password.",

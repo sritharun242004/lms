@@ -110,6 +110,7 @@ export async function proxy(request: NextRequest) {
   // the 15-minute mark). Proxy runs on the Node.js runtime in this
   // Next.js version, so a direct Prisma call here is safe.
   let rotated: { accessToken: string; refreshToken: string; rememberMe: boolean } | null = null;
+  let shouldClearAuthCookies = false;
   if (!payload) {
     const refreshCookie = request.cookies.get("refresh_token")?.value;
     if (refreshCookie) {
@@ -117,10 +118,10 @@ export async function proxy(request: NextRequest) {
       if (refreshPayload && (await isRefreshTokenValid(refreshCookie))) {
         const user = await prisma.user.findUnique({
           where: { id: refreshPayload.sub },
-          select: { id: true, name: true, email: true, role: true },
+          select: { id: true, name: true, email: true, role: true, isActive: true },
         });
 
-        if (user) {
+        if (user?.isActive) {
           const rememberMe = Boolean(refreshPayload.rememberMe);
           await revokeRefreshToken(refreshCookie);
 
@@ -138,12 +139,19 @@ export async function proxy(request: NextRequest) {
           request.cookies.set("refresh_token", newRefreshToken);
 
           payload = verifyAccessToken(newAccessToken);
+        } else {
+          await revokeRefreshToken(refreshCookie);
+          shouldClearAuthCookies = true;
         }
       }
     }
   }
 
   const withRotatedCookies = (response: NextResponse) => {
+    if (shouldClearAuthCookies) {
+      response.cookies.delete("access_token");
+      response.cookies.delete("refresh_token");
+    }
     if (rotated) {
       response.cookies.set("access_token", rotated.accessToken, getAccessCookieOptions());
       response.cookies.set(

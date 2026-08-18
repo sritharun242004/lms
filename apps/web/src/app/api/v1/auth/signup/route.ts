@@ -25,7 +25,10 @@ export async function POST(req: NextRequest) {
         data: { name, email, password: await hashPassword(password), role: "MENTOR", emailVerified: true },
         select: { id: true, name: true, email: true, role: true, avatarUrl: true, emailVerified: true },
       });
-      await tx.coachEmailApproval.update({ where: { id: approval.id }, data: { claimedAt: new Date() } });
+      await tx.coachEmailApproval.update({
+        where: { id: approval.id },
+        data: { claimedAt: new Date(), claimedById: created.id },
+      });
       return created;
     });
 

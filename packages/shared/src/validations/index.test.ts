@@ -4,6 +4,7 @@ import {
   coachSignupSchema,
   menteeJoinSchema,
   resetPasswordSchema,
+  securePasswordSchema,
   sendMessageSchema,
   createPollSchema,
   createWordCloudSchema,
@@ -87,6 +88,16 @@ describe("resetPasswordSchema", () => {
   ])("rejects a password %s", (_label, password) => {
     const result = resetPasswordSchema.safeParse({ ...base, password, confirmPassword: password });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("securePasswordSchema", () => {
+  it("provides the same strong-password policy for privileged password-setting flows", () => {
+    expect(securePasswordSchema.safeParse("StrongPass1!").success).toBe(true);
+    expect(securePasswordSchema.safeParse("Password1").success).toBe(false);
+    expect(securePasswordSchema.safeParse("password1!").success).toBe(false);
+    expect(securePasswordSchema.safeParse("PASSWORD1!").success).toBe(false);
+    expect(securePasswordSchema.safeParse("Password!").success).toBe(false);
   });
 });
 

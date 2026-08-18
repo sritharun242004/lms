@@ -22,6 +22,7 @@ export type { Permission } from "./constants";
 // Validation Schemas
 export {
   loginSchema,
+  securePasswordSchema,
   coachSignupSchema,
   coachEmailApprovalSchema,
   menteeJoinSchema,

@@ -1,4 +1,4 @@
-import { getAccessTokenFromCookies, verifyAccessToken } from "@/lib/auth";
+import { getAccessTokenFromCookies, getCurrentUser, verifyAccessToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
 
 /**
@@ -8,7 +8,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
  */
 export async function GET() {
   const token = await getAccessTokenFromCookies();
-  if (!token || !verifyAccessToken(token)) {
+  if (!token || !verifyAccessToken(token) || !(await getCurrentUser())) {
     return errorResponse("Not authenticated", "UNAUTHORIZED", 401);
   }
 

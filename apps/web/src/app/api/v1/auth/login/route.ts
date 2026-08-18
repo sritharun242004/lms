@@ -42,6 +42,7 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
         avatarUrl: true,
         emailVerified: true,
         status: true,
+        isActive: true,
       },
     });
 
@@ -49,6 +50,10 @@ export async function loginForRole(req: NextRequest, expectedRole: LoginRole) {
       // No password hash means this is a guest mentee account (joined via
       // name + invite code) — it has no password to check against.
       return errorResponse("Invalid email or password", "INVALID_CREDENTIALS", 401);
+    }
+
+    if (!user.isActive) {
+      return errorResponse("This account has been deactivated", "ACCOUNT_DISABLED", 403);
     }
 
     // Verify password

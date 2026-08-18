@@ -43,6 +43,7 @@ function user(role: "MENTEE" | "MENTOR" | "ADMIN") {
     avatarUrl: null,
     emailVerified: true,
     status: "OFFLINE",
+    isActive: true,
   };
 }
 
@@ -125,5 +126,18 @@ describe("role-specific staff login", () => {
     expect(response.status).toBe(200);
     expect(body.data.user.role).toBe(role);
     expect(mocks.setAuthCookies).toHaveBeenCalledWith("access-token", "refresh-token", false);
+  });
+
+  it("rejects an inactive coach before verifying credentials or issuing tokens", async () => {
+    mocks.findUser.mockResolvedValue({ ...user("MENTOR"), isActive: false });
+
+    const response = await coachLogin(request("coach"));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe("ACCOUNT_DISABLED");
+    expect(mocks.verifyPassword).not.toHaveBeenCalled();
+    expect(mocks.generateAccessToken).not.toHaveBeenCalled();
+    expect(mocks.setAuthCookies).not.toHaveBeenCalled();
   });
 });

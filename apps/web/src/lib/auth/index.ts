@@ -201,10 +201,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         role: true,
         avatarUrl: true,
         emailVerified: true,
+        isActive: true,
       },
     });
 
-    if (!user) return null;
+    if (!user || !user.isActive) return null;
 
     return {
       id: user.id,
@@ -274,6 +275,13 @@ export async function revokeAllUserRefreshTokens(
 ): Promise<void> {
   await prisma.refreshToken.deleteMany({
     where: { userId },
+  });
+}
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  await prisma.session.updateMany({
+    where: { userId, isActive: true },
+    data: { isActive: false },
   });
 }
 

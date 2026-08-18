@@ -66,6 +66,8 @@ model User {
   phone              String?    @unique
   password           String?
   role               UserRole   @default(MENTEE)
+  isActive           Boolean    @default(true) @map("is_active")
+  disabledAt         DateTime?  @map("disabled_at")
   // Set only for guest mentees, from the request IP at join time. Used
   // server-side to avoid creating a duplicate mentee record when the same
   // device re-submits the join form for a group it's already in — never
@@ -97,6 +99,7 @@ model User {
   openAnswers        OpenAnswer[]
   wordCloudSubmissions WordCloudSubmission[]
   approvedCoachEmails CoachEmailApproval[] @relation("CoachApprovalAdmin")
+  claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
 
   @@map("users")
@@ -131,10 +134,12 @@ model CoachEmailApproval {
   id           String   @id @default(cuid())
   email        String   @unique
   approvedById String   @map("approved_by_id")
+  claimedById  String?  @unique @map("claimed_by_id")
   claimedAt    DateTime? @map("claimed_at")
   createdAt    DateTime @default(now()) @map("created_at")
 
   approvedBy User @relation("CoachApprovalAdmin", fields: [approvedById], references: [id], onDelete: Restrict)
+  claimedBy  User? @relation("CoachApprovalClaim", fields: [claimedById], references: [id], onDelete: SetNull)
 
   @@index([approvedById])
   @@map("coach_email_approvals")
