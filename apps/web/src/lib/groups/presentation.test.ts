@@ -7,6 +7,7 @@ const group = (overrides: Partial<GroupCard>): GroupCard => ({
   name: "Alpha cohort",
   description: null,
   wallpaperUrl: null,
+  avatarUrl: null,
   createdAt: "2026-08-01T10:00:00.000Z",
   lastActivityAt: "2026-08-01T10:00:00.000Z",
   mentorName: "Asha Coach",
