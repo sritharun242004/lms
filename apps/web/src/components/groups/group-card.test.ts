@@ -29,6 +29,7 @@ describe("dashboard group-card navigation", () => {
           lastActivityAt: "2026-08-18T00:00:00.000Z",
           mentorName: "Asha Coach",
           memberCount: 4,
+          memberIds: [],
           inviteCode: null,
           canManage: true,
         },
@@ -37,5 +38,55 @@ describe("dashboard group-card navigation", () => {
     );
 
     expect(screen.getByRole("link", { name: /open chat/i }).getAttribute("href")).toBe("/chat/group-42");
+  });
+
+  it("shows a green 'Active now' indicator instead of last-active time when someone is online", () => {
+    render(
+      createElement(GroupCard, {
+        group: {
+          id: "group-42",
+          name: "Design cohort",
+          description: null,
+          wallpaperUrl: null,
+          createdAt: "2026-08-18T00:00:00.000Z",
+          lastActivityAt: "2026-08-18T00:00:00.000Z",
+          mentorName: "Asha Coach",
+          memberCount: 4,
+          memberIds: ["user-1"],
+          inviteCode: null,
+          canManage: true,
+        },
+        onChanged: vi.fn(),
+        isActive: true,
+      })
+    );
+
+    expect(screen.getByText(/active now/i)).toBeTruthy();
+    expect(screen.queryByText(/last active/i)).toBeNull();
+  });
+
+  it("falls back to a relative last-active time when nobody is online", () => {
+    render(
+      createElement(GroupCard, {
+        group: {
+          id: "group-42",
+          name: "Design cohort",
+          description: null,
+          wallpaperUrl: null,
+          createdAt: "2026-08-18T00:00:00.000Z",
+          lastActivityAt: "2026-08-18T00:00:00.000Z",
+          mentorName: "Asha Coach",
+          memberCount: 4,
+          memberIds: ["user-1"],
+          inviteCode: null,
+          canManage: true,
+        },
+        onChanged: vi.fn(),
+        isActive: false,
+      })
+    );
+
+    expect(screen.getByText(/last active/i)).toBeTruthy();
+    expect(screen.queryByText(/active now/i)).toBeNull();
   });
 });

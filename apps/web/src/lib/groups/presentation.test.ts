@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupCard } from "@/lib/api/services/group-service";
-import { getVisibleGroups } from "@/lib/groups/presentation";
+import { formatLastActive, getVisibleGroups } from "@/lib/groups/presentation";
 
 const group = (overrides: Partial<GroupCard>): GroupCard => ({
   id: "group-1",
@@ -11,6 +11,7 @@ const group = (overrides: Partial<GroupCard>): GroupCard => ({
   lastActivityAt: "2026-08-01T10:00:00.000Z",
   mentorName: "Asha Coach",
   memberCount: 4,
+  memberIds: [],
   inviteCode: null,
   canManage: true,
   ...overrides,
@@ -41,5 +42,33 @@ describe("getVisibleGroups", () => {
     expect(getVisibleGroups(groups, "mira").map((item) => item.id)).toEqual(["beta"]);
     expect(getVisibleGroups(groups, "leadership").map((item) => item.id)).toEqual(["alpha"]);
     expect(getVisibleGroups(groups, "cms-mira").map((item) => item.id)).toEqual(["beta"]);
+  });
+});
+
+describe("formatLastActive", () => {
+  const now = new Date("2026-08-19T12:00:00.000Z");
+
+  it("shows minutes within the first hour", () => {
+    expect(formatLastActive("2026-08-19T11:55:00.000Z", now)).toBe("5m ago");
+  });
+
+  it("shows hours within the last 24h", () => {
+    expect(formatLastActive("2026-08-19T05:00:00.000Z", now)).toBe("7h ago");
+  });
+
+  it("shows days once past 24h", () => {
+    expect(formatLastActive("2026-08-17T12:00:00.000Z", now)).toBe("2d ago");
+  });
+
+  it("shows weeks once past 7 days", () => {
+    expect(formatLastActive("2026-08-05T12:00:00.000Z", now)).toBe("2w ago");
+  });
+
+  it("shows months once past 30 days", () => {
+    expect(formatLastActive("2026-05-19T12:00:00.000Z", now)).toBe("3mo ago");
+  });
+
+  it("shows years once past 365 days", () => {
+    expect(formatLastActive("2024-08-19T12:00:00.000Z", now)).toBe("2y ago");
   });
 });

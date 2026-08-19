@@ -28,13 +28,16 @@ import {
 import { GroupFormDialog } from "@/components/groups/group-form-dialog";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
 import { useConfirm } from "@/hooks/use-confirm";
+import { formatLastActive } from "@/lib/groups/presentation";
 
 export function GroupCard({
   group,
   onChanged,
+  isActive = false,
 }: {
   group: GroupCardData;
   onChanged: () => void;
+  isActive?: boolean;
 }) {
   const [isBusy, setIsBusy] = React.useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -102,6 +105,20 @@ export function GroupCard({
           <CardTitle className="text-base">{group.name}</CardTitle>
           {group.description && (
             <p className="line-clamp-2 text-sm text-muted-foreground">{group.description}</p>
+          )}
+          {isActive ? (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-success">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-success" />
+              </span>
+              Active now
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="size-2 rounded-full bg-muted-foreground/40" />
+              Last active {formatLastActive(group.lastActivityAt)}
+            </span>
           )}
         </div>
         {group.canManage && (

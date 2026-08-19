@@ -14,6 +14,7 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
       updatedAt: true,
       createdBy: { select: { name: true } },
       _count: { select: { members: true } },
+      members: { select: { userId: true } },
       inviteCodes: {
         where: { isActive: true },
         orderBy: { createdAt: "desc" },
@@ -38,6 +39,7 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
     lastActivityAt: (g.messages[0]?.createdAt ?? g.updatedAt).toISOString(),
     mentorName: g.createdBy.name,
     memberCount: g._count.members,
+    memberIds: g.members.map((m: (typeof g.members)[number]) => m.userId),
     inviteCode: g.inviteCodes[0] ?? null,
     canManage: true,
   }));
@@ -75,6 +77,7 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
           updatedAt: true,
           createdBy: { select: { name: true } },
           _count: { select: { members: true } },
+          members: { select: { userId: true } },
           messages: {
             where: { isDeleted: false },
             orderBy: { createdAt: "desc" },
@@ -95,6 +98,7 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
     lastActivityAt: (m.group.messages[0]?.createdAt ?? m.group.updatedAt).toISOString(),
     mentorName: m.group.createdBy.name,
     memberCount: m.group._count.members,
+    memberIds: m.group.members.map((mem: (typeof m.group.members)[number]) => mem.userId),
     inviteCode: null,
     canManage: false,
   }));

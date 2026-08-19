@@ -10,6 +10,7 @@ export interface GroupCard {
   lastActivityAt: string;
   mentorName: string;
   memberCount: number;
+  memberIds: string[];
   inviteCode: { id: string; code: string; isActive: boolean; usageCount: number } | null;
   canManage: boolean;
 }
