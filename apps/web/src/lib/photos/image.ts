@@ -44,6 +44,16 @@ export async function normalizePhotoUpload(file: File): Promise<NormalizedPhoto>
 
   try {
     const input = Buffer.from(await file.arrayBuffer());
+    const expectedFormat = file.type === 'image/jpeg'
+      ? 'jpeg'
+      : file.type === 'image/png'
+        ? 'png'
+        : 'webp';
+    const metadata = await sharp(input, { failOn: 'warning' }).metadata();
+    if (metadata.format !== expectedFormat) {
+      throw new Error('Declared MIME type does not match the image bytes.');
+    }
+
     const data = await sharp(input, { failOn: 'warning' })
       .rotate()
       .resize(512, 512, { fit: 'cover', position: 'centre' })

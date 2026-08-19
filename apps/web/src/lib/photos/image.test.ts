@@ -24,6 +24,14 @@ describe('normalizePhotoUpload', () => {
     )).rejects.toMatchObject({ code: 'INVALID_PHOTO', status: 400 });
   });
 
+  it('rejects real GIF bytes declared as PNG', async () => {
+    const bytes = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+
+    await expect(normalizePhotoUpload(
+      new File([new Uint8Array(bytes)], 'spoofed.png', { type: 'image/png' }),
+    )).rejects.toMatchObject({ code: 'INVALID_PHOTO', status: 400 });
+  });
+
   it('rejects an empty upload before image decoding', async () => {
     await expect(normalizePhotoUpload(
       new File([], 'empty.png', { type: 'image/png' }),
