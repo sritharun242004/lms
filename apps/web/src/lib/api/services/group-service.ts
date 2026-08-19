@@ -6,6 +6,7 @@ export interface GroupCard {
   name: string;
   description: string | null;
   wallpaperUrl: string | null;
+  avatarUrl?: string | null;
   createdAt: string;
   lastActivityAt: string;
   mentorName: string;

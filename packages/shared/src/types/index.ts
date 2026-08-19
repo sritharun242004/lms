@@ -97,6 +97,7 @@ export interface Group {
   name: string;
   description: string | null;
   wallpaperUrl: string | null;
+  avatarUrl: string | null;
   createdById: string;
   createdBy: UserSummary;
   memberCount: number;
@@ -116,6 +117,7 @@ export interface GroupSummary {
   id: string;
   name: string;
   wallpaperUrl: string | null;
+  avatarUrl: string | null;
   memberCount: number;
   lastMessage: Message | null;
   unreadCount: number;

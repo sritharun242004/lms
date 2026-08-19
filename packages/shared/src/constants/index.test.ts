@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UserRole, PERMISSIONS, ROLE_PERMISSIONS, hasPermission } from "./index";
+import { AuditAction, UserRole, PERMISSIONS, ROLE_PERMISSIONS, hasPermission } from "./index";
 
 describe("hasPermission", () => {
   it("grants admins every permission", () => {
@@ -28,5 +28,13 @@ describe("hasPermission", () => {
         );
       }
     }
+  });
+});
+
+describe('photo audit actions', () => {
+  it('keeps the personal and group photo audit values stable', () => {
+    expect(AuditAction.AVATAR_REMOVED).toBe('AVATAR_REMOVED');
+    expect(AuditAction.GROUP_AVATAR_UPDATED).toBe('GROUP_AVATAR_UPDATED');
+    expect(AuditAction.GROUP_AVATAR_REMOVED).toBe('GROUP_AVATAR_REMOVED');
   });
 });

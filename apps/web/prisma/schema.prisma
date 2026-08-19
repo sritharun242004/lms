@@ -102,6 +102,7 @@ model User {
   approvedCoachEmails CoachEmailApproval[] @relation("CoachApprovalAdmin")
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
+  profilePhoto       UserProfilePhoto?
 
   @@map("users")
 }
@@ -195,6 +196,7 @@ model Group {
   name         String
   description  String?
   wallpaperUrl String?  @map("wallpaper_url")
+  avatarUrl    String?  @map("avatar_url")
   createdById  String   @map("created_by_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -204,12 +206,44 @@ model Group {
   members     GroupMember[]
   messages    Message[]
   inviteCodes InviteCode[]
+  profilePhoto GroupProfilePhoto?
 
   @@index([createdById])
   @@map("groups")
 }
 
 // ============================================================================
+model UserProfilePhoto {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  mimeType  String   @map("mime_type")
+  size      Int
+  width     Int
+  height    Int
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profile_photos")
+}
+
+model GroupProfilePhoto {
+  id        String   @id @default(cuid())
+  groupId   String   @unique @map("group_id")
+  mimeType  String   @map("mime_type")
+  size      Int
+  width     Int
+  height    Int
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("group_profile_photos")
+}
 // 5. GroupMember
 // ============================================================================
 
