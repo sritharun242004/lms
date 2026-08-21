@@ -87,12 +87,12 @@ async function apiFetch<T>(
  * and stringify step so the browser can set its own
  * `multipart/form-data; boundary=...` header for the FormData body.
  */
-async function apiFormFetch<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+async function apiFormFetch<T>(endpoint: string, formData: FormData, method = 'POST'): Promise<ApiResponse<T>> {
   const url = new URL(`/api/v1${endpoint}`, resolveBaseUrl());
 
   try {
     const response = await fetch(url.toString(), {
-      method: "POST",
+      method,
       body: formData,
       credentials: "include",
     });
@@ -152,9 +152,10 @@ export const apiClient = {
     apiFetch<T>(endpoint, { method: "GET", params }),
 
   post: <T>(endpoint: string, body?: unknown) =>
-    apiFetch<T>(endpoint, { method: "POST", body }),
+    apiFetch<T>(endpoint, { method: 'POST', body }),
 
   postForm: <T>(endpoint: string, formData: FormData) => apiFormFetch<T>(endpoint, formData),
+  putForm: <T>(endpoint: string, formData: FormData) => apiFormFetch<T>(endpoint, formData, 'PUT'),
   uploadForm: <T>(endpoint: string, formData: FormData, onProgress: (loaded: number, total: number) => void) => apiFormUpload<T>(endpoint, formData, onProgress),
 
   patch: <T>(endpoint: string, body?: unknown) =>
