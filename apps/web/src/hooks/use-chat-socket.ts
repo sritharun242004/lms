@@ -52,6 +52,7 @@ interface GroupUpdateEvent {
   groupId: string;
   name: string;
   description: string | null;
+  avatarUrl?: string | null;
 }
 
 interface ChatSocketHandlers {

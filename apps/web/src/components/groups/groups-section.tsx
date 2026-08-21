@@ -10,7 +10,7 @@ import { EmptyGroupsState } from "@/components/dashboard/empty-groups-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getVisibleGroups } from "@/lib/groups/presentation";
-import { useOnlineUsers } from "@/hooks/use-online-users";
+import { useGroupPresence } from '@/hooks/use-group-presence';
 
 export function GroupsSection({
   groups,
@@ -23,11 +23,7 @@ export function GroupsSection({
   const [search, setSearch] = React.useState("");
   const refresh = () => router.refresh();
   const visibleGroups = getVisibleGroups(groups, search);
-  const allMemberIds = React.useMemo(
-    () => groups.flatMap((g) => g.memberIds),
-    [groups]
-  );
-  const onlineUserIds = useOnlineUsers(allMemberIds);
+  const groupPresence = useGroupPresence(groups);
 
   const newGroupTrigger = (
     <Button>
@@ -74,7 +70,8 @@ export function GroupsSection({
               key={g.id}
               group={g}
               onChanged={refresh}
-              isActive={g.memberIds.some((id) => onlineUserIds.has(id))}
+              isActive={groupPresence.get(g.id)?.isActive ?? false}
+              lastActivityAt={groupPresence.get(g.id)?.lastActiveAt ?? g.lastActivityAt}
             />
           ))}
         </div>

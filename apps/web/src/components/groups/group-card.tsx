@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GroupFormDialog } from "@/components/groups/group-form-dialog";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
+import { GroupPhotoControl } from '@/components/groups/group-photo-control';
 import { useConfirm } from "@/hooks/use-confirm";
 import { formatLastActive } from "@/lib/groups/presentation";
 
@@ -34,13 +35,22 @@ export function GroupCard({
   group,
   onChanged,
   isActive = false,
+  lastActivityAt,
 }: {
   group: GroupCardData;
   onChanged: () => void;
   isActive?: boolean;
+  lastActivityAt?: string;
 }) {
   const [isBusy, setIsBusy] = React.useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  const [now, setNow] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    if (isActive) return;
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [isActive]);
 
   async function copyCode() {
     if (!group.inviteCode) return;
@@ -101,6 +111,15 @@ export function GroupCard({
     <Card>
       {confirmDialog}
       <CardHeader className="flex flex-row items-start justify-between gap-2">
+        <div className='flex min-w-0 items-start gap-3'>
+          <GroupPhotoControl
+            key={group.avatarUrl ?? 'no-group-photo'}
+            groupId={group.id}
+            groupName={group.name}
+            avatarUrl={group.avatarUrl}
+            canManage={group.canManage}
+            onChanged={onChanged}
+          />
         <div className="flex flex-col gap-1">
           <CardTitle className="text-base">{group.name}</CardTitle>
           {group.description && (
@@ -117,9 +136,10 @@ export function GroupCard({
           ) : (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="size-2 rounded-full bg-muted-foreground/40" />
-              Last active {formatLastActive(group.lastActivityAt)}
+              Last active {formatLastActive(lastActivityAt ?? group.lastActivityAt, now)}
             </span>
           )}
+        </div>
         </div>
         {group.canManage && (
           <DropdownMenu>

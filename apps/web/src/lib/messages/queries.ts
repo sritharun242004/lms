@@ -31,6 +31,7 @@ export async function getGroupHeader(groupId: string) {
       id: true,
       name: true,
       description: true,
+      avatarUrl: true,
       _count: { select: { members: true } },
     },
   });

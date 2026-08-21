@@ -28,6 +28,7 @@ beforeEach(() => {
   mocks.getGroupHeader.mockResolvedValue({
     name: "Design cohort",
     description: "Weekly work",
+    avatarUrl: "/api/v1/groups/group-1/photo?v=1",
     _count: { members: 4 },
   });
   mocks.getInitialMessages.mockResolvedValue({ messages: [], hasMore: false });
@@ -44,6 +45,7 @@ describe("group chat role-shaped code data", () => {
     expect(tree.props).toMatchObject({
       canManage: true,
       groupCode: "JOIN-42",
+      groupAvatarUrl: "/api/v1/groups/group-1/photo?v=1",
       backHref: "/dashboard",
     });
   });

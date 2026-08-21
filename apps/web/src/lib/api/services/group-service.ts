@@ -51,4 +51,10 @@ export const groupService = {
 
   members: (groupId: string) =>
     apiClient.get<{ members: GroupMemberEntry[] }>(`/groups/${groupId}/members`),
+
+  updatePhoto: (groupId: string, formData: FormData) =>
+    apiClient.putForm<{ id: string; avatarUrl: string }>(`/groups/${groupId}/photo`, formData),
+
+  removePhoto: (groupId: string) =>
+    apiClient.delete<{ id: string; avatarUrl: null }>(`/groups/${groupId}/photo`),
 };

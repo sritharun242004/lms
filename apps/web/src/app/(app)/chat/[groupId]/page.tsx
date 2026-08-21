@@ -31,6 +31,7 @@ export default async function GroupChatPage({
       groupId={groupId}
       groupName={group.name}
       groupDescription={group.description}
+      groupAvatarUrl={group.avatarUrl}
       memberCount={group._count.members}
       currentUserId={user.id}
       canManage={access.canManage}

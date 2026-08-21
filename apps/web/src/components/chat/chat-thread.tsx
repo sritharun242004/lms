@@ -34,7 +34,7 @@ import { upsertMessage as upsert, mergeLatest } from "@/lib/chat/merge";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { useConfirm } from "@/hooks/use-confirm";
 import { getInitials } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -157,6 +157,7 @@ export function ChatThread({
   groupId,
   groupName,
   groupDescription,
+  groupAvatarUrl,
   memberCount,
   currentUserId,
   canManage,
@@ -168,6 +169,7 @@ export function ChatThread({
   groupId: string;
   groupName: string;
   groupDescription: string | null;
+  groupAvatarUrl: string | null;
   memberCount: number;
   currentUserId: string;
   canManage: boolean;
@@ -186,6 +188,7 @@ export function ChatThread({
   const [displayMemberCount, setDisplayMemberCount] = React.useState(memberCount);
   const [displayGroupName, setDisplayGroupName] = React.useState(groupName);
   const [displayGroupDescription, setDisplayGroupDescription] = React.useState(groupDescription);
+  const [displayGroupAvatarUrl, setDisplayGroupAvatarUrl] = React.useState(groupAvatarUrl);
   const [hasPendingPollTemplate, setHasPendingPollTemplate] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadRow[]>([]);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -279,9 +282,10 @@ export function ChatThread({
   useChatSocket(groupId, {
     onMembersChanged: (event) =>
       setDisplayMemberCount((current) => applyMemberCount(current, event, groupId)),
-    onGroupUpdated: ({ name, description }) => {
+    onGroupUpdated: ({ name, description, avatarUrl }) => {
       setDisplayGroupName(name);
       setDisplayGroupDescription(description);
+      if (avatarUrl !== undefined) setDisplayGroupAvatarUrl(avatarUrl);
     },
     onPresenceJoin: ({ userId, userName, role }) => {
       if (userId === currentUserId) return;
@@ -555,6 +559,7 @@ export function ChatThread({
                 aria-label="View group members"
               >
                 <Avatar>
+                  {displayGroupAvatarUrl && <AvatarImage src={displayGroupAvatarUrl} alt={`${displayGroupName} group photo`} />}
                   <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
                 </Avatar>
                 <div className="flex min-w-0 flex-col">
@@ -571,6 +576,7 @@ export function ChatThread({
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <Avatar>
+              {displayGroupAvatarUrl && <AvatarImage src={displayGroupAvatarUrl} alt={`${displayGroupName} group photo`} />}
               <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-col">

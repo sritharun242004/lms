@@ -6,6 +6,8 @@ import { registerChatHandlers } from "./handlers/chat";
 import { registerPresenceHandlers } from "./handlers/presence";
 import type { SocketEvents } from "@cms/shared";
 
+import { GroupPresenceTracker } from './lib/group-presence';
+
 // ============================================================
 // SERVER CONFIGURATION
 // ============================================================
@@ -96,6 +98,7 @@ io.use(authMiddleware);
 
 // Track online users: userId → Set<socketId>
 const onlineUsers = new Map<string, Set<string>>();
+const groupPresence = new GroupPresenceTracker();
 
 io.on("connection", (socket) => {
   const userId = socket.data.userId;
@@ -116,13 +119,16 @@ io.on("connection", (socket) => {
   });
 
   // Register event handlers
-  registerChatHandlers(io, socket);
-  registerPresenceHandlers(io, socket, onlineUsers);
+  registerChatHandlers(io, socket, groupPresence);
+  registerPresenceHandlers(io, socket, onlineUsers, groupPresence);
   const stopAuthRevalidation = startAuthRevalidation(socket);
 
   // Handle disconnect
   socket.on("disconnect", (reason) => {
     stopAuthRevalidation();
+    for (const presence of groupPresence.disconnect(socket.id)) {
+      io.emit('group:presence', presence);
+    }
     console.log(`✗ User disconnected: ${userName} (${userId}) - Reason: ${reason}`);
 
     const userSockets = onlineUsers.get(userId);

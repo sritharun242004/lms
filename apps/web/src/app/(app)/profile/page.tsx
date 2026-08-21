@@ -1,9 +1,8 @@
 import { getCurrentUser } from "@/lib/auth";
-import { getInitials } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { ProfilePhotoCard } from '@/components/profile/profile-photo-card';
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -18,18 +17,10 @@ export default async function ProfilePage() {
           <CardTitle className="text-base">Account details</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <Avatar className="size-14">
-              <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
-              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{user.name}</p>
-              <Badge variant="secondary" className="mt-1">
-                {user.role}
-              </Badge>
-            </div>
-          </div>
+          <ProfilePhotoCard user={user} />
+          <Badge variant="secondary" className="w-fit">
+            {user.role}
+          </Badge>
 
           <Separator />
 

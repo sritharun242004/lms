@@ -1,11 +1,13 @@
 import type { Server, Socket } from "socket.io";
 import { UserRole } from "@cms/shared";
 
+import type { GroupPresenceTracker } from '../lib/group-presence';
+
 /**
  * Register chat-related socket event handlers.
  * Handles group room management and message broadcasting.
  */
-export function registerChatHandlers(io: Server, socket: Socket) {
+export function registerChatHandlers(io: Server, socket: Socket, groupPresence: GroupPresenceTracker) {
   const userId = socket.data.userId;
   const userRole = socket.data.role;
 
@@ -16,6 +18,8 @@ export function registerChatHandlers(io: Server, socket: Socket) {
     const room = `group:${groupId}`;
     const alreadyInRoom = socket.rooms.has(room);
     socket.join(room);
+    const presence = groupPresence.join(socket.id, groupId, userRole);
+    if (presence.changed) io.emit('group:presence', presence);
     console.log(`  → ${socket.data.userName} joined ${room}`);
 
     // Announce the arrival to everyone else already in the room. `socket.to`
@@ -35,6 +39,8 @@ export function registerChatHandlers(io: Server, socket: Socket) {
   socket.on("group:leave", (groupId: string) => {
     if (!groupId || typeof groupId !== "string") return;
 
+    const presence = groupPresence.leave(socket.id, groupId);
+    if (presence.changed) io.emit('group:presence', presence);
     socket.leave(`group:${groupId}`);
     console.log(`  ← ${socket.data.userName} left group:${groupId}`);
   });

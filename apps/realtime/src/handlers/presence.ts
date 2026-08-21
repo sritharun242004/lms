@@ -1,5 +1,7 @@
 import type { Server, Socket } from "socket.io";
 
+import type { GroupPresenceTracker } from '../lib/group-presence';
+
 /**
  * Register presence-related socket event handlers.
  * Tracks online/offline status and provides user presence queries.
@@ -7,7 +9,8 @@ import type { Server, Socket } from "socket.io";
 export function registerPresenceHandlers(
   io: Server,
   socket: Socket,
-  onlineUsers: Map<string, Set<string>>
+  onlineUsers: Map<string, Set<string>>,
+  groupPresence: GroupPresenceTracker
 ) {
   // ── Get online users for a group ───────────────────────────
   socket.on(
@@ -21,6 +24,14 @@ export function registerPresenceHandlers(
         result[uid] = onlineUsers.has(uid);
       }
       callback(result);
+    }
+  );
+
+  socket.on(
+    'presence:groups',
+    (data: { groupIds: string[] }, callback: (result: ReturnType<GroupPresenceTracker['query']>) => void) => {
+      if (!data?.groupIds || !Array.isArray(data.groupIds) || typeof callback !== 'function') return;
+      callback(groupPresence.query(data.groupIds));
     }
   );
 

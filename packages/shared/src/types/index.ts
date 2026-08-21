@@ -248,6 +248,15 @@ export interface ChartDataPoint {
 // ============================================================
 
 export interface SocketEvents {
+  'presence:groups': (
+    data: { groupIds: string[] },
+    callback: (result: Record<string, { isActive: boolean; lastActiveAt: string | null }>) => void
+  ) => void;
+  'group:presence': (data: {
+    groupId: string;
+    isActive: boolean;
+    lastActiveAt: string | null;
+  }) => void;
   // Client → Server
   "group:join": (groupId: string) => void;
   "group:leave": (groupId: string) => void;
