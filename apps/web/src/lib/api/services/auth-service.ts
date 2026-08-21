@@ -37,4 +37,9 @@ export const authService = {
     apiClient.post<{ message: string }>("/auth/reset-password", input),
 
   socketToken: () => apiClient.get<{ token: string }>("/auth/socket-token"),
+  updatePhoto: (formData: FormData) =>
+    apiClient.putForm<{ user: AuthUser }>('/profile/photo', formData),
+
+  removePhoto: () =>
+    apiClient.delete<{ user: AuthUser }>('/profile/photo'),
 };

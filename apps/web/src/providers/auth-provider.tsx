@@ -33,6 +33,7 @@ interface AuthContextValue {
     input: MenteeJoinInput
   ) => Promise<{ user: AuthUser; joinedGroup: { id: string; name: string } }>;
   logout: () => Promise<void>;
+  replaceUser: (user: AuthUser) => void;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -74,6 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient]
   );
 
+  const replaceUser = React.useCallback(
+    (user: AuthUser) => {
+      queryClient.setQueryData(AUTH_QUERY_KEY, user);
+    },
+    [queryClient]
+  );
+
   const logout = React.useCallback(async () => {
     await authService.logout();
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
@@ -87,9 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!data,
       login,
       join,
+      replaceUser,
       logout,
     }),
-    [data, isLoading, login, join, logout]
+    [data, isLoading, login, join, replaceUser, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
