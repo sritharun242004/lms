@@ -16,6 +16,7 @@ import {
 import type { GroupCard as GroupCardData } from "@/lib/api/services/group-service";
 import { groupService } from "@/lib/api/services/group-service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +28,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GroupFormDialog } from "@/components/groups/group-form-dialog";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
-import { GroupPhotoControl } from '@/components/groups/group-photo-control';
 import { useConfirm } from "@/hooks/use-confirm";
 import { formatLastActive } from "@/lib/groups/presentation";
+import { getInitials } from "@/lib/utils";
 
 export function GroupCard({
   group,
@@ -112,39 +113,46 @@ export function GroupCard({
       {confirmDialog}
       <CardHeader className="flex flex-row items-start justify-between gap-2">
         <div className='flex min-w-0 items-start gap-3'>
-          <GroupPhotoControl
-            key={group.avatarUrl ?? 'no-group-photo'}
-            groupId={group.id}
-            groupName={group.name}
-            avatarUrl={group.avatarUrl}
-            canManage={group.canManage}
-            onChanged={onChanged}
-          />
-        <div className="flex flex-col gap-1">
-          <CardTitle className="text-base">{group.name}</CardTitle>
-          {group.description && (
-            <p className="line-clamp-2 text-sm text-muted-foreground">{group.description}</p>
-          )}
-          {isActive ? (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-success">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-success" />
+          <Avatar
+            className="size-16 shrink-0 ring-4 ring-white shadow-lg"
+            aria-label={`${group.name} group photo`}
+          >
+            {group.avatarUrl && (
+              <AvatarImage src={group.avatarUrl} alt={`${group.name} group photo`} />
+            )}
+            <AvatarFallback>{getInitials(group.name)}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-base">{group.name}</CardTitle>
+            {group.description && (
+              <p className="line-clamp-2 text-sm text-muted-foreground">{group.description}</p>
+            )}
+            {isActive ? (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-success">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-success" />
+                </span>
+                Active now
               </span>
-              Active now
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="size-2 rounded-full bg-muted-foreground/40" />
-              Last active {formatLastActive(lastActivityAt ?? group.lastActivityAt, now)}
-            </span>
-          )}
-        </div>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="size-2 rounded-full bg-muted-foreground/40" />
+                Last active {formatLastActive(lastActivityAt ?? group.lastActivityAt, now)}
+              </span>
+            )}
+          </div>
         </div>
         {group.canManage && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0" disabled={isBusy}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                disabled={isBusy}
+                aria-label={`Manage ${group.name}`}
+              >
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>

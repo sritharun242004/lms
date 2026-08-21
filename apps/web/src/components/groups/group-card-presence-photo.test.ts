@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { createElement, type ReactNode } from 'react';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GroupCard } from './group-card';
 
@@ -37,14 +38,21 @@ describe('GroupCard live presence and photo controls', () => {
     expect(screen.getByText('Last active 2m ago')).toBeTruthy();
   });
 
-  it('shows group photo controls to managers', () => {
+  it('keeps group photo controls inside Edit group from the three-dot menu', async () => {
+    const user = userEvent.setup();
     render(createElement(GroupCard, { group: group(), onChanged: vi.fn() }));
-    expect(screen.getByRole('button', { name: 'Add Design cohort group photo' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add Design cohort group photo' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Manage Design cohort' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit group' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Edit group' });
+    expect(within(dialog).getByRole('button', { name: 'Add Design cohort group photo' })).toBeTruthy();
   });
 
-  it('keeps group photo controls view-only for participants', () => {
+  it('shows the group photo on participant cards without photo-action buttons', () => {
     render(createElement(GroupCard, { group: { ...group(false), avatarUrl: '/api/v1/groups/group-42/photo?v=1' }, onChanged: vi.fn() }));
-    expect(screen.getByRole('button', { name: 'View Design cohort group photo' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /change design cohort group photo/i })).toBeNull();
+    expect(screen.getByLabelText('Design cohort group photo')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /design cohort group photo/i })).toBeNull();
   });
 });

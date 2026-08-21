@@ -10,6 +10,7 @@ import { groupService } from "@/lib/api/services/group-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GroupPhotoControl } from "@/components/groups/group-photo-control";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import {
 interface GroupFormDialogProps {
   trigger: React.ReactNode;
   mode?: "create" | "edit";
-  group?: { id: string; name: string; description: string | null };
+  group?: { id: string; name: string; description: string | null; avatarUrl?: string | null };
   onSuccess: () => void;
 }
 
@@ -91,6 +92,25 @@ export function GroupFormDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            {mode === "edit" && group && (
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                <div className="mb-3">
+                  <p className="text-sm font-medium">Group photo</p>
+                  <p className="text-xs text-muted-foreground">
+                    Add, view, change, or remove this group&apos;s photo.
+                  </p>
+                </div>
+                <GroupPhotoControl
+                  key={group.avatarUrl ?? "no-group-photo"}
+                  groupId={group.id}
+                  groupName={group.name}
+                  avatarUrl={group.avatarUrl ?? null}
+                  canManage
+                  onChanged={onSuccess}
+                />
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="name"
