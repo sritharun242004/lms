@@ -38,8 +38,8 @@ jobs:
       - name: Build + push web image
         run: |
           docker build -f Dockerfile.web \
-            --build-arg NEXT_PUBLIC_APP_URL=https://www.thexintelligence.com \
-            --build-arg NEXT_PUBLIC_SOCKET_URL=https://sock.thexintelligence.com \
+            --build-arg NEXT_PUBLIC_APP_URL=https://www.thexintelligence.ai \
+            --build-arg NEXT_PUBLIC_SOCKET_URL=https://xrvfqcwgae.us-east-1.awsapprunner.com \
             -t $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }} \
             -t $ECR_REGISTRY/$WEB_REPO:latest .
           docker push $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }}

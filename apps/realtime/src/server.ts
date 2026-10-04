@@ -14,6 +14,7 @@ import { GroupPresenceTracker } from './lib/group-presence';
 
 const PORT = parseInt(process.env.SOCKET_PORT || "4000", 10);
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+const CLIENT_ORIGINS = CLIENT_URL.split(",").map((origin) => origin.trim()).filter(Boolean);
 const INTERNAL_SECRET =
   process.env.INTERNAL_SECRET || "dev-internal-secret-change-in-production";
 
@@ -77,7 +78,7 @@ const httpServer = http.createServer((req, res) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: CLIENT_URL,
+    origin: CLIENT_ORIGINS,
     methods: ["GET", "POST"],
     credentials: true,
   },
