@@ -53,8 +53,6 @@ jobs:
           docker push $ECR_REGISTRY/$REALTIME_REPO:${{ steps.tag.outputs.image_tag }}
           docker push $ECR_REGISTRY/$REALTIME_REPO:latest
 
-  # App Runner has AutoDeploymentsEnabled=true so it picks up :latest on its own.
-  # This job is a belt-and-braces manual redeploy hook for workflow_dispatch runs.
   redeploy-app-runner:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -66,14 +64,36 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Trigger redeployment on each service (if it exists)
+      - name: Pin services to the released images
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          for svc in lms-web lms-realtime; do
-            arn=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='$svc'].ServiceArn | [0]" --output text 2>/dev/null || echo "None")
-            if [ "$arn" != "None" ] && [ -n "$arn" ]; then
-              echo "Redeploying $svc ($arn)"
-              aws apprunner start-deployment --service-arn "$arn" || true
-            else
-              echo "Skipping $svc - service not created yet"
+          update_service() {
+            local service_name="$1"
+            local repository="$2"
+            local start_command="${3:-}"
+            local arn
+            arn=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='$service_name'].ServiceArn | [0]" --output text)
+
+            if [ "$arn" = "None" ] || [ -z "$arn" ]; then
+              echo "App Runner service not found: $service_name" >&2
+              return 1
             fi
-          done
+
+            aws apprunner describe-service --service-arn "$arn" --query 'Service.SourceConfiguration' --output json > source-configuration.json
+
+            if [ -n "$start_command" ]; then
+              jq --arg image "$ECR_REGISTRY/$repository:$IMAGE_TAG" --arg command "$start_command" \
+                '.ImageRepository.ImageIdentifier = $image | .ImageRepository.ImageConfiguration.StartCommand = $command' \
+                source-configuration.json > updated-source-configuration.json
+            else
+              jq --arg image "$ECR_REGISTRY/$repository:$IMAGE_TAG" \
+                '.ImageRepository.ImageIdentifier = $image' \
+                source-configuration.json > updated-source-configuration.json
+            fi
+
+            aws apprunner update-service --service-arn "$arn" --source-configuration file://updated-source-configuration.json
+          }
+
+          update_service lms-web "$WEB_REPO" 'npx --no-install next start'
+          update_service lms-realtime "$REALTIME_REPO"

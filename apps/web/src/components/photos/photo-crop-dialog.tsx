@@ -16,7 +16,31 @@ export function PhotoCropDialog({
   onOpenChange: (open: boolean) => void;
   onSave: (file: File) => Promise<void> | void;
 }) {
-  const [src, setSrc] = React.useState<string | null>(null);
+  const fileKey = file ? `${file.name}:${file.size}:${file.lastModified}:${file.type}` : 'empty';
+
+  return (
+    <PhotoCropEditor
+      key={fileKey}
+      file={file}
+      open={open}
+      onOpenChange={onOpenChange}
+      onSave={onSave}
+    />
+  );
+}
+
+function PhotoCropEditor({
+  file,
+  open,
+  onOpenChange,
+  onSave,
+}: {
+  file: File | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (file: File) => Promise<void> | void;
+}) {
+  const src = React.useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const [image, setImage] = React.useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = React.useState(1);
   const [x, setX] = React.useState(0);
@@ -25,11 +49,10 @@ export function PhotoCropDialog({
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    if (!file) { setSrc(null); setImage(null); return; }
-    const objectUrl = URL.createObjectURL(file);
-    setSrc(objectUrl); setImage(null); setZoom(1); setX(0); setY(0); setError(null);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+    return () => {
+      if (src) URL.revokeObjectURL(src);
+    };
+  }, [src]);
 
   async function save() {
     if (!image || !src) return;
