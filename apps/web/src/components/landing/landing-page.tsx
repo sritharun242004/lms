@@ -2,47 +2,49 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
 import { MessagesSquare } from "lucide-react";
+import { PageMotion } from "@/components/layout/page-motion";
 import { ParticipantEntryForm } from "@/components/auth/participant-entry-form";
 
-const ease = [0.16, 1, 0.3, 1] as const;
-
 export function LandingPage() {
-  const reduceMotion = useReducedMotion();
-  const reveal = (delay = 0) => ({
-    initial: reduceMotion ? false : { opacity: 0, y: 18 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.62, delay, ease },
-  });
-
   return (
-    <main className="min-h-svh bg-[#202020] p-1.5 font-sans text-white sm:p-2">
-      <div className="min-h-[calc(100svh-0.75rem)] overflow-hidden rounded-[1.15rem] border border-white/15 bg-[#07090d] shadow-[0_24px_80px_rgba(15,23,42,.28)] sm:min-h-[calc(100svh-1rem)]">
-        <section className="relative mx-auto flex min-h-[calc(100svh-0.75rem)] max-w-3xl flex-col overflow-hidden px-5 py-6 sm:min-h-[calc(100svh-1rem)] sm:px-10 sm:py-9 lg:px-16 lg:py-12">
-          <div className="pointer-events-none absolute -top-44 -left-44 size-[28rem] rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 opacity-[.035] [background-image:radial-gradient(circle_at_center,white_1px,transparent_1px)] [background-size:30px_30px]" />
-
-          <motion.header {...reveal()} className="relative z-10">
-            <Link href="/" className="inline-flex items-center gap-3 text-lg font-bold tracking-[-.02em] sm:text-xl">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(37,99,235,.3)]">
-                <MessagesSquare className="size-[1.15rem]" />
+    <div className="relative h-svh w-full overflow-hidden text-foreground">
+      <div className="pointer-events-none fixed -top-40 -right-32 size-[38rem] rounded-full bg-primary/20 blur-3xl -z-10" />
+      <div className="pointer-events-none fixed -bottom-44 -left-36 size-[34rem] rounded-full bg-blue-300/40 blur-3xl -z-10" />
+      <div className="relative z-10 grid h-full w-full md:grid-cols-2 lg:grid-cols-[1fr_1.05fr]">
+        <section className="flex h-full flex-col justify-between p-6 sm:p-10 lg:p-12 overflow-y-auto md:overflow-hidden">
+          <div>
+            <Link href="/" className="inline-flex items-center gap-3.5 text-xl font-bold tracking-wide sm:text-2xl">
+              <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(37,99,235,.25)]">
+                <MessagesSquare className="size-5" />
               </span>
               AI Empowerment
             </Link>
-          </motion.header>
-
-          <div className="relative z-10 mx-auto flex w-full max-w-lg flex-1 items-center py-14 sm:py-20">
-            <motion.div {...reveal(.08)} className="w-full">
-              <React.Suspense fallback={null}>
-                <ParticipantEntryForm />
-              </React.Suspense>
-            </motion.div>
           </div>
-
+          <div className="flex flex-1 items-center justify-center py-2 sm:py-4">
+            <div className="glass w-full max-w-lg rounded-[2.25rem] p-7 sm:p-10 shadow-xl">
+              <PageMotion>
+                <React.Suspense fallback={null}>
+                  <ParticipantEntryForm />
+                </React.Suspense>
+              </PageMotion>
+            </div>
+          </div>
+          <div className="hidden md:block" />
         </section>
-
+        <aside className="relative hidden md:flex flex-col justify-end h-full overflow-hidden bg-primary p-8 md:p-12 lg:p-20 text-primary-foreground">
+          <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_center,white_1.5px,transparent_1.5px)] [background-size:40px_40px]" />
+          <div className="relative max-w-2xl">
+            <p className="text-base font-bold tracking-[.18em] uppercase text-primary-foreground/90">Participant Portal</p>
+            <h2 className="mt-5 text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.12]">
+              Interactive learning and real-time collaboration.
+            </h2>
+            <p className="mt-6 text-lg md:text-xl lg:text-2xl text-primary-foreground/90 font-normal leading-relaxed">
+              Connect directly with your mentors, coaches, and peer learning community in real time.
+            </p>
+          </div>
+        </aside>
       </div>
-    </main>
+    </div>
   );
 }
