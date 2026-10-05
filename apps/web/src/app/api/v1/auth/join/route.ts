@@ -81,23 +81,6 @@ export async function POST(req: NextRequest) {
     } as const;
 
     const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Same device (IP) rejoining a group it's already a mentee of — reuse
-      // that identity instead of minting a duplicate guest account.
-      const existingMember = ipAddress
-        ? await tx.groupMember.findFirst({
-            where: {
-              groupId: invite.groupId,
-              role: "MENTEE",
-              user: { ipAddress },
-            },
-            select: { user: { select: userSelect } },
-          })
-        : null;
-
-      if (existingMember) {
-        return existingMember.user;
-      }
-
       const newUser = await tx.user.create({
         data: {
           name,
