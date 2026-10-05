@@ -1,38 +1,40 @@
+"use client";
+
 import Link from "next/link";
 import { MessagesSquare } from "lucide-react";
 import { PageMotion } from "@/components/layout/page-motion";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-svh overflow-hidden text-foreground">
-      <div className="ambient-orb -top-40 -right-32 size-[38rem] bg-primary/24" />
-      <div className="ambient-orb -bottom-44 -left-36 size-[34rem] bg-brand-200/60 [animation-delay:-7s]" />
-      <div className="relative z-10 mx-auto grid min-h-svh w-full max-w-7xl lg:grid-cols-[.92fr_1.08fr]">
-        <section className="flex min-h-svh flex-col p-6 sm:p-10 lg:p-14">
-        <div>
-          <Link href="/" className="flex items-center gap-3 font-semibold tracking-wide">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(37,99,235,.22)]">
-              <MessagesSquare className="size-4" />
-            </span>
-            AI Empowerment
-          </Link>
-        </div>
-        <div className="flex flex-1 items-center justify-center py-10">
-          <div className="glass w-full max-w-md rounded-[2rem] p-6 sm:p-8">
-            <PageMotion>{children}</PageMotion>
+    <div className="relative h-svh w-full overflow-hidden text-foreground">
+      <div className="pointer-events-none fixed -top-40 -right-32 size-[38rem] rounded-full bg-primary/20 blur-3xl -z-10" />
+      <div className="pointer-events-none fixed -bottom-44 -left-36 size-[34rem] rounded-full bg-blue-300/40 blur-3xl -z-10" />
+      <div className="relative z-10 grid h-full w-full md:grid-cols-2 lg:grid-cols-[1fr_1.05fr]">
+        <section className="flex h-full flex-col justify-between p-6 sm:p-10 lg:p-12 overflow-y-auto md:overflow-hidden">
+          <div>
+            <Link href="/" className="inline-flex items-center gap-3.5 text-xl font-bold tracking-wide sm:text-2xl">
+              <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(37,99,235,.25)]">
+                <MessagesSquare className="size-5" />
+              </span>
+              AI Empowerment
+            </Link>
           </div>
-        </div>
+          <div className="flex flex-1 items-center justify-center py-2 sm:py-4">
+            <div className="glass w-full max-w-lg rounded-[2.25rem] p-7 sm:p-10 shadow-xl">
+              <PageMotion>{children}</PageMotion>
+            </div>
+          </div>
+          <div className="hidden md:block" />
         </section>
-        <aside className="relative hidden overflow-hidden bg-primary p-14 text-primary-foreground lg:flex lg:flex-col lg:justify-end">
-          <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_center,white_1px,transparent_1px)] [background-size:40px_40px]" />
-          <div className="relative max-w-xl">
-            <p className="text-sm font-semibold tracking-[.16em] uppercase">Staff workspace</p>
-            <h2 className="mt-5 text-4xl font-bold tracking-tight">Manage every learning community from one place.</h2>
-            <p className="mt-5 text-lg text-primary-foreground/80">Secure access for approved coaches and Super Admins.</p>
+        <aside className="relative hidden md:flex flex-col justify-end h-full overflow-hidden bg-primary p-8 md:p-12 lg:p-20 text-primary-foreground">
+          <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_center,white_1.5px,transparent_1.5px)] [background-size:40px_40px]" />
+          <div className="relative max-w-2xl">
+            <p className="text-base font-bold tracking-[.18em] uppercase text-primary-foreground/90">Staff workspace</p>
+            <h2 className="mt-5 text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight leading-[1.12]">Manage every learning community from one place.</h2>
+            <p className="mt-6 text-lg md:text-xl lg:text-2xl text-primary-foreground/90 font-normal leading-relaxed">Secure access for approved coaches and Super Admins.</p>
           </div>
         </aside>
       </div>
-
     </div>
   );
 }
