@@ -35,6 +35,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("role-aware logout", () => {
+  it("asks a participant to confirm before ending their session", async () => {
+    const user = userEvent.setup();
+    render(createElement(UserMenu, { user: authUser("MENTEE") }));
+
+    await user.click(screen.getByRole("button", { name: /^log out$/i }));
+
+    expect(screen.getByRole("heading", { name: "Log out?" })).toBeTruthy();
+    expect(screen.getByText("Do you want to log out?")).toBeTruthy();
+    expect(mocks.logout).not.toHaveBeenCalled();
+
+    await user.click(screen.getAllByRole("button", { name: /^log out$/i }).at(-1)!);
+
+    await waitFor(() => {
+      expect(mocks.logout).toHaveBeenCalledTimes(1);
+      expect(mocks.push).toHaveBeenCalledWith("/");
+    });
+  });
+
   it.each([
     ["ADMIN", "/admin/login"],
     ["MENTOR", "/admin/login"],
@@ -44,6 +62,7 @@ describe("role-aware logout", () => {
     render(createElement(UserMenu, { user: authUser(role as UserRole) }));
 
     await user.click(screen.getByRole("button", { name: /sign out/i }));
+    await user.click(screen.getByRole("button", { name: /^log out$/i }));
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(expected));
   });
