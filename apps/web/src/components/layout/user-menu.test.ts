@@ -37,7 +37,7 @@ afterEach(cleanup);
 describe("role-aware logout", () => {
   it("asks a participant to confirm before ending their session", async () => {
     const user = userEvent.setup();
-    render(createElement(UserMenu, { user: authUser("MENTEE") }));
+    render(createElement(UserMenu, { user: authUser("MENTEE" as UserRole) }));
 
     await user.click(screen.getByRole("button", { name: /^log out$/i }));
 
