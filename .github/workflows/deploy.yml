@@ -33,25 +33,21 @@ jobs:
 
       - name: Compute image tag
         id: tag
-        run: echo "image_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: echo "image_tag=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Build + push web image
         run: |
           docker build -f Dockerfile.web \
             --build-arg NEXT_PUBLIC_APP_URL=https://www.thexintelligence.ai \
             --build-arg NEXT_PUBLIC_SOCKET_URL=https://xrvfqcwgae.us-east-1.awsapprunner.com \
-            -t $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }} \
-            -t $ECR_REGISTRY/$WEB_REPO:latest .
+            -t $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }} .
           docker push $ECR_REGISTRY/$WEB_REPO:${{ steps.tag.outputs.image_tag }}
-          docker push $ECR_REGISTRY/$WEB_REPO:latest
 
       - name: Build + push realtime image
         run: |
           docker build -f Dockerfile.realtime \
-            -t $ECR_REGISTRY/$REALTIME_REPO:${{ steps.tag.outputs.image_tag }} \
-            -t $ECR_REGISTRY/$REALTIME_REPO:latest .
+            -t $ECR_REGISTRY/$REALTIME_REPO:${{ steps.tag.outputs.image_tag }} .
           docker push $ECR_REGISTRY/$REALTIME_REPO:${{ steps.tag.outputs.image_tag }}
-          docker push $ECR_REGISTRY/$REALTIME_REPO:latest
 
   redeploy-app-runner:
     needs: build-and-push
@@ -68,11 +64,72 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
+          set -euo pipefail
+
+          wait_for_operation() {
+            local service_name="$1"
+            local arn="$2"
+            local operation_id="$3"
+            local status
+
+            for _ in {1..60}; do
+              status=$(aws apprunner list-operations --service-arn "$arn" \
+                --query "OperationSummaryList[?Id=='$operation_id'].Status | [0]" --output text)
+              echo "$service_name operation $operation_id: $status"
+
+              case "$status" in
+                SUCCEEDED) return 0 ;;
+                FAILED|CANCELLED) echo "$service_name deployment operation failed: $status" >&2; return 1 ;;
+              esac
+
+              sleep 5
+            done
+
+            echo "$service_name deployment operation timed out: $operation_id" >&2
+            return 1
+          }
+
+          wait_for_running() {
+            local service_name="$1"
+            local arn="$2"
+            local health_path="$3"
+            local status
+            local service_url
+
+            for _ in {1..60}; do
+              status=$(aws apprunner describe-service --service-arn "$arn" --query 'Service.Status' --output text)
+              echo "$service_name service status: $status"
+
+              case "$status" in
+                RUNNING)
+                  service_url=$(aws apprunner describe-service --service-arn "$arn" --query 'Service.ServiceUrl' --output text)
+                  if curl --fail --silent --show-error --max-time 20 "https://$service_url$health_path" -o /dev/null; then
+                    echo "$service_name health check succeeded"
+                    return 0
+                  fi
+                  ;;
+                CREATE_FAILED|DELETE_FAILED|PAUSED)
+                  echo "$service_name reached unhealthy App Runner status: $status" >&2
+                  return 1
+                  ;;
+              esac
+
+              sleep 5
+            done
+
+            echo "$service_name did not reach RUNNING with a healthy endpoint" >&2
+            return 1
+          }
+
           update_service() {
             local service_name="$1"
             local repository="$2"
             local start_command="${3:-}"
             local arn
+            local image
+            local operation_id
+            local source_file
+            local updated_file
             arn=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='$service_name'].ServiceArn | [0]" --output text)
 
             if [ "$arn" = "None" ] || [ -z "$arn" ]; then
@@ -80,20 +137,38 @@ jobs:
               return 1
             fi
 
-            aws apprunner describe-service --service-arn "$arn" --query 'Service.SourceConfiguration' --output json > source-configuration.json
+            image="$ECR_REGISTRY/$repository:$IMAGE_TAG"
+            source_file=$(mktemp)
+            updated_file=$(mktemp)
 
-            if [ -n "$start_command" ]; then
-              jq --arg image "$ECR_REGISTRY/$repository:$IMAGE_TAG" --arg command "$start_command" \
-                '.ImageRepository.ImageIdentifier = $image | .ImageRepository.ImageConfiguration.StartCommand = $command' \
-                source-configuration.json > updated-source-configuration.json
-            else
-              jq --arg image "$ECR_REGISTRY/$repository:$IMAGE_TAG" \
-                '.ImageRepository.ImageIdentifier = $image' \
-                source-configuration.json > updated-source-configuration.json
+            if ! aws apprunner describe-service --service-arn "$arn" --query 'Service.SourceConfiguration' --output json > "$source_file"; then
+              rm -f "$source_file" "$updated_file"
+              echo "Unable to read safe deployment configuration for $service_name" >&2
+              return 1
             fi
 
-            aws apprunner update-service --service-arn "$arn" --source-configuration file://updated-source-configuration.json
+            if [ -n "$start_command" ]; then
+              jq --arg image "$image" --arg command "$start_command" \
+                '.AutoDeploymentsEnabled = false | .ImageRepository.ImageIdentifier = $image | .ImageRepository.ImageConfiguration.StartCommand = $command' \
+                "$source_file" > "$updated_file"
+            else
+              jq --arg image "$image" \
+                '.AutoDeploymentsEnabled = false | .ImageRepository.ImageIdentifier = $image' \
+                "$source_file" > "$updated_file"
+            fi
+
+            if ! operation_id=$(aws apprunner update-service --service-arn "$arn" --source-configuration "file://$updated_file" --query 'OperationId' --output text); then
+              rm -f "$source_file" "$updated_file"
+              echo "Unable to start $service_name deployment" >&2
+              return 1
+            fi
+
+            rm -f "$source_file" "$updated_file"
+            echo "$service_name image: $image"
+            echo "$service_name operation: $operation_id"
+            wait_for_operation "$service_name" "$arn" "$operation_id"
+            wait_for_running "$service_name" "$arn" "$4"
           }
 
-          update_service lms-web "$WEB_REPO" 'npx --no-install next start'
-          update_service lms-realtime "$REALTIME_REPO"
+          update_service lms-web "$WEB_REPO" 'npx --no-install next start' '/'
+          update_service lms-realtime "$REALTIME_REPO" '' '/health'
