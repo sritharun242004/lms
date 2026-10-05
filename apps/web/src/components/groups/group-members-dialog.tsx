@@ -44,6 +44,9 @@ export function GroupMembersDialog({
         <DialogHeader>
           <DialogTitle>Members of {groupName}</DialogTitle>
           <DialogDescription>
+            {members
+              ? `${members.length} ${members.length === 1 ? "participant" : "participants"} · `
+              : ""}
             Everyone who has onboarded into this group, most recent first.
           </DialogDescription>
         </DialogHeader>
@@ -58,7 +61,10 @@ export function GroupMembersDialog({
             <p className="text-sm">No one has joined this group yet.</p>
           </div>
         ) : (
-          <div className="flex max-h-96 flex-col gap-1 overflow-y-auto">
+          <div
+            className="flex max-h-96 flex-col gap-1 overflow-y-auto pr-2"
+            aria-label={`Complete roster: ${members.length} ${members.length === 1 ? "participant" : "participants"}`}
+          >
             {members.map((member) => (
               <div
                 key={member.id}
