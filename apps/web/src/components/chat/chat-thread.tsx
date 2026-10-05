@@ -1,5 +1,6 @@
 "use client";
 
+import type { AuthUser } from "@cms/shared";
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -46,6 +47,7 @@ import {
 import { JoinToast } from "@/components/chat/join-toast";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserMenu } from "@/components/layout/user-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { PollFormDialog } from "@/components/chat/poll-form-dialog";
 import { PollMessage } from "@/components/chat/poll-message";
@@ -160,6 +162,7 @@ export function ChatThread({
   groupAvatarUrl,
   memberCount,
   currentUserId,
+  currentUser,
   canManage,
   initialMessages,
   initialHasMore,
@@ -172,6 +175,7 @@ export function ChatThread({
   groupAvatarUrl: string | null;
   memberCount: number;
   currentUserId: string;
+  currentUser?: AuthUser;
   canManage: boolean;
   initialMessages: ChatMessage[];
   initialHasMore: boolean;
@@ -605,7 +609,12 @@ export function ChatThread({
             </Button>
           </div>
         )}
-        {!canManage && <ThemeToggle />}
+        {!canManage && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <ThemeToggle />
+            {currentUser?.role === "MENTEE" && <UserMenu user={currentUser} />}
+          </div>
+        )}
       </div>
 
       <div

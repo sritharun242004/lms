@@ -34,6 +34,7 @@ export default async function GroupChatPage({
       groupAvatarUrl={group.avatarUrl}
       memberCount={group._count.members}
       currentUserId={user.id}
+      currentUser={user}
       canManage={access.canManage}
       groupCode={inviteCode?.code ?? null}
       initialMessages={messages}

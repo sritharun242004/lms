@@ -20,6 +20,9 @@ vi.mock("@/components/groups/group-members-dialog", () => ({
   GroupMembersDialog: ({ trigger }: { trigger: ReactNode }) => createElement("div", null, trigger),
 }));
 vi.mock("@/components/layout/theme-toggle", () => ({ ThemeToggle: () => createElement("span", null, "Theme") }));
+vi.mock("@/components/layout/user-menu", () => ({
+  UserMenu: ({ user }: { user: { role: string } }) => createElement("button", { "data-testid": "participant-logout" }, `Log out ${user.role}`),
+}));
 vi.mock("@/components/chat/join-toast", () => ({ JoinToast: () => null }));
 vi.mock("@/components/chat/message-bubble", () => ({ MessageBubble: () => null }));
 vi.mock("@/components/chat/poll-form-dialog", () => ({ PollFormDialog: () => null }));
@@ -39,7 +42,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
-function renderThread(canManage: boolean, groupCode: string | null) {
+function renderThread(canManage: boolean, groupCode: string | null, participant = false) {
   const Thread = ChatThread as unknown as ComponentType<Record<string, unknown>>;
   return render(
     createElement(Thread, {
@@ -48,6 +51,7 @@ function renderThread(canManage: boolean, groupCode: string | null) {
       groupDescription: "Weekly work",
       memberCount: 4,
       currentUserId: "user-1",
+      currentUser: participant ? { id: "user-1", name: "Participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false } : undefined,
       canManage,
       groupCode,
       initialMessages: [],
@@ -58,6 +62,12 @@ function renderThread(canManage: boolean, groupCode: string | null) {
 }
 
 describe("group-code chat header", () => {
+  it("keeps a participant logout action in the focused chat header", () => {
+    renderThread(false, null, true);
+
+    expect(screen.getByTestId("participant-logout")).toBeTruthy();
+  });
+
   it("shows a manager the code and announces a successful accessible copy", async () => {
     const user = userEvent.setup();
     const clipboardWrite = vi.spyOn(window.navigator.clipboard, "writeText").mockResolvedValue(undefined);
