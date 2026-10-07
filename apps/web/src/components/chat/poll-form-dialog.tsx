@@ -31,7 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const MAX_OPTIONS = 8;
+const MAX_OPTIONS = 10;
 const MIN_OPTIONS = 2;
 
 // react-hook-form's useFieldArray needs an array of objects, not raw

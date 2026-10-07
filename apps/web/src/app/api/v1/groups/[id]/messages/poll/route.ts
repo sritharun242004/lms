@@ -9,7 +9,7 @@ import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { createPollSchema, MessageType, AuditAction } from "@cms/shared";
 
 /**
- * Create a live poll — a message of type POLL with a question and 2-8
+ * Create a live poll — a message of type POLL with a question and 2-10
  * options, ready for group members to vote on. Only managers may post,
  * same restriction as a regular text message.
  */

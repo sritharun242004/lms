@@ -127,10 +127,20 @@ describe("createPollSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects more than 8 options", () => {
+  it("accepts 8, 9 and 10 options (a quiz can have up to 10 choices)", () => {
+    for (const length of [8, 9, 10]) {
+      const result = createPollSchema.safeParse({
+        question: "Pick one",
+        options: Array.from({ length }, (_, i) => `Option ${i}`),
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("rejects more than 10 options", () => {
     const result = createPollSchema.safeParse({
       question: "Pick one",
-      options: Array.from({ length: 9 }, (_, i) => `Option ${i}`),
+      options: Array.from({ length: 11 }, (_, i) => `Option ${i}`),
     });
     expect(result.success).toBe(false);
   });

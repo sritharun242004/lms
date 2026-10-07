@@ -237,7 +237,7 @@ export default function QuestionRepositoryPage() {
             </Card>
           )}
           <Card>
-            <CardHeader><span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><FileSpreadsheet className="size-5" /></span><CardTitle>Bulk upload quizzes</CardTitle><CardDescription>CSV or Excel columns: Name, Question, Option1, Option2, up to Option8.</CardDescription></CardHeader>
+            <CardHeader><span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><FileSpreadsheet className="size-5" /></span><CardTitle>Bulk upload quizzes</CardTitle><CardDescription>CSV or Excel columns: Name, Question, Option1, Option2, up to Option10.</CardDescription></CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row"><Input key={file?.name ?? "empty"} type="file" accept=".csv,.xlsx,.xls" onChange={(event) => setFile(event.target.files?.[0])} /><Button onClick={upload} disabled={!file || isBusy} className="shrink-0"><Upload className="size-4" />{isBusy ? "Uploading…" : "Upload and save"}</Button></CardContent>
           </Card>
         </>

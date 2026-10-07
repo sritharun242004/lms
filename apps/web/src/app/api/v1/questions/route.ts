@@ -32,6 +32,8 @@ function rowToQuiz(row: Record<string, unknown>, index = 0) {
       row.Option6 ?? row.option6,
       row.Option7 ?? row.option7,
       row.Option8 ?? row.option8,
+      row.Option9 ?? row.option9,
+      row.Option10 ?? row.option10,
     ].filter((value) => value !== undefined && value !== null).map(String),
     chartType: String(row.ChartType ?? row.chartType ?? "BAR").toUpperCase() as "BAR" | "DONUT" | "PIE",
   });
