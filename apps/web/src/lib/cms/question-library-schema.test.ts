@@ -7,6 +7,7 @@ const migrationPath = resolve(
   process.cwd(),
   "prisma/migrations/20261007120000_add_question_library_type/migration.sql"
 );
+const deployWorkflowPath = resolve(process.cwd(), "../../.github/workflows/deploy.yml");
 
 describe("question library discriminator migration", () => {
   it("defines all repository types and defaults existing library rows to MULTIPLE_CHOICE", () => {
@@ -24,5 +25,13 @@ describe("question library discriminator migration", () => {
     expect(migration).toContain("CREATE TYPE \"QuestionLibraryType\" AS ENUM ('MULTIPLE_CHOICE', 'WORD_CLOUD', 'OPEN_ENDED')");
     expect(migration).toContain("ADD COLUMN \"type\" \"QuestionLibraryType\" NOT NULL DEFAULT 'MULTIPLE_CHOICE'");
     expect(migration).not.toMatch(/DROP TABLE|TRUNCATE|DELETE FROM/i);
+  });
+
+  it("deploys pending migrations before starting the production web server", () => {
+    const workflow = readFileSync(deployWorkflowPath, "utf8");
+
+    expect(workflow).toContain(
+      "update_service lms-web \"$WEB_REPO\" 'npx --no-install prisma migrate deploy && npx --no-install next start' '/'"
+    );
   });
 });

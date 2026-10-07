@@ -50,6 +50,7 @@ afterEach(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.searchParams = new URLSearchParams();
+  window.sessionStorage.clear();
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
@@ -122,5 +123,16 @@ describe("group-code chat header", () => {
     renderThread(true, "JOIN-42");
 
     expect(screen.getByTestId(testId)).toBeTruthy();
+  });
+
+  it.each([
+    ["cms-open-question-template", "auto-open-question"],
+    ["cms-word-cloud-template", "auto-word-cloud"],
+  ])("resumes a direct repository handoff from %s after a group is selected", async (storageKey, testId) => {
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ question: "Reusable prompt" }));
+
+    renderThread(true, "JOIN-42");
+
+    expect(await screen.findByTestId(testId)).toBeTruthy();
   });
 });

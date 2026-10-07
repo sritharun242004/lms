@@ -194,6 +194,8 @@ export function ChatThread({
   const [displayGroupDescription, setDisplayGroupDescription] = React.useState(groupDescription);
   const [displayGroupAvatarUrl, setDisplayGroupAvatarUrl] = React.useState(groupAvatarUrl);
   const [hasPendingPollTemplate, setHasPendingPollTemplate] = React.useState(false);
+  const [hasPendingOpenQuestionTemplate, setHasPendingOpenQuestionTemplate] = React.useState(false);
+  const [hasPendingWordCloudTemplate, setHasPendingWordCloudTemplate] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadRow[]>([]);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -221,10 +223,11 @@ export function ChatThread({
   // no reset effect needed. Just scroll to the bottom once on mount.
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
-    const timer = window.setTimeout(
-      () => setHasPendingPollTemplate(Boolean(sessionStorage.getItem("cms-poll-template"))),
-      0
-    );
+    const timer = window.setTimeout(() => {
+      setHasPendingPollTemplate(Boolean(sessionStorage.getItem("cms-poll-template")));
+      setHasPendingOpenQuestionTemplate(Boolean(sessionStorage.getItem("cms-open-question-template")));
+      setHasPendingWordCloudTemplate(Boolean(sessionStorage.getItem("cms-word-cloud-template")));
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -544,7 +547,7 @@ export function ChatThread({
           trigger={<span className="hidden" />}
         />
       )}
-      {canManage && searchParams.get("openQuestion") === "1" && (
+      {canManage && (searchParams.get("openQuestion") === "1" || hasPendingOpenQuestionTemplate) && (
         <OpenQuestionFormDialog
           autoOpen
           groupId={groupId}
@@ -552,7 +555,7 @@ export function ChatThread({
           trigger={<span className="hidden" />}
         />
       )}
-      {canManage && searchParams.get("openWordCloud") === "1" && (
+      {canManage && (searchParams.get("openWordCloud") === "1" || hasPendingWordCloudTemplate) && (
         <WordCloudFormDialog
           autoOpen
           groupId={groupId}

@@ -39,12 +39,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (type !== "MULTIPLE_CHOICE" && type !== "WORD_CLOUD" && type !== "OPEN_ENDED") {
       throw new Error("Unsupported question type");
     }
+    if ((existing.type === "MULTIPLE_CHOICE") !== (type === "MULTIPLE_CHOICE")) {
+      throw new Error("Question family cannot be changed");
+    }
     if (type !== "MULTIPLE_CHOICE") {
       const question = normalizeStandaloneQuestionDraft({
         name: String(body.name ?? ""),
         question: String(body.question ?? ""),
         type: type as StandaloneQuestionType,
-        options: Array.isArray(body.options) ? body.options.map(String) : [],
+        options: body.options == null
+          ? []
+          : Array.isArray(body.options)
+            ? body.options.map(String)
+            : [String(body.options)],
       });
       const item = await prisma.$transaction(async (tx) => {
         await tx.questionLibraryOption.deleteMany({ where: { questionId: id } });

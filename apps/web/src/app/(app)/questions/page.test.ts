@@ -66,6 +66,18 @@ describe("Question repository page", () => {
     expect(screen.getByRole("button", { name: "Save question" })).toBeTruthy();
   });
 
+  it("shows repository loading failures instead of an empty-library result", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: { message: "Staff access required" } }),
+    }));
+
+    render(createElement(QuestionRepositoryPage));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Staff access required");
+    expect(screen.queryByText(/No saved quizzes match/i)).toBeNull();
+  });
+
   it.each([
     ["WORD_CLOUD", "cms-word-cloud-template", "openWordCloud=1"],
     ["OPEN_ENDED", "cms-open-question-template", "openQuestion=1"],
@@ -119,6 +131,86 @@ describe("Question repository page", () => {
         type: "OPEN_ENDED",
       });
     });
+  });
+
+  it("creates a quiz through the existing multiple-choice contract", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { items: [], item: { id: "quiz-1" } } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(createElement(QuestionRepositoryPage));
+
+    await user.click(screen.getByRole("button", { name: /create quiz/i }));
+    await user.type(screen.getByLabelText("Quiz name"), "Knowledge check");
+    await user.type(screen.getByLabelText("Question"), "Choose one");
+    await user.type(screen.getByLabelText("Choices"), "One{enter}Two");
+    await user.click(screen.getByRole("button", { name: "Save quiz" }));
+
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
+      expect(JSON.parse(String(post?.[1]?.body))).toEqual({
+        name: "Knowledge check",
+        question: "Choose one",
+        options: ["One", "Two"],
+        chartType: "BAR",
+      });
+    });
+  });
+
+  it("uses an existing quiz through the unchanged poll publishing handoff", async () => {
+    mocks.params = new URLSearchParams("returnTo=%2Fchat%2Fgroup-1");
+    const quiz = {
+      id: "quiz-1",
+      name: "Legacy quiz",
+      question: "Choose one",
+      type: "MULTIPLE_CHOICE",
+      chartType: "PIE",
+      options: [{ text: "One" }, { text: "Two" }],
+      createdBy: { name: "Coach" },
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { items: [quiz] } }) }));
+    const user = userEvent.setup();
+    render(createElement(QuestionRepositoryPage));
+
+    await user.click(await screen.findByRole("button", { name: "Use quiz" }));
+
+    expect(JSON.parse(sessionStorage.getItem("cms-poll-template") ?? "null")).toEqual({
+      question: "Choose one",
+      options: ["One", "Two"],
+      chartType: "PIE",
+    });
+    expect(mocks.push).toHaveBeenCalledWith("/chat/group-1?openPoll=1");
+  });
+
+  it("edits and deletes an existing quiz through the legacy endpoints", async () => {
+    const quiz = {
+      id: "quiz-1",
+      name: "Legacy quiz",
+      question: "Choose one",
+      type: "MULTIPLE_CHOICE",
+      chartType: "BAR",
+      options: [{ text: "One" }, { text: "Two" }],
+      createdBy: { name: "Coach" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { items: [quiz], item: quiz } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(createElement(QuestionRepositoryPage));
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByLabelText("Question"));
+    await user.type(screen.getByLabelText("Question"), "Updated choice");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) =>
+      url === "/api/v1/questions/quiz-1" && init?.method === "PATCH" &&
+      JSON.parse(String(init.body)).question === "Updated choice"
+    )).toBe(true));
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/questions/quiz-1",
+      { method: "DELETE" }
+    ));
   });
 
   it("edits and safely deletes a persisted standalone template", async () => {

@@ -48,22 +48,35 @@ export default function QuestionRepositoryPage() {
   const [quizEditor, setQuizEditor] = React.useState<QuizEditor | null>(null);
   const [questionEditor, setQuestionEditor] = React.useState<QuestionEditor | null>(null);
   const [isBusy, setIsBusy] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const loadGeneration = React.useRef(0);
 
   const endpoint = activeTab === "questions" ? "/api/v1/questions?tab=questions" : "/api/v1/questions";
 
   const load = React.useCallback(async () => {
-    const response = await fetch(endpoint);
-    const result = await response.json();
-    if (response.ok) setItems(result.data?.items ?? []);
+    const generation = ++loadGeneration.current;
+    setIsLoading(true);
+    setLoadError(null);
+    setItems([]);
+    try {
+      const response = await fetch(endpoint);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error?.message || "Could not load repository content");
+      if (generation === loadGeneration.current) setItems(result.data?.items ?? []);
+    } catch (error) {
+      if (generation === loadGeneration.current) {
+        setLoadError(error instanceof Error ? error.message : "Could not load repository content");
+      }
+    } finally {
+      if (generation === loadGeneration.current) setIsLoading(false);
+    }
   }, [endpoint]);
 
   React.useEffect(() => {
-    let cancelled = false;
-    void fetch(endpoint)
-      .then((response) => response.json().then((result) => ({ ok: response.ok, result })))
-      .then(({ ok, result }) => { if (!cancelled && ok) setItems(result.data?.items ?? []); });
-    return () => { cancelled = true; };
-  }, [endpoint]);
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   function tabHref(tab: "quizzes" | "questions") {
     const next = new URLSearchParams();
@@ -180,7 +193,7 @@ export default function QuestionRepositoryPage() {
         <div>
           <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Reusable content</p>
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Question repository</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Manage reusable quizzes and standalone questions for participants and super admins.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Manage reusable quizzes and standalone questions for live participant sessions.</p>
         </div>
         {activeTab === "quizzes" ? (
           <Button onClick={() => setQuizEditor({ ...EMPTY_QUIZ })}><Plus className="size-4" />Create quiz</Button>
@@ -233,7 +246,7 @@ export default function QuestionRepositoryPage() {
         {visible.map((item) => (
           <Card key={item.id}>
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold tracking-wide text-primary uppercase">{item.name}</p>{activeTab === "questions" && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{friendlyType(item.type)}</span>}</div><p className="mt-1 text-base font-semibold">{item.question}</p>{activeTab === "quizzes" && <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.options.map((option) => option.text).join(" · ")}</p>}<span className="mt-3 block text-xs text-muted-foreground">Saved by {item.createdBy.name}{activeTab === "questions" && item.createdAt ? ` · Created ${new Date(item.createdAt).toLocaleDateString()}` : ""}{activeTab === "questions" && item.updatedAt ? ` · Updated ${new Date(item.updatedAt).toLocaleDateString()}` : ""}</span></div>
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold tracking-wide text-primary uppercase">{item.name}</p>{activeTab === "questions" && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{friendlyType(item.type)}</span>}</div><p className="mt-1 text-base font-semibold">{item.question}</p>{activeTab === "quizzes" && <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.options.map((option) => option.text).join(" · ")}</p>}<span className="mt-3 block text-xs text-muted-foreground">Saved by {item.createdBy.name}{activeTab === "questions" && item.createdAt ? ` · Created ${new Date(item.createdAt).toLocaleString()}` : ""}{activeTab === "questions" && item.updatedAt ? ` · Updated ${new Date(item.updatedAt).toLocaleString()}` : ""}</span></div>
               <div className="flex shrink-0 flex-wrap gap-2">
                 {activeTab === "quizzes" ? <Button variant="outline" size="sm" onClick={() => setQuizEditor({ id: item.id, name: item.name, question: item.question, options: item.options.map((option) => option.text).join("\n") })}><Pencil className="size-4" />Edit</Button> : <Button variant="outline" size="sm" onClick={() => setQuestionEditor({ id: item.id, name: item.name, question: item.question, type: item.type as QuestionEditor["type"] })}><Pencil className="size-4" />Edit</Button>}
                 <Button variant="outline" size="sm" onClick={() => void remove(item)}><Trash2 className="size-4" />Delete</Button>
@@ -242,7 +255,9 @@ export default function QuestionRepositoryPage() {
             </CardContent>
           </Card>
         ))}
-        {visible.length === 0 && <div className="glass rounded-3xl px-6 py-12 text-center text-sm text-muted-foreground">No saved {activeTab === "quizzes" ? "quizzes" : "questions"} match your search.</div>}
+        {isLoading && <div className="glass rounded-3xl px-6 py-12 text-center text-sm text-muted-foreground">Loading repository content…</div>}
+        {!isLoading && loadError && <div role="alert" className="glass rounded-3xl border border-destructive/30 px-6 py-12 text-center text-sm text-destructive">{loadError}</div>}
+        {!isLoading && !loadError && visible.length === 0 && <div className="glass rounded-3xl px-6 py-12 text-center text-sm text-muted-foreground">No saved {activeTab === "quizzes" ? "quizzes" : "questions"} match your search.</div>}
       </div>
     </div>
   );

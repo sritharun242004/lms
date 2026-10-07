@@ -96,7 +96,11 @@ export async function POST(req: NextRequest) {
         name: String(body.name ?? ""),
         question: String(body.question ?? ""),
         type: type as StandaloneQuestionType,
-        options: Array.isArray(body.options) ? body.options.map(String) : [],
+        options: body.options == null
+          ? []
+          : Array.isArray(body.options)
+            ? body.options.map(String)
+            : [String(body.options)],
       });
       const item = await createStandaloneQuestion(user.id, question);
       return successResponse({ item }, undefined, 201);

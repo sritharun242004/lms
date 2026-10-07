@@ -26,7 +26,7 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-import { GET, POST } from "./route";
+import { GET, POST, PUT } from "./route";
 import * as itemRoute from "./[id]/route";
 
 const quizRow = {
@@ -140,6 +140,14 @@ describe("question library collection route", () => {
     }));
     expect(choices.status).toBe(400);
     expect((await choices.json()).error.message).toBe("Standalone questions cannot include choices");
+
+    const scalarChoice = await POST(jsonRequest({
+      name: "Name",
+      question: "Prompt",
+      type: "WORD_CLOUD",
+      options: "Choice",
+    }));
+    expect(scalarChoice.status).toBe(400);
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
@@ -163,6 +171,29 @@ describe("question library collection route", () => {
     expect(createResponse.status).toBe(403);
     expect(mocks.findMany).not.toHaveBeenCalled();
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("preserves spreadsheet quiz imports as MULTIPLE_CHOICE items", async () => {
+    const form = new FormData();
+    form.set("file", new File([
+      "Name,Question,Option1,Option2,ChartType\nImported quiz,Choose one,One,Two,PIE",
+    ], "quizzes.csv", { type: "text/csv" }));
+
+    const response = await PUT(new NextRequest("http://localhost/api/v1/questions", {
+      method: "PUT",
+      body: form,
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        name: "Imported quiz",
+        question: "Choose one",
+        type: "MULTIPLE_CHOICE",
+        chartType: "PIE",
+        options: { create: [{ text: "One", order: 0 }, { text: "Two", order: 1 }] },
+      }),
+    }));
   });
 });
 
@@ -240,6 +271,40 @@ describe("question library item route", () => {
 
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("QUIZ_UPDATE_ERROR");
+  });
+
+  it("rejects converting an existing quiz into a standalone question without deleting its choices", async () => {
+    mocks.findUnique.mockResolvedValueOnce({ ...quizRow, type: "MULTIPLE_CHOICE" });
+
+    const response = await itemRoute.PATCH(
+      new NextRequest("http://localhost/api/v1/questions/quiz-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Converted", question: "Prompt", type: "WORD_CLOUD" }),
+      }),
+      { params: Promise.resolve({ id: "quiz-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.message).toBe("Question family cannot be changed");
+    expect(mocks.deleteOptions).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects converting a standalone question into a quiz", async () => {
+    const response = await itemRoute.PATCH(
+      new NextRequest("http://localhost/api/v1/questions/question-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Converted", question: "Pick", type: "MULTIPLE_CHOICE", options: ["A", "B"] }),
+      }),
+      { params: Promise.resolve({ id: "question-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.message).toBe("Question family cannot be changed");
+    expect(mocks.deleteOptions).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("deletes only the reusable template", async () => {
