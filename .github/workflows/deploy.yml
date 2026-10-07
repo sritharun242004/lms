@@ -72,7 +72,7 @@ jobs:
             local operation_id="$3"
             local status
 
-            for _ in {1..60}; do
+            for _ in {1..180}; do
               status=$(aws apprunner list-operations --service-arn "$arn" \
                 --query "OperationSummaryList[?Id=='$operation_id'].Status | [0]" --output text)
               echo "$service_name operation $operation_id: $status"
@@ -96,7 +96,7 @@ jobs:
             local status
             local service_url
 
-            for _ in {1..60}; do
+            for _ in {1..180}; do
               status=$(aws apprunner describe-service --service-arn "$arn" --query 'Service.Status' --output text)
               echo "$service_name service status: $status"
 
@@ -121,6 +121,30 @@ jobs:
             return 1
           }
 
+          wait_until_updateable() {
+            local service_name="$1"
+            local arn="$2"
+            local status
+
+            for _ in {1..180}; do
+              status=$(aws apprunner describe-service --service-arn "$arn" --query 'Service.Status' --output text)
+              echo "$service_name pre-deploy status: $status"
+
+              case "$status" in
+                RUNNING) return 0 ;;
+                CREATE_FAILED|DELETE_FAILED|PAUSED)
+                  echo "$service_name cannot be updated from App Runner status: $status" >&2
+                  return 1
+                  ;;
+              esac
+
+              sleep 5
+            done
+
+            echo "$service_name did not become updateable before timeout" >&2
+            return 1
+          }
+
           update_service() {
             local service_name="$1"
             local repository="$2"
@@ -136,6 +160,8 @@ jobs:
               echo "App Runner service not found: $service_name" >&2
               return 1
             fi
+
+            wait_until_updateable "$service_name" "$arn"
 
             image="$ECR_REGISTRY/$repository:$IMAGE_TAG"
             source_file=$(mktemp)
