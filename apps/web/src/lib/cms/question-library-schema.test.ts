@@ -33,5 +33,8 @@ describe("question library discriminator migration", () => {
     expect(workflow).toContain(
       "update_service lms-web \"$WEB_REPO\" 'npx --no-install prisma migrate deploy && npx --no-install next start' '/'"
     );
+    expect(workflow).toContain("wait_until_updateable()");
+    expect(workflow).toContain('wait_until_updateable "$service_name" "$arn"');
+    expect(workflow).toContain("for _ in {1..180}; do");
   });
 });
