@@ -43,6 +43,8 @@ export function removeUploadByKey<T extends { key: string }>(rows: T[], key: str
   return rows.filter((row) => row.key !== key);
 }
 
+export const MAX_QUIZ_CHOICES = 10;
+
 export type QuizDraft = {
   name: string;
   question: string;
@@ -59,8 +61,8 @@ export function normalizeQuizDraft(input: QuizDraft) {
   };
   if (!normalized.name) throw new Error("Quiz name is required");
   if (!normalized.question) throw new Error("Question is required");
-  if (normalized.options.length < 2 || normalized.options.length > 8) {
-    throw new Error("Each quiz needs 2 to 8 choices");
+  if (normalized.options.length < 2 || normalized.options.length > MAX_QUIZ_CHOICES) {
+    throw new Error(`Each quiz needs 2 to ${MAX_QUIZ_CHOICES} choices`);
   }
   return normalized;
 }

@@ -85,6 +85,15 @@ describe("named quiz repository", () => {
     });
   });
 
+  it("allows between 2 and 10 choices per quiz", () => {
+    const choices = (n: number) => Array.from({ length: n }, (_, i) => `Choice ${i + 1}`);
+    for (const n of [2, 8, 9, 10]) {
+      expect(normalizeQuizDraft({ name: "Quiz", question: "Q", options: choices(n) }).options).toHaveLength(n);
+    }
+    expect(() => normalizeQuizDraft({ name: "Quiz", question: "Q", options: choices(11) })).toThrow("2 to 10 choices");
+    expect(() => normalizeQuizDraft({ name: "Quiz", question: "Q", options: choices(1) })).toThrow("2 to 10 choices");
+  });
+
   it("rejects unnamed quizzes and quizzes with fewer than two choices", () => {
     expect(() => normalizeQuizDraft({ name: "", question: "Question", options: ["One"] })).toThrow();
   });

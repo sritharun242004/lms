@@ -219,7 +219,7 @@ export const createPollSchema = z.object({
         .trim()
     )
     .min(2, "At least 2 options are required")
-    .max(8, "At most 8 options are allowed"),
+    .max(10, "At most 10 options are allowed"),
   chartType: z.nativeEnum(PollChartType).optional().default(PollChartType.BAR),
 });
 

@@ -197,6 +197,32 @@ describe("question library collection route", () => {
   });
 });
 
+describe("quiz choice limit", () => {
+  const ten = Array.from({ length: 10 }, (_, i) => `Choice ${i + 1}`);
+
+  it("saves a quiz with 10 choices in order and rejects 11", async () => {
+    const ok = await POST(jsonRequest({ name: "Big quiz", question: "Pick", options: ten }));
+    expect(ok.status).toBe(201);
+    expect(mocks.create.mock.calls[0][0].data.options.create).toEqual(ten.map((text, order) => ({ text, order })));
+
+    mocks.create.mockClear();
+    const tooMany = await POST(jsonRequest({ name: "Too big", question: "Pick", options: [...ten, "Choice 11"] }));
+    expect(tooMany.status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("imports Option9 and Option10 columns from a spreadsheet", async () => {
+    const header = ten.map((_, i) => `Option${i + 1}`).join(",");
+    const form = new FormData();
+    form.set("file", new File([`Name,Question,${header}
+Ten,Pick one,${ten.join(",")}`], "ten.csv", { type: "text/csv" }));
+    const response = await PUT(new NextRequest("http://localhost/api/v1/questions", { method: "PUT", body: form }));
+    expect(response.status).toBe(201);
+    expect(mocks.create.mock.calls[0][0].data.options.create).toHaveLength(10);
+    expect(mocks.create.mock.calls[0][0].data.options.create[9]).toEqual({ text: "Choice 10", order: 9 });
+  });
+});
+
 describe("question library item route", () => {
   it("provides the required staff-authorized get operation", () => {
     expect(typeof (itemRoute as Record<string, unknown>).GET).toBe("function");
