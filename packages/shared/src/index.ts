@@ -16,6 +16,13 @@ export {
   MAX_ATTACHMENT_SIZE_MB,
   MAX_MESSAGE_LENGTH,
   WORD_CLOUD_MAX_WORD_LENGTH,
+  SCALE_MIN,
+  SCALE_DEFAULT_MAX,
+  SCALE_MAX_UPPER_BOUND,
+  SCALE_MAX_STATEMENTS,
+  SCALE_MAX_STATEMENT_LENGTH,
+  SCALE_LEFT_LABEL,
+  SCALE_RIGHT_LABEL,
 } from "./constants";
 export type { Permission } from "./constants";
 export { isAuthVersionCurrent, isValidJwtIdentity, isValidJwtSessionClaims } from "./auth";
@@ -43,6 +50,9 @@ export {
   createWordCloudSchema,
   submitWordSchema,
   wordCloudControlSchema,
+  scaleStatementInputSchema,
+  createScaleSchema,
+  submitScaleSchema,
   searchSchema,
   paginationSchema,
 } from "./validations";
@@ -69,6 +79,8 @@ export type {
   CreateWordCloudInput,
   SubmitWordInput,
   WordCloudControlInput,
+  CreateScaleInput,
+  SubmitScaleInput,
   SearchInput,
   PaginationInput,
 } from "./validations";

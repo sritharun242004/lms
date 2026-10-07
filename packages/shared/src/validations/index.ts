@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { MessageType, PollChartType, MAX_MESSAGE_LENGTH } from "../constants";
+import {
+  MessageType,
+  PollChartType,
+  MAX_MESSAGE_LENGTH,
+  SCALE_DEFAULT_MAX,
+  SCALE_MAX_STATEMENTS,
+  SCALE_MAX_STATEMENT_LENGTH,
+  SCALE_MAX_UPPER_BOUND,
+} from "../constants";
 
 // ============================================================
 // AUTH VALIDATIONS
@@ -263,6 +271,45 @@ export const wordCloudControlSchema = z.object({
 });
 
 // ============================================================
+// SCALE VALIDATIONS
+// ============================================================
+
+export const scaleStatementInputSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(1, "Statement is required")
+    .max(SCALE_MAX_STATEMENT_LENGTH, `Statement must be at most ${SCALE_MAX_STATEMENT_LENGTH} characters`),
+  max: z
+    .number({ message: "Maximum must be a whole number" })
+    .int("Maximum must be a whole number")
+    .min(1, "Maximum must be at least 1")
+    .max(SCALE_MAX_UPPER_BOUND, `Maximum must be at most ${SCALE_MAX_UPPER_BOUND}`)
+    .default(SCALE_DEFAULT_MAX),
+});
+
+export const createScaleSchema = z.object({
+  statements: z
+    .array(scaleStatementInputSchema)
+    .min(1, "Add at least one statement")
+    .max(SCALE_MAX_STATEMENTS, `A scale can have at most ${SCALE_MAX_STATEMENTS} statements`),
+});
+
+// Every value is range-checked against the published statement's own
+// maximum on the server; this schema only guarantees the shape.
+export const submitScaleSchema = z.object({
+  responses: z
+    .array(
+      z.object({
+        statementId: z.string().min(1, "Statement is required"),
+        value: z.number({ message: "Value must be a whole number" }).int("Value must be a whole number").min(0, "Value cannot be negative"),
+      })
+    )
+    .min(1, "Select at least one value")
+    .max(SCALE_MAX_STATEMENTS),
+});
+
+// ============================================================
 // SEARCH VALIDATIONS
 // ============================================================
 
@@ -314,6 +361,9 @@ export type CreateOpenQuestionInput = z.infer<typeof createOpenQuestionSchema>;
 export type SubmitAnswerInput = z.infer<typeof submitAnswerSchema>;
 export type CreateWordCloudInput = z.infer<typeof createWordCloudSchema>;
 export type SubmitWordInput = z.infer<typeof submitWordSchema>;
+export type CreateScaleInput = z.input<typeof createScaleSchema>;
+export type SubmitScaleInput = z.infer<typeof submitScaleSchema>;
+
 export type WordCloudControlInput = z.infer<typeof wordCloudControlSchema>;
 export type SearchInput = z.infer<typeof searchSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

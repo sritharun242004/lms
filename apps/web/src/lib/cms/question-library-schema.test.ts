@@ -30,8 +30,19 @@ describe("question library discriminator migration", () => {
   it("deploys pending migrations before starting the production web server", () => {
     const workflow = readFileSync(deployWorkflowPath, "utf8");
 
-    expect(workflow).toContain(
-      "update_service lms-web \"$WEB_REPO\" 'npx --no-install prisma migrate deploy && npx --no-install next start' '/'"
+    // App Runner runs StartCommand without a shell, so a "migrate && start" override is
+    // passed to the first program as arguments and the container never starts. The web
+    // service must use the image CMD, which does run migrations before the server.
+    expect(workflow).toContain("update_service lms-web \"$WEB_REPO\" 'IMAGE_DEFAULT' '/'");
+    expect(workflow).toContain('if [ "$start_command" = "IMAGE_DEFAULT" ]; then');
+    expect(workflow).toContain("del(.ImageRepository.ImageConfiguration.StartCommand)");
+    expect(workflow).not.toMatch(/update_service lms-web[^\n]*&&/);
+    expect(workflow).not.toMatch(/npx --no-install prisma migrate deploy &&/);
+    // Explicit overrides for other services keep working.
+    expect(workflow).toContain(".ImageRepository.ImageConfiguration.StartCommand = $command");
+    const dockerfile = readFileSync(resolve(process.cwd(), "../../Dockerfile.web"), "utf8");
+    expect(dockerfile).toContain(
+      'CMD ["sh", "-c", "npx --no-install prisma migrate deploy && npx --no-install next start"]'
     );
     expect(workflow).toContain("wait_until_updateable()");
     expect(workflow).toContain('wait_until_updateable "$service_name" "$arn"');

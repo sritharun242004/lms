@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { sanitizeReturnPath } from "@/lib/auth/portal-navigation";
 import { cn } from "@/lib/utils";
 
-type LibraryType = "MULTIPLE_CHOICE" | "WORD_CLOUD" | "OPEN_ENDED";
+type LibraryType = "MULTIPLE_CHOICE" | "WORD_CLOUD" | "OPEN_ENDED" | "SCALE";
 
 type Item = {
   id: string;
@@ -21,20 +21,22 @@ type Item = {
   type: LibraryType;
   chartType: "BAR" | "DONUT" | "PIE";
   options: { text: string }[];
+  scaleStatements?: { text: string; max: number; order: number }[];
   createdAt?: string;
   updatedAt?: string;
   createdBy: { name: string };
 };
 
 type QuizEditor = { id?: string; name: string; question: string; options: string };
-type QuestionEditor = { id?: string; name: string; question: string; type: "WORD_CLOUD" | "OPEN_ENDED" };
+type QuestionEditor = { id?: string; name: string; question: string; type: "WORD_CLOUD" | "OPEN_ENDED" | "SCALE"; statements: { text: string; max: string }[] };
 
 const EMPTY_QUIZ: QuizEditor = { name: "", question: "", options: "" };
-const EMPTY_QUESTION: QuestionEditor = { name: "", question: "", type: "WORD_CLOUD" };
+const EMPTY_QUESTION: QuestionEditor = { name: "", question: "", type: "WORD_CLOUD", statements: [{ text: "", max: "5" }] };
 
 function friendlyType(type: LibraryType) {
   if (type === "WORD_CLOUD") return "Word Cloud";
   if (type === "OPEN_ENDED") return "Open-ended";
+  if (type === "SCALE") return "Scale";
   return "Multiple choice";
 }
 
@@ -138,7 +140,11 @@ export default function QuestionRepositoryPage() {
       const response = await fetch(questionEditor.id ? `/api/v1/questions/${questionEditor.id}` : "/api/v1/questions", {
         method: questionEditor.id ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: questionEditor.name, question: questionEditor.question, type: questionEditor.type }),
+        body: JSON.stringify(
+          questionEditor.type === "SCALE"
+            ? { name: questionEditor.name, type: "SCALE", statements: questionEditor.statements.map((statement) => ({ text: statement.text, max: Number(statement.max) })) }
+            : { name: questionEditor.name, question: questionEditor.question, type: questionEditor.type }
+        ),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error?.message || "Could not save question");
@@ -177,6 +183,13 @@ export default function QuestionRepositoryPage() {
   }
 
   function applyQuestion(item: Item) {
+    if (item.type === "SCALE") {
+      sessionStorage.setItem("cms-scale-template", JSON.stringify({
+        statements: (item.scaleStatements ?? []).map((statement) => ({ text: statement.text, max: statement.max })),
+      }));
+      router.push(returnPath("openScale=1"));
+      return;
+    }
     const isWordCloud = item.type === "WORD_CLOUD";
     sessionStorage.setItem(isWordCloud ? "cms-word-cloud-template" : "cms-open-question-template", JSON.stringify({ question: item.question }));
     router.push(returnPath(isWordCloud ? "openWordCloud=1" : "openQuestion=1"));
@@ -233,8 +246,26 @@ export default function QuestionRepositoryPage() {
           <CardHeader><CardTitle>{questionEditor.id ? "Edit question" : "Create question"}</CardTitle><CardDescription>Create a reusable prompt for the existing Word Cloud or Open-ended participant experience.</CardDescription></CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-2"><Label htmlFor="question-name">Question name</Label><Input id="question-name" value={questionEditor.name} onChange={(event) => setQuestionEditor({ ...questionEditor, name: event.target.value })} placeholder="Workshop reflection" /></div>
-            <div className="grid gap-2"><Label htmlFor="question-prompt">Question</Label><Textarea id="question-prompt" rows={4} value={questionEditor.question} onChange={(event) => setQuestionEditor({ ...questionEditor, question: event.target.value })} placeholder="What is one word that describes today’s session?" /></div>
-            <div className="grid gap-2"><Label htmlFor="question-type">Question type</Label><select id="question-type" value={questionEditor.type} onChange={(event) => setQuestionEditor({ ...questionEditor, type: event.target.value as QuestionEditor["type"] })} className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"><option value="WORD_CLOUD">Word Cloud</option><option value="OPEN_ENDED">Open-ended</option></select></div>
+            {questionEditor.type === "SCALE" ? (
+              <div className="grid gap-3">
+                {questionEditor.statements.map((statement, index) => (
+                  <div key={index} className="grid gap-2 rounded-xl border border-border/60 bg-muted/30 p-3">
+                    <Label htmlFor={"scale-statement-" + index}>Statement {index + 1}</Label>
+                    <Input id={"scale-statement-" + index} value={statement.text} onChange={(event) => setQuestionEditor({ ...questionEditor, statements: questionEditor.statements.map((entry, i) => i === index ? { ...entry, text: event.target.value } : entry) })} placeholder="I understand today’s lecture." />
+                    <div className="flex items-center gap-3">
+                      <Label htmlFor={"scale-max-" + index}>Maximum</Label>
+                      <Input id={"scale-max-" + index} type="number" min={1} max={10} step={1} className="w-24" value={statement.max} onChange={(event) => setQuestionEditor({ ...questionEditor, statements: questionEditor.statements.map((entry, i) => i === index ? { ...entry, max: event.target.value } : entry) })} />
+                      <span className="text-xs text-muted-foreground">0 → {statement.max || "?"}</span>
+                      {questionEditor.statements.length > 1 && <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={() => setQuestionEditor({ ...questionEditor, statements: questionEditor.statements.filter((_, i) => i !== index) })}><Trash2 className="size-4" />Remove</Button>}
+                    </div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="self-start" disabled={questionEditor.statements.length >= 10} onClick={() => setQuestionEditor({ ...questionEditor, statements: [...questionEditor.statements, { text: "", max: "5" }] })}><Plus className="size-4" />Add statement</Button>
+              </div>
+            ) : (
+              <div className="grid gap-2"><Label htmlFor="question-prompt">Question</Label><Textarea id="question-prompt" rows={4} value={questionEditor.question} onChange={(event) => setQuestionEditor({ ...questionEditor, question: event.target.value })} placeholder="What is one word that describes today’s session?" /></div>
+            )}
+            <div className="grid gap-2"><Label htmlFor="question-type">Question type</Label><select id="question-type" value={questionEditor.type} onChange={(event) => setQuestionEditor({ ...questionEditor, type: event.target.value as QuestionEditor["type"] })} className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"><option value="WORD_CLOUD">Word Cloud</option><option value="OPEN_ENDED">Open-ended</option><option value="SCALE">Scale</option></select></div>
             <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setQuestionEditor(null)}>Cancel</Button><Button onClick={saveQuestion} disabled={isBusy}>{questionEditor.id ? "Save changes" : "Save question"}</Button></div>
           </CardContent>
         </Card>
@@ -246,9 +277,9 @@ export default function QuestionRepositoryPage() {
         {visible.map((item) => (
           <Card key={item.id}>
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold tracking-wide text-primary uppercase">{item.name}</p>{activeTab === "questions" && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{friendlyType(item.type)}</span>}</div><p className="mt-1 text-base font-semibold">{item.question}</p>{activeTab === "quizzes" && <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.options.map((option) => option.text).join(" · ")}</p>}<span className="mt-3 block text-xs text-muted-foreground">Saved by {item.createdBy.name}{activeTab === "questions" && item.createdAt ? ` · Created ${new Date(item.createdAt).toLocaleString()}` : ""}{activeTab === "questions" && item.updatedAt ? ` · Updated ${new Date(item.updatedAt).toLocaleString()}` : ""}</span></div>
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold tracking-wide text-primary uppercase">{item.name}</p>{activeTab === "questions" && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{friendlyType(item.type)}</span>}</div>{item.type !== "SCALE" && <p className="mt-1 text-base font-semibold">{item.question}</p>}{activeTab === "quizzes" && <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.options.map((option) => option.text).join(" · ")}</p>}{item.type === "SCALE" && <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">{(item.scaleStatements ?? []).map((statement) => <li key={statement.order}>{statement.text} <span className="text-xs">(0 → {statement.max})</span></li>)}</ol>}<span className="mt-3 block text-xs text-muted-foreground">Saved by {item.createdBy.name}{activeTab === "questions" && item.createdAt ? ` · Created ${new Date(item.createdAt).toLocaleString()}` : ""}{activeTab === "questions" && item.updatedAt ? ` · Updated ${new Date(item.updatedAt).toLocaleString()}` : ""}</span></div>
               <div className="flex shrink-0 flex-wrap gap-2">
-                {activeTab === "quizzes" ? <Button variant="outline" size="sm" onClick={() => setQuizEditor({ id: item.id, name: item.name, question: item.question, options: item.options.map((option) => option.text).join("\n") })}><Pencil className="size-4" />Edit</Button> : <Button variant="outline" size="sm" onClick={() => setQuestionEditor({ id: item.id, name: item.name, question: item.question, type: item.type as QuestionEditor["type"] })}><Pencil className="size-4" />Edit</Button>}
+                {activeTab === "quizzes" ? <Button variant="outline" size="sm" onClick={() => setQuizEditor({ id: item.id, name: item.name, question: item.question, options: item.options.map((option) => option.text).join("\n") })}><Pencil className="size-4" />Edit</Button> : <Button variant="outline" size="sm" onClick={() => setQuestionEditor({ id: item.id, name: item.name, question: item.question, type: item.type as QuestionEditor["type"], statements: item.type === "SCALE" ? (item.scaleStatements ?? []).map((statement) => ({ text: statement.text, max: String(statement.max) })) : [{ text: "", max: "5" }] })}><Pencil className="size-4" />Edit</Button>}
                 <Button variant="outline" size="sm" onClick={() => void remove(item)}><Trash2 className="size-4" />Delete</Button>
                 <Button size="sm" onClick={() => activeTab === "quizzes" ? applyQuiz(item) : applyQuestion(item)}><CheckCircle2 className="size-4" />{activeTab === "quizzes" ? "Use quiz" : "Use question"}</Button>
               </div>
