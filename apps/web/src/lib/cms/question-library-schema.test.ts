@@ -30,20 +30,23 @@ describe("question library discriminator migration", () => {
   it("deploys pending migrations before starting the production web server", () => {
     const workflow = readFileSync(deployWorkflowPath, "utf8");
 
-    // App Runner runs StartCommand without a shell, so a "migrate && start" override is
-    // passed to the first program as arguments and the container never starts. The web
-    // service must use the image CMD, which does run migrations before the server.
-    expect(workflow).toContain("update_service lms-web \"$WEB_REPO\" 'IMAGE_DEFAULT' '/'");
-    expect(workflow).toContain('if [ "$start_command" = "IMAGE_DEFAULT" ]; then');
-    expect(workflow).toContain("del(.ImageRepository.ImageConfiguration.StartCommand)");
-    expect(workflow).not.toMatch(/update_service lms-web[^\n]*&&/);
+    // App Runner runs StartCommand WITHOUT a shell: "a && b" is handed to the first
+    // program as plain arguments (prisma then fails with "unknown option --no-install"
+    // and every deploy rolls back). The web StartCommand must be a plain program plus
+    // arguments that runs the migration + server itself.
+    expect(workflow).toContain("update_service lms-web \"$WEB_REPO\" 'sh /app/apps/web/start.sh' '/'");
+    const webCall = workflow.split("\n").find((line) => line.trim().startsWith("update_service lms-web")) ?? "";
+    expect(webCall).not.toMatch(/&&|\|\||;|\|/);
+    expect(workflow).not.toContain("IMAGE_DEFAULT");
     expect(workflow).not.toMatch(/npx --no-install prisma migrate deploy &&/);
-    // Explicit overrides for other services keep working.
+    // The explicit StartCommand path is what applies it.
     expect(workflow).toContain(".ImageRepository.ImageConfiguration.StartCommand = $command");
+
+    // The image CMD and the App Runner StartCommand run the same script.
     const dockerfile = readFileSync(resolve(process.cwd(), "../../Dockerfile.web"), "utf8");
-    expect(dockerfile).toContain(
-      'CMD ["sh", "-c", "npx --no-install prisma migrate deploy && npx --no-install next start"]'
-    );
+    expect(dockerfile).toContain('CMD ["sh", "/app/apps/web/start.sh"]');
+    expect(dockerfile).toContain("WORKDIR /app/apps/web");
+    expect(dockerfile).not.toMatch(/CMD \[[^\]]*&&/);
     expect(workflow).toContain("wait_until_updateable()");
     expect(workflow).toContain('wait_until_updateable "$service_name" "$arn"');
     expect(workflow).toContain("for _ in {1..180}; do");

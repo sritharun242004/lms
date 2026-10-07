@@ -28,8 +28,9 @@ EXPOSE 3000
 
 WORKDIR /app/apps/web
 # Apply committed, forward-only Prisma migrations using the runtime database
-# credentials before starting Next. App Runner injects DATABASE_URL only at
-# runtime, so this cannot run during the image build. Without it, a newly
-# deployed route can reference a column that does not yet exist in production.
-# Prisma serializes concurrent deploys through its migration lock.
-CMD ["sh", "-c", "npx --no-install prisma migrate deploy && npx --no-install next start"]
+# credentials, then start Next (see apps/web/start.sh). App Runner injects
+# DATABASE_URL only at runtime, so this cannot run during the image build, and it
+# runs StartCommand without a shell, so the two steps live in one script that both
+# this CMD and the App Runner StartCommand invoke. Prisma serializes concurrent
+# deploys through its migration lock.
+CMD ["sh", "/app/apps/web/start.sh"]
