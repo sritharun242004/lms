@@ -34,7 +34,7 @@ export default async function AppLayout({
             </Link>
           </div>
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-xl bg-white/35 p-1 text-sm shadow-[inset_0_1px_rgba(255,255,255,.72)] md:flex dark:bg-white/5">
-            {!isMentee && <Link href="/questions" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Quiz repository</Link>}
+            {!isMentee && <Link href="/questions" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Question repository</Link>}
             {!isMentee && (
               <Link href="/dashboard" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
                 Dashboard

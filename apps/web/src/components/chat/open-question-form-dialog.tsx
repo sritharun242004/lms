@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { createOpenQuestionSchema, type CreateOpenQuestionInput } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
@@ -32,13 +33,17 @@ export function OpenQuestionFormDialog({
   trigger,
   groupId,
   onCreated,
+  autoOpen = false,
 }: {
   trigger: React.ReactNode;
   groupId: string;
   onCreated: (message: ChatMessage) => void;
+  autoOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(autoOpen);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const loadedTemplateRef = React.useRef(false);
+  const pathname = usePathname();
 
   const form = useForm<CreateOpenQuestionInput>({
     resolver: zodResolver(createOpenQuestionSchema),
@@ -46,8 +51,27 @@ export function OpenQuestionFormDialog({
   });
 
   React.useEffect(() => {
-    if (open) form.reset({ question: "" });
-  }, [open, form]);
+    if (!open) {
+      loadedTemplateRef.current = false;
+      return;
+    }
+    const saved = sessionStorage.getItem("cms-open-question-template");
+    if (saved) {
+      sessionStorage.removeItem("cms-open-question-template");
+      try {
+        const template = JSON.parse(saved) as { question?: unknown };
+        if (typeof template.question === "string") {
+          loadedTemplateRef.current = true;
+          form.reset({ question: template.question });
+          return;
+        }
+      } catch {
+        // Fall through to a clean form when a stale template is malformed.
+      }
+    }
+    if (autoOpen && loadedTemplateRef.current) return;
+    form.reset({ question: "" });
+  }, [autoOpen, open, form]);
 
   async function onSubmit(values: CreateOpenQuestionInput) {
     setIsSubmitting(true);
@@ -75,6 +99,9 @@ export function OpenQuestionFormDialog({
             in, anonymously.
           </DialogDescription>
         </DialogHeader>
+        <Button variant="outline" size="sm" className="self-start" asChild>
+          <a href={`/questions?tab=questions&returnTo=${encodeURIComponent(pathname)}`}>Question repository</a>
+        </Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">

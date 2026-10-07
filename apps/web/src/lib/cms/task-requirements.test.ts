@@ -6,9 +6,11 @@ import {
   isFocusedGroupPath,
   isSupportedChatFile,
   normalizeQuizDraft,
+  normalizeStandaloneQuestionDraft,
   removeUploadByKey,
   visibleRoleLabel,
 } from "./task-requirements";
+import * as taskRequirements from "./task-requirements";
 
 describe("focused group navigation", () => {
   it("hides application chrome only inside a specific group", () => {
@@ -85,5 +87,39 @@ describe("named quiz repository", () => {
 
   it("rejects unnamed quizzes and quizzes with fewer than two choices", () => {
     expect(() => normalizeQuizDraft({ name: "", question: "Question", options: ["One"] })).toThrow();
+  });
+});
+
+describe("standalone question repository", () => {
+  it("provides a dedicated backend normalizer without changing the quiz normalizer", () => {
+    expect(typeof (taskRequirements as Record<string, unknown>).normalizeStandaloneQuestionDraft).toBe("function");
+  });
+
+  it.each(["WORD_CLOUD", "OPEN_ENDED"] as const)("normalizes a %s template without quiz choices", (type) => {
+    expect(normalizeStandaloneQuestionDraft({
+      name: "  Workshop reflection  ",
+      question: "  What did you learn?  ",
+      type,
+      options: [" ", ""],
+    })).toEqual({
+      name: "Workshop reflection",
+      question: "What did you learn?",
+      type,
+    });
+  });
+
+  it("rejects empty names, empty prompts, unsupported types, and MCQ choices", () => {
+    expect(() => normalizeStandaloneQuestionDraft({ name: " ", question: "Prompt", type: "WORD_CLOUD" })).toThrow("Question name is required");
+    expect(() => normalizeStandaloneQuestionDraft({ name: "Name", question: " ", type: "OPEN_ENDED" })).toThrow("Question is required");
+    expect(() => normalizeStandaloneQuestionDraft({ name: "Name", question: "Prompt", type: "POLL" as "WORD_CLOUD" })).toThrow("Unsupported question type");
+    expect(() => normalizeStandaloneQuestionDraft({ name: "Name", question: "Prompt", type: "WORD_CLOUD", options: ["Choice"] })).toThrow("Standalone questions cannot include choices");
+  });
+
+  it("rejects prompts that the existing live question pipelines cannot publish", () => {
+    expect(() => normalizeStandaloneQuestionDraft({
+      name: "Too long",
+      question: "x".repeat(301),
+      type: "WORD_CLOUD",
+    })).toThrow("Question must be 300 characters or fewer");
   });
 });

@@ -51,6 +51,12 @@ enum PollChartType {
   PIE
 }
 
+enum QuestionLibraryType {
+  MULTIPLE_CHOICE
+  WORD_CLOUD
+  OPEN_ENDED
+}
+
 // ============================================================================
 // 1. User
 // ============================================================================
@@ -111,6 +117,7 @@ model QuestionLibraryItem {
   id          String        @id @default(cuid())
   name        String        @default("Untitled quiz")
   question    String
+  type        QuestionLibraryType @default(MULTIPLE_CHOICE)
   chartType   PollChartType @default(BAR) @map("chart_type")
   createdById String        @map("created_by_id")
   createdAt   DateTime      @default(now()) @map("created_at")
@@ -119,6 +126,7 @@ model QuestionLibraryItem {
   options     QuestionLibraryOption[]
   @@index([createdById])
   @@index([name])
+  @@index([type])
   @@map("question_library_items")
 }
 

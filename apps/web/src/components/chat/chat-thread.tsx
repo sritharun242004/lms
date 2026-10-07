@@ -544,6 +544,22 @@ export function ChatThread({
           trigger={<span className="hidden" />}
         />
       )}
+      {canManage && searchParams.get("openQuestion") === "1" && (
+        <OpenQuestionFormDialog
+          autoOpen
+          groupId={groupId}
+          onCreated={handleOpenQuestionCreated}
+          trigger={<span className="hidden" />}
+        />
+      )}
+      {canManage && searchParams.get("openWordCloud") === "1" && (
+        <WordCloudFormDialog
+          autoOpen
+          groupId={groupId}
+          onCreated={handleWordCloudCreated}
+          trigger={<span className="hidden" />}
+        />
+      )}
       <div className="flex items-center gap-3 border-b border-border/60 bg-white/28 px-4 py-3 backdrop-blur-xl dark:bg-white/[.02]">
         {backHref && (
           <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>

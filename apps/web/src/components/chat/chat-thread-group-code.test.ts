@@ -6,13 +6,17 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatThread } from "./chat-thread";
 
-const mocks = vi.hoisted(() => ({ toastSuccess: vi.fn(), toastError: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+  searchParams: new URLSearchParams(),
+}));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
     createElement("a", { href, ...props }, children),
 }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => mocks.searchParams }));
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, custom: vi.fn() } }));
 vi.mock("@/hooks/use-chat-socket", () => ({ useChatSocket: vi.fn() }));
 vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => [vi.fn(), null] }));
@@ -27,9 +31,15 @@ vi.mock("@/components/chat/join-toast", () => ({ JoinToast: () => null }));
 vi.mock("@/components/chat/message-bubble", () => ({ MessageBubble: () => null }));
 vi.mock("@/components/chat/poll-form-dialog", () => ({ PollFormDialog: () => null }));
 vi.mock("@/components/chat/poll-message", () => ({ PollMessage: () => null }));
-vi.mock("@/components/chat/open-question-form-dialog", () => ({ OpenQuestionFormDialog: () => null }));
+vi.mock("@/components/chat/open-question-form-dialog", () => ({
+  OpenQuestionFormDialog: ({ autoOpen }: { autoOpen?: boolean }) =>
+    autoOpen ? createElement("div", { "data-testid": "auto-open-question" }) : null,
+}));
 vi.mock("@/components/chat/open-question-message", () => ({ OpenQuestionMessage: () => null }));
-vi.mock("@/components/chat/word-cloud-form-dialog", () => ({ WordCloudFormDialog: () => null }));
+vi.mock("@/components/chat/word-cloud-form-dialog", () => ({
+  WordCloudFormDialog: ({ autoOpen }: { autoOpen?: boolean }) =>
+    autoOpen ? createElement("div", { "data-testid": "auto-word-cloud" }) : null,
+}));
 vi.mock("@/components/chat/word-cloud-message", () => ({ WordCloudMessage: () => null }));
 
 afterEach(() => {
@@ -39,6 +49,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.searchParams = new URLSearchParams();
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
@@ -100,5 +111,16 @@ describe("group-code chat header", () => {
 
     expect(screen.queryByText("Group code")).toBeNull();
     expect(screen.queryByRole("link", { name: "Back" })).toBeNull();
+  });
+
+  it.each([
+    ["openQuestion=1", "auto-open-question"],
+    ["openWordCloud=1", "auto-word-cloud"],
+  ])("opens the existing live dialog for a repository handoff using %s", (query, testId) => {
+    mocks.searchParams = new URLSearchParams(query);
+
+    renderThread(true, "JOIN-42");
+
+    expect(screen.getByTestId(testId)).toBeTruthy();
   });
 });
