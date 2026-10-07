@@ -41,4 +41,12 @@ describe("mobile navigation", () => {
       .toBe("/admin/coaches");
     expect(screen.queryByText("Participant onboarding")).toBeNull();
   });
+
+  it("uses the Question repository label without changing the route", () => {
+    render(createElement(MobileNav, { isMentee: false, isSuperAdmin: false }));
+
+    expect(screen.getByRole("link", { name: "Question repository" }).getAttribute("href"))
+      .toBe("/questions");
+    expect(screen.queryByText("Quiz repository")).toBeNull();
+  });
 });

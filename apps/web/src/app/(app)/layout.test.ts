@@ -44,4 +44,15 @@ describe("desktop shared navigation", () => {
     expect(markup).toContain("Coach account management");
     expect(markup).not.toContain("Participant onboarding");
   });
+
+  it("renames only the repository navigation while preserving its compatible route", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "coach-1", role: "MENTOR", name: "Coach" });
+
+    const tree = await AppLayout({ children: createElement("main", null, "Content") });
+    const markup = renderToStaticMarkup(tree);
+
+    expect(markup).toContain('href="/questions"');
+    expect(markup).toContain("Question repository");
+    expect(markup).not.toContain("Quiz repository");
+  });
 });

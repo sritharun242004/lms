@@ -170,5 +170,5 @@ jobs:
             wait_for_running "$service_name" "$arn" "$4"
           }
 
-          update_service lms-web "$WEB_REPO" 'npx --no-install next start' '/'
+          update_service lms-web "$WEB_REPO" 'npx --no-install prisma migrate deploy && npx --no-install next start' '/'
           update_service lms-realtime "$REALTIME_REPO" '' '/health'
