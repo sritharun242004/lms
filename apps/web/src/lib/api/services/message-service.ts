@@ -11,6 +11,8 @@ import type {
   CreateOpenQuestionInput,
   SubmitAnswerInput,
   CreateWordCloudInput,
+  CreateScaleInput,
+  SubmitScaleInput,
   SubmitWordInput,
   WordCloudControlInput,
 } from "@cms/shared";
@@ -76,6 +78,35 @@ export interface WordCloudData {
   mySubmissionCount: number;
 }
 
+export interface ScaleStatementData {
+  id: string;
+  text: string;
+  order: number;
+  /** Snapshotted at publish time — never follows the repository template. */
+  min: number;
+  max: number;
+  leftLabel: string;
+  rightLabel: string;
+  /** The viewer's own saved value; null means "not answered" (0 is an answer). */
+  myValue: number | null;
+  /** Present for managers only. */
+  stats?: {
+    count: number;
+    average: number | null;
+    min: number | null;
+    max: number | null;
+    distribution: number[];
+  };
+}
+
+export interface ScaleData {
+  id: string;
+  isClosed: boolean;
+  statements: ScaleStatementData[];
+  /** Present for managers only. */
+  totalParticipants?: number;
+}
+
 // Mirrors the API's MESSAGE_SELECT exactly — deliberately omits the
 // full editHistory array (never fetched in list views, only the
 // `isEdited` flag is), unlike the broader shared `Message` type.
@@ -108,6 +139,8 @@ export interface ChatMessage {
   openQuestion?: OpenQuestionData | null;
   /** Present only when `type === "WORD_CLOUD"`. */
   wordCloud?: WordCloudData | null;
+  /** Present only when `type === "SCALE"`. */
+  scale?: ScaleData | null;
 }
 
 export const messageService = {
@@ -167,6 +200,15 @@ export const messageService = {
   submitWord: (groupId: string, messageId: string, input: SubmitWordInput) =>
     apiClient.post<{ wordCloud: WordCloudData }>(
       `/groups/${groupId}/messages/${messageId}/word-cloud/submit`,
+      input
+    ),
+
+  createScale: (groupId: string, input: CreateScaleInput) =>
+    apiClient.post<ChatMessage>(`/groups/${groupId}/messages/scale`, input),
+
+  submitScale: (groupId: string, messageId: string, input: SubmitScaleInput) =>
+    apiClient.post<{ scale: ScaleData }>(
+      `/groups/${groupId}/messages/${messageId}/scale/respond`,
       input
     ),
 

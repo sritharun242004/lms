@@ -1,5 +1,6 @@
 import type { MessageType, UserRole, UserStatus, PollChartType } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
+import { computeScaleStats } from "@/lib/cms/scale";
 
 /**
  * Prisma `select` for a message, including its poll (if any) scoped to
@@ -78,6 +79,31 @@ export function messageSelect(viewerId: string, canManage = false) {
         submissions: { select: { userId: true } },
       },
     },
+    scale: {
+      select: {
+        id: true,
+        isClosed: true,
+        statements: {
+          select: {
+            id: true,
+            text: true,
+            order: true,
+            min: true,
+            max: true,
+            leftLabel: true,
+            rightLabel: true,
+            // Participants only ever load their own rows; managers load all
+            // of them so the results summary can be computed. `userId`
+            // never leaves the server (serializeMessage strips it).
+            responses: {
+              ...(!canManage && { where: { userId: viewerId } }),
+              select: { userId: true, value: true },
+            },
+          },
+          orderBy: { order: "asc" },
+        },
+      },
+    },
   } as const;
 }
 
@@ -131,6 +157,20 @@ interface RawMessage {
     isLocked: boolean;
     entries: { id: string; text: string; count: number; color: string }[];
     submissions: { userId: string }[];
+  } | null;
+  scale?: {
+    id: string;
+    isClosed: boolean;
+    statements: {
+      id: string;
+      text: string;
+      order: number;
+      min: number;
+      max: number;
+      leftLabel: string;
+      rightLabel: string;
+      responses: { userId: string; value: number }[];
+    }[];
   } | null;
 }
 
@@ -196,6 +236,27 @@ export function serializeMessage<T extends RawMessage>(
       }
     : null;
 
+  const scale = m.scale
+    ? {
+        id: m.scale.id,
+        isClosed: m.scale.isClosed,
+        statements: m.scale.statements.map((st) => ({
+          id: st.id,
+          text: st.text,
+          order: st.order,
+          min: st.min,
+          max: st.max,
+          leftLabel: st.leftLabel,
+          rightLabel: st.rightLabel,
+          myValue: st.responses.find((r) => r.userId === viewerId)?.value ?? null,
+          ...(canManage ? { stats: computeScaleStats(st, st.responses.map((r) => r.value)) } : {}),
+        })),
+        ...(canManage
+          ? { totalParticipants: new Set(m.scale.statements.flatMap((st) => st.responses.map((r) => r.userId))).size }
+          : {}),
+      }
+    : null;
+
   return {
     id: m.id,
     content: m.content,
@@ -221,5 +282,6 @@ export function serializeMessage<T extends RawMessage>(
     poll,
     openQuestion,
     wordCloud,
+    scale,
   };
 }

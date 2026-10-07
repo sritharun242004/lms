@@ -43,6 +43,7 @@ enum MessageType {
   POLL
   OPEN_QUESTION
   WORD_CLOUD
+  SCALE
 }
 
 enum PollChartType {
@@ -55,6 +56,7 @@ enum QuestionLibraryType {
   MULTIPLE_CHOICE
   WORD_CLOUD
   OPEN_ENDED
+  SCALE
 }
 
 // ============================================================================
@@ -105,6 +107,7 @@ model User {
   pollVotes          PollVote[]
   openAnswers        OpenAnswer[]
   wordCloudSubmissions WordCloudSubmission[]
+  scaleResponses     ScaleResponse[]
   approvedCoachEmails CoachEmailApproval[] @relation("CoachApprovalAdmin")
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
@@ -124,6 +127,7 @@ model QuestionLibraryItem {
   updatedAt   DateTime      @updatedAt @map("updated_at")
   createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
   options     QuestionLibraryOption[]
+  scaleStatements QuestionLibraryScaleStatement[]
   @@index([createdById])
   @@index([name])
   @@index([type])
@@ -138,6 +142,19 @@ model QuestionLibraryOption {
   question   QuestionLibraryItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
   @@unique([questionId, order])
   @@map("question_library_options")
+}
+
+// Reusable Scale template statements. A template is only a draft: publishing
+// copies these rows into ScaleStatement, so later edits never touch live data.
+model QuestionLibraryScaleStatement {
+  id         String              @id @default(cuid())
+  questionId String              @map("question_id")
+  text       String
+  order      Int
+  max        Int                 @default(5)
+  question   QuestionLibraryItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@unique([questionId, order])
+  @@map("question_library_scale_statements")
 }
 
 model CoachEmailApproval {
@@ -301,6 +318,7 @@ model Message {
   poll         Poll?
   openQuestion OpenQuestion?
   wordCloud    WordCloud?
+  scale        Scale?
   attachment   MessageAttachment?
 
   @@index([groupId, createdAt])
@@ -518,6 +536,60 @@ model WordCloudSubmission {
   @@index([userId])
   @@index([entryId])
   @@map("word_cloud_submissions")
+}
+
+// ============================================================================
+// 7e. Scale — one live message holding one or more numeric agreement
+// statements. min/max/labels are snapshotted per statement at publish time
+// so editing a repository template can never change a published scale.
+// ============================================================================
+
+model Scale {
+  id        String   @id @default(cuid())
+  messageId String   @unique @map("message_id")
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message    Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  statements ScaleStatement[]
+
+  @@map("scales")
+}
+
+model ScaleStatement {
+  id         String   @id @default(cuid())
+  scaleId    String   @map("scale_id")
+  text       String
+  order      Int
+  min        Int      @default(0)
+  max        Int      @default(5)
+  leftLabel  String   @default("Strongly disagree") @map("left_label")
+  rightLabel String   @default("Strongly agree") @map("right_label")
+
+  scale     Scale           @relation(fields: [scaleId], references: [id], onDelete: Cascade)
+  responses ScaleResponse[]
+
+  @@unique([scaleId, order])
+  @@index([scaleId])
+  @@map("scale_statements")
+}
+
+// One row per participant per statement. `value` is a real answer even when
+// it is 0 — "not answered" is the absence of a row, never a zero.
+model ScaleResponse {
+  id          String   @id @default(cuid())
+  statementId String   @map("statement_id")
+  userId      String   @map("user_id")
+  value       Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  statement ScaleStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([statementId, userId])
+  @@index([userId])
+  @@map("scale_responses")
 }
 
 // ============================================================================

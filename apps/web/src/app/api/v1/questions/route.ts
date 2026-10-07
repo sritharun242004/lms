@@ -3,11 +3,18 @@ import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
+import { normalizeScaleTemplateDraft } from "@/lib/cms/scale";
 import {
   normalizeQuizDraft,
   normalizeStandaloneQuestionDraft,
   type StandaloneQuestionType,
 } from "@/lib/cms/task-requirements";
+
+const itemInclude = {
+  options: { orderBy: { order: "asc" } },
+  scaleStatements: { orderBy: { order: "asc" } },
+  createdBy: { select: { name: true } },
+} as const;
 
 const allowed = (role?: string) => role === "ADMIN" || role === "MENTOR";
 
@@ -40,10 +47,22 @@ async function createQuiz(userId: string, quiz: ReturnType<typeof normalizeQuizD
       createdById: userId,
       options: { create: quiz.options.map((text, order) => ({ text, order })) },
     },
-    include: {
-      options: { orderBy: { order: "asc" } },
-      createdBy: { select: { name: true } },
+    include: itemInclude,
+  });
+}
+
+async function createScaleTemplate(userId: string, scale: ReturnType<typeof normalizeScaleTemplateDraft>) {
+  return prisma.questionLibraryItem.create({
+    data: {
+      name: scale.name,
+      question: scale.question,
+      type: "SCALE",
+      createdById: userId,
+      scaleStatements: {
+        create: scale.statements.map((statement, order) => ({ text: statement.text, max: statement.max, order })),
+      },
     },
+    include: itemInclude,
   });
 }
 
@@ -58,10 +77,7 @@ async function createStandaloneQuestion(
       type: question.type,
       createdById: userId,
     },
-    include: {
-      options: { orderBy: { order: "asc" } },
-      createdBy: { select: { name: true } },
-    },
+    include: itemInclude,
   });
 }
 
@@ -71,13 +87,10 @@ export async function GET(req?: NextRequest) {
   const standalone = req?.nextUrl.searchParams.get("tab") === "questions";
   const items = await prisma.questionLibraryItem.findMany({
     where: standalone
-      ? { type: { in: ["WORD_CLOUD", "OPEN_ENDED"] } }
+      ? { type: { in: ["WORD_CLOUD", "OPEN_ENDED", "SCALE"] } }
       : { type: "MULTIPLE_CHOICE" },
     orderBy: { updatedAt: "desc" },
-    include: {
-      options: { orderBy: { order: "asc" } },
-      createdBy: { select: { name: true } },
-    },
+    include: itemInclude,
   });
   return successResponse({ items });
 }
@@ -88,8 +101,21 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const type = String(body.type ?? "MULTIPLE_CHOICE");
-    if (type !== "MULTIPLE_CHOICE" && type !== "WORD_CLOUD" && type !== "OPEN_ENDED") {
+    if (type !== "MULTIPLE_CHOICE" && type !== "WORD_CLOUD" && type !== "OPEN_ENDED" && type !== "SCALE") {
       throw new Error("Unsupported question type");
+    }
+    if (type === "SCALE") {
+      const scale = normalizeScaleTemplateDraft({
+        name: String(body.name ?? ""),
+        statements: Array.isArray(body.statements)
+          ? body.statements.map((statement: { text?: unknown; max?: unknown }) => ({
+              text: String(statement?.text ?? ""),
+              max: statement?.max == null ? undefined : Number(statement.max),
+            }))
+          : [],
+      });
+      const item = await createScaleTemplate(user.id, scale);
+      return successResponse({ item }, undefined, 201);
     }
     if (type !== "MULTIPLE_CHOICE") {
       const question = normalizeStandaloneQuestionDraft({

@@ -16,6 +16,7 @@ import {
   MessageSquareText,
   Plus,
   Send,
+  SlidersHorizontal,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import type {
   OpenAnswerResult,
   OpenQuestionData,
   PollData,
+  ScaleData,
   WordCloudData,
 } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
@@ -55,6 +57,8 @@ import { OpenQuestionFormDialog } from "@/components/chat/open-question-form-dia
 import { OpenQuestionMessage } from "@/components/chat/open-question-message";
 import { WordCloudFormDialog } from "@/components/chat/word-cloud-form-dialog";
 import { WordCloudMessage } from "@/components/chat/word-cloud-message";
+import { ScaleFormDialog } from "@/components/chat/scale-form-dialog";
+import { ScaleMessage } from "@/components/chat/scale-message";
 import { applyMemberCount, friendlyUploadError, isSupportedChatFile, removeUploadByKey } from "@/lib/cms/task-requirements";
 
 type UploadRow = { key: string; name: string; loaded: number; total: number; status: "uploading" | "completed" | "failed"; error?: string };
@@ -196,6 +200,7 @@ export function ChatThread({
   const [hasPendingPollTemplate, setHasPendingPollTemplate] = React.useState(false);
   const [hasPendingOpenQuestionTemplate, setHasPendingOpenQuestionTemplate] = React.useState(false);
   const [hasPendingWordCloudTemplate, setHasPendingWordCloudTemplate] = React.useState(false);
+  const [hasPendingScaleTemplate, setHasPendingScaleTemplate] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadRow[]>([]);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -227,6 +232,7 @@ export function ChatThread({
       setHasPendingPollTemplate(Boolean(sessionStorage.getItem("cms-poll-template")));
       setHasPendingOpenQuestionTemplate(Boolean(sessionStorage.getItem("cms-open-question-template")));
       setHasPendingWordCloudTemplate(Boolean(sessionStorage.getItem("cms-word-cloud-template")));
+      setHasPendingScaleTemplate(Boolean(sessionStorage.getItem("cms-scale-template")));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -529,6 +535,15 @@ export function ChatThread({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, wordCloud } : m)));
   }
 
+  function handleScaleCreated(message: ChatMessage) {
+    setMessages((prev) => upsert(prev, message));
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+  }
+
+  function handleScaleChanged(messageId: string, scale: ScaleData) {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, scale } : m)));
+  }
+
   function handleCopyGroupCode() {
     if (!groupCode) return;
     void copyGroupCode(groupCode, window.navigator.clipboard, toast);
@@ -560,6 +575,14 @@ export function ChatThread({
           autoOpen
           groupId={groupId}
           onCreated={handleWordCloudCreated}
+          trigger={<span className="hidden" />}
+        />
+      )}
+      {canManage && (searchParams.get("openScale") === "1" || hasPendingScaleTemplate) && (
+        <ScaleFormDialog
+          autoOpen
+          groupId={groupId}
+          onCreated={handleScaleCreated}
           trigger={<span className="hidden" />}
         />
       )}
@@ -701,6 +724,16 @@ export function ChatThread({
                     onControlled={(wordCloud) => handleWordCloudChanged(message.id, wordCloud)}
                     onDelete={handleDelete}
                   />
+                ) : message.type === MessageType.SCALE && message.scale ? (
+                  <ScaleMessage
+                    message={message}
+                    scale={message.scale}
+                    groupId={groupId}
+                    isOwn={message.senderId === currentUserId}
+                    canManage={canManage}
+                    onResponded={(scale) => handleScaleChanged(message.id, scale)}
+                    onDelete={handleDelete}
+                  />
                 ) : (
                   <MessageBubble
                     message={message}
@@ -774,6 +807,16 @@ export function ChatThread({
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Cloud />
                     Word cloud
+                  </DropdownMenuItem>
+                }
+              />
+              <ScaleFormDialog
+                groupId={groupId}
+                onCreated={handleScaleCreated}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <SlidersHorizontal />
+                    Scale
                   </DropdownMenuItem>
                 }
               />

@@ -123,7 +123,7 @@ describe("question library collection route", () => {
 
     await GET(new NextRequest("http://localhost/api/v1/questions?tab=questions"));
     expect(mocks.findMany.mock.calls[1][0].where).toEqual({
-      type: { in: ["WORD_CLOUD", "OPEN_ENDED"] },
+      type: { in: ["WORD_CLOUD", "OPEN_ENDED", "SCALE"] },
     });
   });
 

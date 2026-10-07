@@ -22,6 +22,7 @@ export enum MessageType {
   POLL = "POLL",
   OPEN_QUESTION = "OPEN_QUESTION",
   WORD_CLOUD = "WORD_CLOUD",
+  SCALE = "SCALE",
 }
 
 export enum PollChartType {
@@ -49,6 +50,16 @@ export const MAX_MESSAGE_LENGTH = 20000;
 // Fixed per-word character cap for word clouds — no longer mentor-configurable,
 // see WORD_CLOUD_MAX_WORD_LENGTH usage in createWordCloudSchema.
 export const WORD_CLOUD_MAX_WORD_LENGTH = 200;
+
+// Scale interactions: a numeric agreement rating that always starts at 0
+// ("Strongly disagree") and ends at a per-statement maximum.
+export const SCALE_MIN = 0;
+export const SCALE_DEFAULT_MAX = 5;
+export const SCALE_MAX_UPPER_BOUND = 10;
+export const SCALE_MAX_STATEMENTS = 10;
+export const SCALE_MAX_STATEMENT_LENGTH = 300;
+export const SCALE_LEFT_LABEL = "Strongly disagree";
+export const SCALE_RIGHT_LABEL = "Strongly agree";
 
 export enum MemberRole {
   OWNER = "OWNER",
@@ -91,6 +102,7 @@ export enum AuditAction {
   OPEN_QUESTION_CREATED = "OPEN_QUESTION_CREATED",
   WORD_CLOUD_CREATED = "WORD_CLOUD_CREATED",
   WORD_CLOUD_RESET = "WORD_CLOUD_RESET",
+  SCALE_CREATED = "SCALE_CREATED",
 
   // Invite
   INVITE_GENERATED = "INVITE_GENERATED",
