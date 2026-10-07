@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import type { ChatMessage } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
 import { Button } from "@/components/ui/button";
@@ -54,13 +55,17 @@ export function WordCloudFormDialog({
   trigger,
   groupId,
   onCreated,
+  autoOpen = false,
 }: {
   trigger: React.ReactNode;
   groupId: string;
   onCreated: (message: ChatMessage) => void;
+  autoOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(autoOpen);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const loadedTemplateRef = React.useRef(false);
+  const pathname = usePathname();
 
   const form = useForm<WordCloudFormValues>({
     resolver: zodResolver(wordCloudFormSchema),
@@ -70,8 +75,27 @@ export function WordCloudFormDialog({
   const allowMultiple = form.watch("allowMultipleSubmissions");
 
   React.useEffect(() => {
-    if (open) form.reset(DEFAULT_VALUES);
-  }, [open, form]);
+    if (!open) {
+      loadedTemplateRef.current = false;
+      return;
+    }
+    const saved = sessionStorage.getItem("cms-word-cloud-template");
+    if (saved) {
+      sessionStorage.removeItem("cms-word-cloud-template");
+      try {
+        const template = JSON.parse(saved) as { question?: unknown };
+        if (typeof template.question === "string") {
+          loadedTemplateRef.current = true;
+          form.reset({ ...DEFAULT_VALUES, question: template.question });
+          return;
+        }
+      } catch {
+        // Fall through to a clean form when a stale template is malformed.
+      }
+    }
+    if (autoOpen && loadedTemplateRef.current) return;
+    form.reset(DEFAULT_VALUES);
+  }, [autoOpen, open, form]);
 
   async function onSubmit(values: WordCloudFormValues) {
     setIsSubmitting(true);
@@ -99,6 +123,9 @@ export function WordCloudFormDialog({
             growing cloud.
           </DialogDescription>
         </DialogHeader>
+        <Button variant="outline" size="sm" className="self-start" asChild>
+          <a href={`/questions?tab=questions&returnTo=${encodeURIComponent(pathname)}`}>Question repository</a>
+        </Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">

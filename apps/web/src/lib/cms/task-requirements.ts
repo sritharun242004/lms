@@ -64,3 +64,30 @@ export function normalizeQuizDraft(input: QuizDraft) {
   }
   return normalized;
 }
+
+export type StandaloneQuestionType = "WORD_CLOUD" | "OPEN_ENDED";
+
+export type StandaloneQuestionDraft = {
+  name: string;
+  question: string;
+  type: StandaloneQuestionType;
+  options?: string[];
+};
+
+export function normalizeStandaloneQuestionDraft(input: StandaloneQuestionDraft) {
+  const normalized = {
+    name: input.name.trim(),
+    question: input.question.trim(),
+    type: input.type,
+  };
+  if (!normalized.name) throw new Error("Question name is required");
+  if (!normalized.question) throw new Error("Question is required");
+  if (normalized.question.length > 300) throw new Error("Question must be 300 characters or fewer");
+  if (normalized.type !== "WORD_CLOUD" && normalized.type !== "OPEN_ENDED") {
+    throw new Error("Unsupported question type");
+  }
+  if ((input.options ?? []).some((option) => option.trim())) {
+    throw new Error("Standalone questions cannot include choices");
+  }
+  return normalized;
+}

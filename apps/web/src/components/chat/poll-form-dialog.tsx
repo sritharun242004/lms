@@ -67,6 +67,7 @@ export function PollFormDialog({
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [quizName, setQuizName] = React.useState("");
+  const loadedTemplateRef = React.useRef(false);
 
   const form = useForm<PollFormValues>({
     resolver: zodResolver(pollFormSchema),
@@ -80,21 +81,27 @@ export function PollFormDialog({
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "options" });
 
   React.useEffect(() => {
+    if (!open) {
+      loadedTemplateRef.current = false;
+      return;
+    }
     if (open) {
       const saved = sessionStorage.getItem("cms-poll-template");
       if (saved) {
         const template = JSON.parse(saved) as { question: string; options: string[]; chartType?: PollChartType };
+        loadedTemplateRef.current = true;
         form.reset({ question: template.question, options: template.options.map((value) => ({ value })), chartType: template.chartType ?? PollChartType.BAR });
         sessionStorage.removeItem("cms-poll-template");
         return;
       }
+      if (autoOpen && loadedTemplateRef.current) return;
       form.reset({
         question: "",
         options: [{ value: "" }, { value: "" }],
         chartType: PollChartType.BAR,
       });
     }
-  }, [open, form]);
+  }, [autoOpen, open, form]);
 
   async function onSubmit(values: PollFormValues) {
     setIsSubmitting(true);
@@ -156,7 +163,7 @@ export function PollFormDialog({
             Ask a question with a few options — everyone in the group can vote live.
           </DialogDescription>
         </DialogHeader>
-        <Button variant="outline" size="sm" className="self-start" asChild><a href={`/questions?returnTo=${encodeURIComponent(pathname)}`}>Quiz repository</a></Button>
+        <Button variant="outline" size="sm" className="self-start" asChild><a href={`/questions?returnTo=${encodeURIComponent(pathname)}`}>Question repository</a></Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">

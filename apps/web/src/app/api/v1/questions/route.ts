@@ -3,7 +3,11 @@ import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
-import { normalizeQuizDraft } from "@/lib/cms/task-requirements";
+import {
+  normalizeQuizDraft,
+  normalizeStandaloneQuestionDraft,
+  type StandaloneQuestionType,
+} from "@/lib/cms/task-requirements";
 
 const allowed = (role?: string) => role === "ADMIN" || role === "MENTOR";
 
@@ -31,6 +35,7 @@ async function createQuiz(userId: string, quiz: ReturnType<typeof normalizeQuizD
     data: {
       name: quiz.name,
       question: quiz.question,
+      type: "MULTIPLE_CHOICE",
       chartType: quiz.chartType,
       createdById: userId,
       options: { create: quiz.options.map((text, order) => ({ text, order })) },
@@ -42,10 +47,32 @@ async function createQuiz(userId: string, quiz: ReturnType<typeof normalizeQuizD
   });
 }
 
-export async function GET() {
+async function createStandaloneQuestion(
+  userId: string,
+  question: ReturnType<typeof normalizeStandaloneQuestionDraft>
+) {
+  return prisma.questionLibraryItem.create({
+    data: {
+      name: question.name,
+      question: question.question,
+      type: question.type,
+      createdById: userId,
+    },
+    include: {
+      options: { orderBy: { order: "asc" } },
+      createdBy: { select: { name: true } },
+    },
+  });
+}
+
+export async function GET(req?: NextRequest) {
   const user = await getCurrentUser();
   if (!user || !allowed(user.role)) return errorResponse("Staff access required", "FORBIDDEN", 403);
+  const standalone = req?.nextUrl.searchParams.get("tab") === "questions";
   const items = await prisma.questionLibraryItem.findMany({
+    where: standalone
+      ? { type: { in: ["WORD_CLOUD", "OPEN_ENDED"] } }
+      : { type: "MULTIPLE_CHOICE" },
     orderBy: { updatedAt: "desc" },
     include: {
       options: { orderBy: { order: "asc" } },
@@ -60,6 +87,20 @@ export async function POST(req: NextRequest) {
   if (!user || !allowed(user.role)) return errorResponse("Staff access required", "FORBIDDEN", 403);
   try {
     const body = await req.json();
+    const type = String(body.type ?? "MULTIPLE_CHOICE");
+    if (type !== "MULTIPLE_CHOICE" && type !== "WORD_CLOUD" && type !== "OPEN_ENDED") {
+      throw new Error("Unsupported question type");
+    }
+    if (type !== "MULTIPLE_CHOICE") {
+      const question = normalizeStandaloneQuestionDraft({
+        name: String(body.name ?? ""),
+        question: String(body.question ?? ""),
+        type: type as StandaloneQuestionType,
+        options: Array.isArray(body.options) ? body.options.map(String) : [],
+      });
+      const item = await createStandaloneQuestion(user.id, question);
+      return successResponse({ item }, undefined, 201);
+    }
     const quiz = normalizeQuizDraft({
       name: String(body.name ?? ""),
       question: String(body.question ?? ""),
