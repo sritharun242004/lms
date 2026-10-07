@@ -173,7 +173,14 @@ jobs:
               return 1
             fi
 
-            if [ -n "$start_command" ]; then
+            if [ "$start_command" = "IMAGE_DEFAULT" ]; then
+              # App Runner runs StartCommand WITHOUT a shell, so "a && b" reaches the
+              # first program as plain arguments. Delete the override so the image CMD
+              # (sh -c "prisma migrate deploy && next start") is used.
+              jq --arg image "$image" \
+                '.AutoDeploymentsEnabled = false | .ImageRepository.ImageIdentifier = $image | del(.ImageRepository.ImageConfiguration.StartCommand)' \
+                "$source_file" > "$updated_file"
+            elif [ -n "$start_command" ]; then
               jq --arg image "$image" --arg command "$start_command" \
                 '.AutoDeploymentsEnabled = false | .ImageRepository.ImageIdentifier = $image | .ImageRepository.ImageConfiguration.StartCommand = $command' \
                 "$source_file" > "$updated_file"
@@ -196,5 +203,5 @@ jobs:
             wait_for_running "$service_name" "$arn" "$4"
           }
 
-          update_service lms-web "$WEB_REPO" 'npx --no-install prisma migrate deploy && npx --no-install next start' '/'
+          update_service lms-web "$WEB_REPO" 'IMAGE_DEFAULT' '/'
           update_service lms-realtime "$REALTIME_REPO" '' '/health'
