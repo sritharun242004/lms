@@ -40,7 +40,7 @@ export function LandingPage() {
               Interactive learning and real-time collaboration.
             </h2>
             <p className="mt-5 text-base sm:text-lg text-primary-foreground/80 font-normal leading-relaxed">
-              Connect directly with your mentors, coaches, and peer learning community in real time.
+              Join interactive sessions, share your responses, and learn together in real time.
             </p>
           </div>
         </aside>
