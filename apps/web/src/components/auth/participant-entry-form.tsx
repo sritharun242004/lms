@@ -116,7 +116,7 @@ export function ParticipantEntryForm({ standalone = false }: { standalone?: bool
           <div className="relative max-w-xl">
             <p className="text-sm font-semibold tracking-[.16em] uppercase text-primary-foreground/90">Participant Portal</p>
             <h2 className="mt-5 text-3xl sm:text-4xl lg:text-4xl font-bold tracking-tight leading-tight">Interactive learning and collaborative growth.</h2>
-            <p className="mt-5 text-base sm:text-lg text-primary-foreground/80 font-normal leading-relaxed">Connect directly with your mentors, coaches, and peer learning community in real time.</p>
+            <p className="mt-5 text-base sm:text-lg text-primary-foreground/80 font-normal leading-relaxed">Join interactive sessions, share your responses, and learn together in real time.</p>
           </div>
         </aside>
       </div>
