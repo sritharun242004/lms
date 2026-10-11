@@ -11,6 +11,7 @@ import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PollChart, POLL_ANIMATION_MS, pollColor } from "@/components/chat/poll-chart";
+import { PollBarResults } from "@/components/chat/poll-bar-results";
 
 export function PollMessage({
   message,
@@ -137,7 +138,7 @@ export function PollMessage({
       </p>
 
       {isBar ? (
-        optionRows
+        <PollBarResults poll={poll} isVoting={isVoting} onVote={vote} />
       ) : (
         <div className="flex flex-col items-center gap-6 @2xl:flex-row @2xl:gap-8">
           <PollChart
