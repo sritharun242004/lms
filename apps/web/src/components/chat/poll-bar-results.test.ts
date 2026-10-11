@@ -144,6 +144,8 @@ describe("PollBarResults layout", () => {
     const root = screen.getByTestId("poll-bar-results");
     expect(root.className).not.toContain("overflow-y-auto");
     expect(root.className).not.toContain("max-h-");
+    // no own scroller => the axis must not be sticky, or it would float over the cards
+    expect(screen.getByTestId("poll-axis").className).not.toContain("sticky");
   });
 
   it("scrolls inside one shared container when the list is long, never hiding options", () => {
@@ -151,6 +153,7 @@ describe("PollBarResults layout", () => {
     const root = screen.getByTestId("poll-bar-results");
     expect(root.className).toContain("overflow-y-auto");
     expect(root.className).toContain("max-h-");
+    expect(screen.getByTestId("poll-axis").className).toContain("sticky");
     // the graph and the answers live in the same scroller, so they cannot drift apart
     expect(root.contains(screen.getAllByTestId("poll-graph-row")[19])).toBe(true);
     expect(root.contains(screen.getAllByRole("button")[19])).toBe(true);

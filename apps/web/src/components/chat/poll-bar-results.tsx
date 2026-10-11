@@ -46,21 +46,22 @@ export function PollBarResults({
   const transition = reduceMotion
     ? { duration: 0 }
     : { duration: POLL_ANIMATION_MS / 1000, ease: "easeOut" as const };
+  // Only a card with its own scroller keeps the axis pinned; otherwise a sticky
+  // header would attach to the chat thread and float over the answer cards.
+  const scrolls = poll.options.length > SCROLL_AFTER_OPTIONS;
+  const stickyHeader = scrolls ? "sticky top-0 z-10" : "";
   // Result cards sort after every graph row when the layout is stacked.
   const RESULT_ORDER_BASE = 1000;
 
   return (
     <div
-      className={cn(
-        poll.options.length > SCROLL_AFTER_OPTIONS &&
-          "max-h-[min(75vh,56rem)] overflow-y-auto overscroll-contain"
-      )}
+      className={cn(scrolls && "max-h-[min(75vh,56rem)] overflow-y-auto overscroll-contain")}
       data-testid="poll-bar-results"
     >
       <div className="grid grid-cols-1 items-start @2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @2xl:gap-x-6">
         {/* Numerical axis. Sticky so it stays visible while a long list scrolls. */}
         <div
-          className="sticky top-0 z-10 order-[-1] bg-card pt-1 pb-2 @2xl:order-none"
+          className={cn("order-[-1] bg-card pt-1 pb-2 @2xl:order-none", stickyHeader)}
           aria-hidden
           data-testid="poll-axis"
         >
@@ -80,7 +81,7 @@ export function PollBarResults({
           </div>
         </div>
         <div
-          className="sticky top-0 z-10 hidden bg-card pt-1 pb-2 @2xl:block @2xl:border-l @2xl:pl-6"
+          className={cn("hidden bg-card pt-1 pb-2 @2xl:block @2xl:border-l @2xl:pl-6", stickyHeader)}
           aria-hidden
         >
           <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
