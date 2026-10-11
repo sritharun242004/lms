@@ -65,6 +65,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
 
   /* ---- Static palette (available as `bg-brand-500` etc.) ---- */
   --color-brand-50: #eff6ff;
@@ -212,6 +217,11 @@
   --chart-3: #f59e0b;
   --chart-4: #8b5cf6;
   --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
 }
 
 /* ============================================================
@@ -265,6 +275,11 @@
   --chart-3: #f59e0b;
   --chart-4: #a78bfa;
   --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
 }
 
 /* ============================================================
