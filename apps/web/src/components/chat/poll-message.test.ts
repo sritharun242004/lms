@@ -4,13 +4,26 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageType, PollChartType, UserRole, UserStatus } from "@cms/shared";
 import { messageService } from "@/lib/api/services/message-service";
 import type { ChatMessage, PollData } from "@/lib/api/services/message-service";
 import { PollMessage } from "./poll-message";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+
+// jsdom has no ResizeObserver, which Recharts' ResponsiveContainer needs. BAR polls
+// now draw a chart too, so every render in this file needs the stub.
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
+});
 
 afterEach(() => {
   cleanup();

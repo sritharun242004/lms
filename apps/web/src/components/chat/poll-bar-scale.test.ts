@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barPercent, pollAxis } from "./poll-bar-scale";
+import { pollAxis } from "./poll-bar-scale";
 
 describe("pollAxis", () => {
   it("renders an empty poll safely with a 0-1 axis", () => {
@@ -29,20 +29,5 @@ describe("pollAxis", () => {
       expect(axis.ticks[0]).toBe(0);
       expect(axis.ticks[axis.ticks.length - 1]).toBe(axis.max);
     }
-  });
-});
-
-describe("barPercent", () => {
-  it("scales votes to the axis, so equal votes give equal bars", () => {
-    expect(barPercent(2, 8)).toBe(25);
-    expect(barPercent(4, 8)).toBe(50);
-    expect(barPercent(3, 10)).toBe(barPercent(3, 10));
-  });
-
-  it("keeps zero-vote and invalid input at 0 and never exceeds 100", () => {
-    expect(barPercent(0, 5)).toBe(0);
-    expect(barPercent(-2, 5)).toBe(0);
-    expect(barPercent(3, 0)).toBe(0);
-    expect(barPercent(9, 5)).toBe(100);
   });
 });
