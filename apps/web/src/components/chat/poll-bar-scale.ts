@@ -20,17 +20,11 @@ function tickStep(highest: number): number {
 /**
  * Whole-vote axis for the multiple-choice bar graph. Votes are integers, so
  * ticks are integers too; the maximum rounds up to the next tick so the
- * tallest bar only reaches the end of the axis when it lands on a tick.
+ * tallest bar only reaches the top of the plot when it lands on a tick.
  */
 export function pollAxis(maxVotes: number): PollAxis {
   const highest = Number.isFinite(maxVotes) ? Math.max(1, Math.ceil(maxVotes)) : 1;
   const step = tickStep(highest);
   const intervals = Math.ceil(highest / step);
   return { max: intervals * step, ticks: Array.from({ length: intervals + 1 }, (_, i) => i * step) };
-}
-
-/** Bar length as a percentage of the axis; always within 0-100. */
-export function barPercent(votes: number, axisMax: number): number {
-  if (!(axisMax > 0) || !(votes > 0)) return 0;
-  return Math.min(100, (votes / axisMax) * 100);
 }
