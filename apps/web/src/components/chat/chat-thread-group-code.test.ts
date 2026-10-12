@@ -80,6 +80,15 @@ describe("group-code chat header", () => {
     expect(screen.getByTestId("participant-logout")).toBeTruthy();
   });
 
+  it("lets both participants and managers open the group profile from the header", () => {
+    renderThread(false, null, true);
+    expect(screen.getByRole("button", { name: "Open group profile" })).toBeTruthy();
+    cleanup();
+
+    renderThread(true, "JOIN-42");
+    expect(screen.getByRole("button", { name: "Open group profile" })).toBeTruthy();
+  });
+
   it("shows a manager the code and announces a successful accessible copy", async () => {
     const user = userEvent.setup();
     const clipboardWrite = vi.spyOn(window.navigator.clipboard, "writeText").mockResolvedValue(undefined);

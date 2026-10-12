@@ -10,12 +10,14 @@ export function GroupPhotoControl({
   groupName,
   avatarUrl: initialAvatarUrl,
   canManage,
+  size = 'md',
   onChanged,
 }: {
   groupId: string;
   groupName: string;
   avatarUrl: string | null;
   canManage: boolean;
+  size?: 'sm' | 'md' | 'lg';
   onChanged: () => void;
 }) {
   const [avatarUrl, setAvatarUrl] = React.useState(initialAvatarUrl);
@@ -61,7 +63,7 @@ export function GroupPhotoControl({
       imageUrl={avatarUrl}
       canManage={canManage}
       busy={busy}
-      size='md'
+      size={size}
       onPhotoChange={updatePhoto}
       onRemove={removePhoto}
     />
