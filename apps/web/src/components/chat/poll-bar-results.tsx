@@ -13,12 +13,16 @@ import { PollBarChart, useElementWidth, usesNumberKeys } from "@/components/chat
  * `PollChart`.
  *
  * Layout
- * - Phones / narrow panes: the chart stacks above the answers and the card
- *   simply grows with the chat thread (no nested scroller to get trapped in).
+ * - Phones / narrow panes: the chart stacks above the answers.
  * - From the `@2xl` container width: two columns (about 48% / 52%) with a
- *   divider. The results region is capped to what fits beside the thread
- *   header and composer, scrolls as ONE container (chart + answers together),
- *   and keeps the chart pinned while a long answer list scrolls.
+ *   divider, and the chart is pinned (`position: sticky`) while a long answer
+ *   list passes beside it.
+ *
+ * Scrolling: this card has NO scroller of its own. It grows to fit its content
+ * and the chat thread is the single vertical scroll container, so the wheel and
+ * touch scroll the conversation no matter where the pointer is - over the
+ * chart, an answer row, or empty space. (A nested `overflow-y: auto` region
+ * with `overscroll-behavior: contain` here trapped the wheel at its ends.)
  *
  * The answer rows are deliberately static: colours, percentages, votes and the
  * progress fill change instantly with the data, without any transition. Only
@@ -38,21 +42,14 @@ export function PollBarResults({
   const topVotes = Math.max(0, ...poll.options.map((option) => option.voteCount));
 
   return (
-    <div
-      className={cn(
-        // Room left for the thread header, composer and the card's own chrome.
-        "@2xl:max-h-[max(20rem,calc(100dvh-21rem))] @2xl:overflow-y-auto @2xl:overscroll-contain"
-      )}
-      data-testid="poll-bar-results"
-    >
-      <div className="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] @2xl:gap-x-5">
-        {/* Left: graph. Pinned while a long answer list scrolls beside it. */}
-        <div
-          ref={graphRef}
-          className="min-w-0 @2xl:sticky @2xl:top-0"
-          data-testid="poll-bar-graph"
-        >
-          <PollBarChart options={poll.options} keysOnly={numbered} className="w-full min-w-0" />
+    <div data-testid="poll-bar-results">
+      <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] @2xl:gap-x-5">
+        {/* Left: graph. The cell spans the list's height; the chart inside it
+            sticks to the top of the thread while the answers scroll past. */}
+        <div ref={graphRef} className="min-w-0" data-testid="poll-bar-graph">
+          <div className="@2xl:sticky @2xl:top-2" data-testid="poll-bar-graph-sticky">
+            <PollBarChart options={poll.options} keysOnly={numbered} className="w-full min-w-0" />
+          </div>
         </div>
 
         {/* Right: every answer, with its colour, percentage, votes and progress. */}
