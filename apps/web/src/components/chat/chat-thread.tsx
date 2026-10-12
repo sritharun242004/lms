@@ -33,7 +33,7 @@ import type {
   WordCloudData,
 } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
-import { upsertMessage as upsert, mergeLatest } from "@/lib/chat/merge";
+import { upsertMessage as upsert, mergeLatest, applyPollVoteEvent } from "@/lib/chat/merge";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { useConfirm } from "@/hooks/use-confirm";
 import { getInitials } from "@/lib/utils";
@@ -208,6 +208,10 @@ export function ChatThread({
   const uploadCleanupTimersRef = React.useRef<Set<number>>(new Set());
   const isAtBottomRef = React.useRef(true);
   const messageIdsRef = React.useRef<Set<string>>(new Set(initialMessages.map((m) => m.id)));
+  // Monotonic clock for ordering poll writes against thread refreshes: each
+  // refresh is stamped when requested, each applied vote result when applied.
+  const pollClockRef = React.useRef(0);
+  const pollWrittenAtRef = React.useRef<Map<string, number>>(new Map());
   const [confirm, confirmDialog] = useConfirm();
 
   // Keep a live set of known message ids so polling can tell whether a
@@ -255,12 +259,19 @@ export function ChatThread({
     async function refresh() {
       if (cancelled || inFlight || document.visibilityState !== "visible") return;
       inFlight = true;
+      // Ordering stamp: a vote result applied after this point is newer than
+      // whatever this request reads, so its poll must not be rolled back.
+      const requestedAt = ++pollClockRef.current;
       try {
         const res = await messageService.list(groupId);
         if (cancelled || !res.success || !res.data) return;
         const latest = res.data.messages;
         const hasNew = latest.some((m) => !messageIdsRef.current.has(m.id));
-        setMessages((prev) => mergeLatest(prev, latest));
+        setMessages((prev) =>
+          mergeLatest(prev, latest, {
+            keepLocalPoll: (id) => (pollWrittenAtRef.current.get(id) ?? 0) > requestedAt,
+          })
+        );
         if (hasNew && isAtBottomRef.current) {
           requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
         }
@@ -316,17 +327,7 @@ export function ChatThread({
     onDelete: ({ messageId }) => setMessages((prev) => prev.filter((m) => m.id !== messageId)),
     onPin: ({ messageId, isPinned }) =>
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, isPinned } : m))),
-    onPollVote: ({ messageId, options, totalVotes }) =>
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== messageId || !m.poll) return m;
-          const merged = m.poll.options.map((o) => {
-            const updated = options.find((u) => u.id === o.id);
-            return updated ? { ...o, voteCount: updated.voteCount } : o;
-          });
-          return { ...m, poll: { ...m.poll, options: merged, totalVotes } };
-        })
-      ),
+    onPollVote: (event) => setMessages((prev) => applyPollVoteEvent(prev, event)),
     onOpenQuestionAnswer: (event) => {
       void handleOpenQuestionAnswerEvent({
         canManage,
@@ -514,6 +515,7 @@ export function ChatThread({
   }
 
   function handlePollVoted(messageId: string, poll: PollData) {
+    pollWrittenAtRef.current.set(messageId, ++pollClockRef.current);
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, poll } : m)));
   }
 

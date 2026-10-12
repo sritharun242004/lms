@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { PollOptionResult } from "@/lib/api/services/message-service";
-import { useDataAnimation } from "@/hooks/use-data-animation";
+import { useTweenedNumbers } from "@/hooks/use-tweened-numbers";
 import { POLL_ANIMATION_MS, pollColor } from "@/components/chat/poll-chart";
 import { pollAxis } from "@/components/chat/poll-bar-scale";
 import { createTextMeasurer, wrapLabel, wrapLabelBy } from "@/components/chat/poll-bar-label";
@@ -44,13 +44,19 @@ interface PollBarChartProps {
   className?: string;
 }
 
-interface Datum {
+interface Item {
   id: string;
   label: string;
   /** Short key shown under the bar when there are too many options for text. */
   key: string;
+  /** The real vote count: what is displayed as text and used for the axis. */
   votes: number;
   fill: string;
+}
+
+/** Item plus the (animated) value the bar is currently drawn at. */
+interface Datum extends Item {
+  shown: number;
 }
 
 /** Track the rendered width of an element; changes only arrive from the observer. */
@@ -170,13 +176,7 @@ export const PollBarChart = React.memo(function PollBarChart({
   const reduceMotion = useReducedMotion();
   const [boxRef, boxWidth] = useElementWidth<HTMLDivElement>(480);
 
-  const signature = React.useMemo(
-    () => options.map((option) => `${option.id}:${option.voteCount}`).join("|"),
-    [options]
-  );
-  const animate = useDataAnimation(signature, POLL_ANIMATION_MS, Boolean(reduceMotion));
-
-  const data = React.useMemo<Datum[]>(
+  const items = React.useMemo<Item[]>(
     () =>
       options.map((option, i) => ({
         id: option.id,
@@ -190,6 +190,20 @@ export const PollBarChart = React.memo(function PollBarChart({
   const axis = React.useMemo(
     () => pollAxis(Math.max(0, ...options.map((option) => option.voteCount))),
     [options]
+  );
+
+  // ONE animation system. The bars and the axis maximum follow the real values
+  // together, always from what is currently drawn to the latest target; Recharts'
+  // own animation is off so the two can never fight over the same bar.
+  const targets = React.useMemo(() => [...items.map((item) => item.votes), axis.max], [items, axis.max]);
+  // Bars grow from 0 on mount; the axis starts at its final scale.
+  const initial = React.useMemo(() => [...items.map(() => 0), axis.max], [items, axis.max]);
+  const { values, animating } = useTweenedNumbers(targets, POLL_ANIMATION_MS, Boolean(reduceMotion), initial);
+  const domainMax = Math.max(1, values[values.length - 1] ?? axis.max);
+
+  const data = React.useMemo<Datum[]>(
+    () => items.map((item, i) => ({ ...item, shown: values[i] ?? 0 })),
+    [items, values]
   );
 
   const plotWidth = Math.max(1, boxWidth - Y_AXIS_WIDTH - MARGIN.left - MARGIN.right);
@@ -210,8 +224,8 @@ export const PollBarChart = React.memo(function PollBarChart({
   }, [lineWidth]);
 
   const lines = React.useMemo(
-    () => data.map((datum) => (keysOnly ? [datum.key] : wrap(datum.label))),
-    [data, keysOnly, wrap]
+    () => items.map((item) => (keysOnly ? [item.key] : wrap(item.label))),
+    [items, keysOnly, wrap]
   );
   const labelAreaHeight = Math.max(1, ...lines.map((entry) => entry.length)) * LINE_HEIGHT + 22;
   const chartHeight = MARGIN.top + PLOT_HEIGHT + labelAreaHeight;
@@ -225,7 +239,7 @@ export const PollBarChart = React.memo(function PollBarChart({
       role="img"
       aria-label={`Bar graph of votes. ${summary}`}
       data-testid="poll-bar-chart"
-      data-animating={animate ? "true" : "false"}
+      data-animating={animating ? "true" : "false"}
     >
       {/*
         Sized from the same measurement that drives label wrapping (boxWidth), not
@@ -237,8 +251,8 @@ export const PollBarChart = React.memo(function PollBarChart({
           <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--border)" />
           <YAxis
             width={Y_AXIS_WIDTH}
-            domain={[0, axis.max]}
-            ticks={axis.ticks}
+            domain={[0, domainMax]}
+            ticks={axis.ticks.filter((tick) => tick <= domainMax + 1e-6)}
             allowDecimals={false}
             tickLine={false}
             axisLine={false}
@@ -259,15 +273,7 @@ export const PollBarChart = React.memo(function PollBarChart({
             height={labelAreaHeight}
             tick={<CategoryTick lines={lines} keysOnly={keysOnly} />}
           />
-          <Bar
-            dataKey="votes"
-            maxBarSize={64}
-            shape={<BarWithCount />}
-            isAnimationActive={animate}
-            animationBegin={0}
-            animationDuration={POLL_ANIMATION_MS}
-            animationEasing="ease-out"
-          >
+          <Bar dataKey="shown" maxBarSize={64} shape={<BarWithCount />} isAnimationActive={false}>
             {data.map((datum) => (
               <Cell key={datum.id} fill={datum.fill} />
             ))}

@@ -15,9 +15,27 @@ export function upsertMessage(messages: ChatMessage[], incoming: ChatMessage): C
  * realtime socket server is unreachable: new messages are added, edited ones
  * are refreshed, and messages deleted within the fetched window disappear.
  * Older messages already loaded above the window are left untouched.
+ *
+ * `keepLocalPoll(id)` marks messages whose poll was updated locally (a vote
+ * result applied) AFTER this batch was requested. The batch was read from the
+ * server before that vote, so its poll is stale; keeping the local poll stops
+ * a slow refresh from rolling a bar back and then forward again.
  */
-export function mergeLatest(existing: ChatMessage[], latest: ChatMessage[]): ChatMessage[] {
+export function mergeLatest(
+  existing: ChatMessage[],
+  latest: ChatMessage[],
+  options: { keepLocalPoll?: (messageId: string) => boolean } = {}
+): ChatMessage[] {
   if (latest.length === 0) return existing;
+  if (options.keepLocalPoll) {
+    const byId = new Map(existing.map((m) => [m.id, m]));
+    latest = latest.map((incoming) => {
+      const local = byId.get(incoming.id);
+      return incoming.poll && local?.poll && options.keepLocalPoll!(incoming.id)
+        ? { ...incoming, poll: local.poll }
+        : incoming;
+    });
+  }
   const oldestInWindow = latest[0].createdAt;
   const latestIds = new Set(latest.map((m) => m.id));
   // Drop messages that fall inside the fetched window but are no longer
@@ -28,4 +46,23 @@ export function mergeLatest(existing: ChatMessage[], latest: ChatMessage[]): Cha
   return merged
     .slice()
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
+}
+
+/**
+ * Apply a counts-only `poll:vote` socket event. It carries absolute counts, so
+ * applying the same event twice (duplicate delivery) is a no-op: it never adds
+ * a vote on top of itself, and it leaves the viewer's own `myVote` alone.
+ */
+export function applyPollVoteEvent(
+  messages: ChatMessage[],
+  event: { messageId: string; options: { id: string; voteCount: number }[]; totalVotes: number }
+): ChatMessage[] {
+  return messages.map((m) => {
+    if (m.id !== event.messageId || !m.poll) return m;
+    const options = m.poll.options.map((o) => {
+      const updated = event.options.find((u) => u.id === o.id);
+      return updated ? { ...o, voteCount: updated.voteCount } : o;
+    });
+    return { ...m, poll: { ...m.poll, options, totalVotes: event.totalVotes } };
+  });
 }
