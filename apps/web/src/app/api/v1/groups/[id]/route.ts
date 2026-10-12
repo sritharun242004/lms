@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { updateGroupSchema, AuditAction } from "@cms/shared";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
+import { canEditGroupProfile, getGroupAccess } from "@/lib/groups/access";
 
 async function getManageableGroup(groupId: string, userId: string, isAdmin: boolean) {
   const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -21,11 +22,14 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const { group, allowed } = await getManageableGroup(id, user.id, user.role === "ADMIN");
+  const group = await prisma.group.findUnique({ where: { id } });
   if (!group) {
     return errorResponse("Group not found", "GROUP_NOT_FOUND", 404);
   }
-  if (!allowed) {
+  // Same people who can change the group photo: derived from the database
+  // (platform admin, the creator, or a manager of this specific group).
+  const access = await getGroupAccess(id, user);
+  if (!canEditGroupProfile(group, user, access)) {
     return errorResponse("You don't have permission to edit this group", "FORBIDDEN", 403);
   }
 

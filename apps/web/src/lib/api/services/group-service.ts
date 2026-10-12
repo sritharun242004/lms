@@ -28,6 +28,58 @@ export interface GroupMemberEntry {
   };
 }
 
+export interface GroupProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+  memberCount: number;
+  /** Computed by the server for THIS caller; never trusted from the client. */
+  canEdit: boolean;
+}
+
+export interface ProfileMember {
+  id: string;
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  role: "Admin" | "Participant";
+  joinedAt: string;
+}
+
+export type SharedKind = "media" | "documents" | "links";
+
+export interface SharedSender {
+  id: string;
+  name: string;
+}
+
+export interface SharedFile {
+  id: string;
+  messageId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  sharedAt: string;
+  sender: SharedSender | null;
+}
+
+export interface SharedLink {
+  id: string;
+  messageId: string;
+  url: string;
+  domain: string;
+  sharedAt: string;
+  sender: SharedSender | null;
+}
+
+export interface Page<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
 export const groupService = {
   list: () => apiClient.get<{ groups: GroupCard[] }>("/groups"),
 
@@ -48,6 +100,20 @@ export const groupService = {
 
   disableInviteCode: (groupId: string) =>
     apiClient.patch<{ message: string }>(`/groups/${groupId}/invite-code`, undefined),
+
+  profile: (groupId: string) => apiClient.get<GroupProfile>(`/groups/${groupId}/profile`),
+
+  profileMembers: (groupId: string, cursor?: string | null) =>
+    apiClient.get<{ members: ProfileMember[]; nextCursor: string | null }>(
+      `/groups/${groupId}/profile/members`,
+      cursor ? { cursor } : undefined
+    ),
+
+  shared: <K extends SharedKind>(groupId: string, kind: K, cursor?: string | null) =>
+    apiClient.get<Page<K extends "links" ? SharedLink : SharedFile>>(
+      `/groups/${groupId}/shared`,
+      cursor ? { kind, cursor } : { kind }
+    ),
 
   members: (groupId: string) =>
     apiClient.get<{ members: GroupMemberEntry[] }>(`/groups/${groupId}/members`),

@@ -23,13 +23,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-function formatFileSize(bytes: number): string {
+export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function FileTypeIcon({ mimeType, fileName }: { mimeType: string; fileName: string }) {
+export function FileTypeIcon({ mimeType, fileName }: { mimeType: string; fileName: string }) {
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   if (mimeType === "application/pdf" || ext === "pdf") return <FileText className="size-6" />;
   if (

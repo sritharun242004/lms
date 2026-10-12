@@ -596,47 +596,35 @@ export function ChatThread({
             </Link>
           </Button>
         )}
-        {canManage ? (
-          <GroupMembersDialog
-            groupId={groupId}
-            groupName={displayGroupName}
-            trigger={
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left hover:opacity-80"
-                aria-label="View group members"
-              >
-                <Avatar>
-                  {displayGroupAvatarUrl && <AvatarImage src={displayGroupAvatarUrl} alt={`${displayGroupName} group photo`} />}
-                  <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
-                </Avatar>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold">{displayGroupName}</span>
-                  {displayGroupDescription && <span className="truncate text-xs text-muted-foreground">{displayGroupDescription}</span>}
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="size-3" />
-                    {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
-                  </span>
-                </div>
-              </button>
-            }
-          />
-        ) : (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <Avatar>
-              {displayGroupAvatarUrl && <AvatarImage src={displayGroupAvatarUrl} alt={`${displayGroupName} group photo`} />}
-              <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
-            </Avatar>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold">{displayGroupName}</span>
-              {displayGroupDescription && <span className="truncate text-xs text-muted-foreground">{displayGroupDescription}</span>}
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="size-3" />
-                {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
-              </span>
-            </div>
-          </div>
-        )}
+        <GroupMembersDialog
+          groupId={groupId}
+          groupName={displayGroupName}
+          onUpdated={(patch) => {
+            if (patch.name !== undefined) setDisplayGroupName(patch.name);
+            if (patch.description !== undefined) setDisplayGroupDescription(patch.description);
+            if (patch.avatarUrl !== undefined) setDisplayGroupAvatarUrl(patch.avatarUrl);
+          }}
+          trigger={
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left hover:opacity-80"
+              aria-label="Open group profile"
+            >
+              <Avatar>
+                {displayGroupAvatarUrl && <AvatarImage src={displayGroupAvatarUrl} alt={`${displayGroupName} group photo`} />}
+                <AvatarFallback>{getInitials(displayGroupName)}</AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-semibold">{displayGroupName}</span>
+                {displayGroupDescription && <span className="truncate text-xs text-muted-foreground">{displayGroupDescription}</span>}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="size-3" />
+                  {displayMemberCount} {displayMemberCount === 1 ? "participant" : "participants"}
+                </span>
+              </div>
+            </button>
+          }
+        />
         {canManage && groupCode && (
           <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-primary/15 bg-primary/[.055] px-2 py-1 text-xs text-primary sm:gap-2 sm:px-3">
             <span className="hidden font-medium sm:inline">Group code</span>

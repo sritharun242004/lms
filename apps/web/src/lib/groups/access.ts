@@ -30,3 +30,17 @@ export async function getGroupAccess(groupId: string, user: AuthUser): Promise<G
     user.role === "MENTOR" && (membership.role === "OWNER" || membership.role === "MENTOR");
   return { canView: true, canManage };
 }
+
+/**
+ * Who may edit a group's profile (name and description): a platform admin, the
+ * group's creator, or anyone who can manage the group - the same people who can
+ * already change its photo. Always derived server-side from the database, never
+ * from anything the client sends.
+ */
+export function canEditGroupProfile(
+  group: { createdById: string },
+  user: Pick<AuthUser, "id" | "role">,
+  access: GroupAccess
+): boolean {
+  return user.role === "ADMIN" || group.createdById === user.id || access.canManage;
+}
