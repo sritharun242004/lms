@@ -34,8 +34,8 @@ const LABEL_FONT_PX = 11;
 const CHAR_WIDTH = 6.6; // fallback glyph width when the font cannot be measured
 const BAND_PADDING = 4;
 /** Smallest plot (bars + counts); the column may stretch it to match the list. */
-const MIN_PLOT_HEIGHT = 230;
-const MARGIN = { top: 30, right: 8, left: 0, bottom: 0 } as const;
+const MIN_PLOT_HEIGHT = 200;
+const MARGIN = { top: 26, right: 8, left: 0, bottom: 0 } as const;
 
 interface PollBarChartProps {
   options: PollOptionResult[];

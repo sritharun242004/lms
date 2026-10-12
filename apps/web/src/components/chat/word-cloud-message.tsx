@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { Loader2, Lock, RotateCcw, Send, Trash2, Unlock } from "lucide-react";
 import type { ChatMessage, WordCloudData } from "@/lib/api/services/message-service";
 import { messageService } from "@/lib/api/services/message-service";
-import { getInitials } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WordCloudCanvas } from "@/components/chat/word-cloud-canvas";
+import { INTERACTIVE_CARD_WIDTH } from "@/components/chat/interactive-card";
 import { useConfirm } from "@/hooks/use-confirm";
 
 export function WordCloudMessage({
@@ -78,7 +79,7 @@ export function WordCloudMessage({
   }
 
   return (
-    <div className="mx-4 my-2 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-4xl">
+    <div className={cn("my-2 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm", INTERACTIVE_CARD_WIDTH)}>
       {confirmDialog}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

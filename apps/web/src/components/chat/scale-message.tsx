@@ -10,6 +10,7 @@ import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScaleSlider } from "@/components/chat/scale-slider";
+import { INTERACTIVE_CARD_WIDTH } from "@/components/chat/interactive-card";
 
 export function ScaleMessage({
   message,
@@ -60,7 +61,7 @@ export function ScaleMessage({
   }
 
   return (
-    <section className="mx-4 my-3 overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-sm sm:mx-auto sm:max-w-4xl">
+    <section className={cn("@container my-3 overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-sm", INTERACTIVE_CARD_WIDTH)}>
       <header className="bg-primary px-4 py-4 text-primary-foreground sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -101,7 +102,8 @@ export function ScaleMessage({
         </div>
       </header>
 
-      <div className="space-y-5 p-4 sm:p-5">
+      <div className="space-y-4 p-4 sm:p-5">
+        <div className="grid gap-4 @3xl:grid-cols-2">
         {scale.statements.map((statement, index) => {
           const inputId = `scale-${message.id}-${statement.id}`;
           const stats = statement.stats;
@@ -150,6 +152,7 @@ export function ScaleMessage({
             </div>
           );
         })}
+        </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-h-5 flex-1">
