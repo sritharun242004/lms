@@ -10,6 +10,7 @@ import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { INTERACTIVE_CARD_WIDTH } from "@/components/chat/interactive-card";
 
 const MAX_ANSWER_LENGTH = 280;
 const RESPONSE_TONES = [
@@ -75,7 +76,7 @@ export function OpenQuestionMessage({
   }
 
   return (
-    <section className="mx-4 my-3 overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-sm sm:mx-auto sm:max-w-4xl">
+    <section className={cn("my-3 overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-sm", INTERACTIVE_CARD_WIDTH)}>
       <header className="bg-primary px-4 py-4 text-primary-foreground sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -194,7 +195,7 @@ export function OpenQuestionMessage({
               No responses yet. Be the first to share.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {openQuestion.answers.map((answer, index) => {
                 const isMyAnswer = answer.id === openQuestion.myAnswerId;
                 const tone = RESPONSE_TONES[index % RESPONSE_TONES.length];

@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PollChart, POLL_ANIMATION_MS, pollColor } from "@/components/chat/poll-chart";
 import { PollBarResults } from "@/components/chat/poll-bar-results";
+import { INTERACTIVE_CARD_WIDTH } from "@/components/chat/interactive-card";
 
 export function PollMessage({
   message,
@@ -108,7 +109,14 @@ export function PollMessage({
   );
 
   return (
-    <div className="@container mx-4 my-2 flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:mx-auto sm:max-w-4xl sm:p-6">
+    <div
+      className={cn(
+        "@container my-2 flex flex-col rounded-2xl border border-border bg-card shadow-sm",
+        INTERACTIVE_CARD_WIDTH,
+        // Bar results are compact; Donut/Pie keep their existing spacing.
+        isBar ? "gap-3 p-3.5 sm:p-5" : "gap-4 p-4 sm:p-6"
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Avatar className="size-6">

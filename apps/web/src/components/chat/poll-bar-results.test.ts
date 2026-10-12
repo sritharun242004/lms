@@ -112,7 +112,7 @@ describe("two-section layout", () => {
     show(poll(labels(3), [2, 1, 0]));
     const graph = screen.getByTestId("poll-bar-graph");
     const list = screen.getByTestId("poll-answer-list");
-    expect(graph.parentElement!.className).toContain("@2xl:grid-cols-2");
+    expect(graph.parentElement!.className).toContain("@2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]");
     expect(list.className).toContain("@2xl:border-l");
     // both columns may shrink, so long text can never force horizontal overflow
     expect(graph.className).toContain("min-w-0");
@@ -265,20 +265,30 @@ describe("answer list", () => {
   });
 });
 
-describe("scrolling", () => {
-  it("lets up to 12 options grow the card with no nested scroller", () => {
-    show(poll(labels(12), labels(12).map(() => 1)));
-    const root = screen.getByTestId("poll-bar-results");
-    expect(root.className).not.toContain("overflow-y-auto");
-    expect(root.className).not.toContain("max-h-");
+describe("height and scrolling", () => {
+  const tokens = (el: HTMLElement) => el.className.split(" ").filter(Boolean);
+
+  it("fits the results region to the viewport on desktop only, so phones never get a nested scroller", () => {
+    show(poll(labels(5), labels(5).map(() => 1)));
+    const t = tokens(screen.getByTestId("poll-bar-results"));
+    expect(t.some((c) => c.startsWith("@2xl:max-h-["))).toBe(true);
+    expect(t).toContain("@2xl:overflow-y-auto");
+    // nothing unprefixed: below @2xl the card just grows with the chat thread
+    expect(t).not.toContain("overflow-y-auto");
+    expect(t.some((c) => c.startsWith("max-h-"))).toBe(false);
   });
 
-  it("scrolls the chart and answers together inside one container beyond 12", () => {
+  it("keeps the chart and every answer inside the same scroll region", () => {
     show(poll(labels(20), labels(20).map(() => 1)));
     const root = screen.getByTestId("poll-bar-results");
-    expect(root.className).toContain("overflow-y-auto");
     expect(root.contains(screen.getByTestId("poll-bar-graph"))).toBe(true);
     expect(root.contains(cards()[19])).toBe(true);
+    expect(cards()).toHaveLength(20);
+  });
+
+  it("pins the chart while a long answer list scrolls", () => {
+    show(poll(labels(20), labels(20).map(() => 1)));
+    expect(screen.getByTestId("poll-bar-graph").className).toContain("@2xl:sticky");
   });
 });
 
@@ -301,20 +311,52 @@ describe("data updates and motion", () => {
     expect(cards()[1].textContent).toContain("3 votes");
   });
 
-  it("animates answer progress up from zero, and not at all with reduced motion", () => {
+  it("keeps the answer rows completely static: no motion, no transitions", () => {
+    show(poll(["A", "B", "C"], [2, 4, 0], "o1"));
+    const list = screen.getByTestId("poll-answer-list");
+    // nothing in the list is rendered through the animation library
+    expect(list.querySelectorAll("[data-initial], [data-duration]")).toHaveLength(0);
+    // no transition / animation utilities anywhere in the rows
+    expect(list.innerHTML).not.toMatch(/transition|animate-|duration-|ease-/);
+    // the progress fill is drawn at its final width straight away
+    const fills = within(list).getAllByTestId("poll-answer-fill") as HTMLElement[];
+    const widths = fills.map((f) => parseFloat(f.style.width));
+    expect(widths[0]).toBeCloseTo(33.33, 1);
+    expect(widths[1]).toBeCloseTo(66.67, 1);
+    expect(widths[2]).toBe(0);
+  });
+
+  it("updates the answer rows immediately when results change", () => {
+    const view = show(poll(["A", "B"], [1, 1]));
+    view.rerender(createElement(PollBarResults, { poll: poll(["A", "B"], [1, 3]), isVoting: false, onVote: vi.fn() }));
+    const fills = screen.getAllByTestId("poll-answer-fill") as HTMLElement[];
+    expect(fills.map((f) => f.style.width)).toEqual(["25%", "75%"]);
+    expect(cards()[1].textContent).toContain("75%");
+  });
+
+  it("keeps each option's colour fixed across vote changes and re-renders", () => {
+    const colours = () =>
+      screen.getAllByTestId("poll-answer-marker").map((m) => (m as HTMLElement).style.backgroundColor);
+    const view = show(poll(["A", "B", "C"], [1, 1, 1]));
+    const before = colours();
+    view.rerender(createElement(PollBarResults, { poll: poll(["A", "B", "C"], [5, 0, 2]), isVoting: false, onVote: vi.fn() }));
+    expect(colours()).toEqual(before);
+    expect(before).toEqual(["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"]);
+    // the matching bar colours come from the same mapping
+    const fills = (screen.getAllByTestId("poll-answer-fill") as HTMLElement[]).map((f) => f.style.backgroundColor);
+    expect(fills).toEqual(before);
+  });
+
+  it("still animates the chart (bar labels mount only after the animation) and respects reduced motion", () => {
     show(poll(["A", "B"], [2, 4]));
-    const progress = () => [...document.querySelectorAll("[data-initial]")] as HTMLElement[];
-    expect(progress().every((el) => el.getAttribute("data-initial") === "0%")).toBe(true);
+    // Recharts mounts bar labels once its animation has finished, so none exist yet
+    expect(chart().querySelectorAll(".recharts-label-list text")).toHaveLength(0);
     cleanup();
 
     state.reduced = true;
     show(poll(["A", "B"], [2, 4]));
-    for (const el of progress()) {
-      expect(el.getAttribute("data-initial")).toBe("none");
-      expect(el.getAttribute("data-duration")).toBe("0");
-    }
-    // with animation off the bars are drawn at their final size straight away
-    expect(chart().querySelectorAll(".recharts-bar-rectangle path").length).toBe(2);
+    expect([...chart().querySelectorAll(".recharts-label-list text")].map((t) => t.textContent)).toEqual(["2", "4"]);
+    expect(chart().querySelectorAll(".recharts-bar-rectangle path")).toHaveLength(2);
   });
 });
 
