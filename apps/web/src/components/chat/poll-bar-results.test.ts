@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { cloneElement, createElement, type CSSProperties, type ReactElement, type ReactNode } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { createElement, type CSSProperties, type ReactNode } from "react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PollChartType } from "@cms/shared";
@@ -46,20 +46,13 @@ vi.mock("motion/react", async () => {
 // fixed size and count renders to prove the chart is not redrawn needlessly.
 vi.mock("recharts", async () => {
   const actual = await vi.importActual<typeof import("recharts")>("recharts");
+  const { createElement: h } = await vi.importActual<typeof import("react")>("react");
   return {
     ...actual,
-    ResponsiveContainer: ({
-      children,
-      height,
-      minHeight,
-    }: {
-      children: ReactElement;
-      height?: number | string;
-      minHeight?: number;
-    }) => {
+    // Count chart renders to prove the chart is not redrawn for unchanged data.
+    BarChart: (props: Record<string, unknown>) => {
       state.containerRenders += 1;
-      const resolved = typeof height === "number" ? height : (minHeight ?? 300);
-      return cloneElement(children, { width: 640, height: resolved } as never);
+      return h(actual.BarChart as never, props as never);
     },
   };
 });
@@ -121,16 +114,15 @@ describe("two-section layout", () => {
 
   it("keeps the graph in view while a long list scrolls", () => {
     show(poll(labels(20), labels(20).map(() => 1)));
-    expect(screen.getByTestId("poll-bar-graph").className).toContain("@2xl:sticky");
+    expect(screen.getByTestId("poll-bar-graph-sticky").className).toContain("@2xl:sticky");
   });
 });
 
 describe("column chart", () => {
   it("draws one rounded column per option, including zero-vote options", () => {
-    state.reduced = true; // Recharts mounts bar labels once its animation ends
     show(poll(["A", "B", "C", "D"], [4, 2, 0, 1]));
     expect(chart().querySelectorAll(".recharts-bar-rectangle")).toHaveLength(4);
-    const counts = [...chart().querySelectorAll(".recharts-label-list text")].map((t) => t.textContent);
+    const counts = [...chart().querySelectorAll("[data-testid=poll-bar-count]")].map((t) => t.textContent);
     expect(counts).toEqual(["4", "2", "0", "1"]);
   });
 
@@ -265,30 +257,33 @@ describe("answer list", () => {
   });
 });
 
-describe("height and scrolling", () => {
-  const tokens = (el: HTMLElement) => el.className.split(" ").filter(Boolean);
+describe("scrolling: the thread is the only scroller", () => {
+  const SCROLL_RULES = /overflow-y-(auto|scroll)|overflow-auto|overflow-scroll|overscroll|touch-none|max-h-\[/;
 
-  it("fits the results region to the viewport on desktop only, so phones never get a nested scroller", () => {
-    show(poll(labels(5), labels(5).map(() => 1)));
-    const t = tokens(screen.getByTestId("poll-bar-results"));
-    expect(t.some((c) => c.startsWith("@2xl:max-h-["))).toBe(true);
-    expect(t).toContain("@2xl:overflow-y-auto");
-    // nothing unprefixed: below @2xl the card just grows with the chat thread
-    expect(t).not.toContain("overflow-y-auto");
-    expect(t.some((c) => c.startsWith("max-h-"))).toBe(false);
-  });
-
-  it("keeps the chart and every answer inside the same scroll region", () => {
-    show(poll(labels(20), labels(20).map(() => 1)));
+  it("has no scroll container, overscroll rule or fixed max-height anywhere in the card", () => {
+    show(poll(labels(20), labels(20).map((_, i) => i)));
     const root = screen.getByTestId("poll-bar-results");
-    expect(root.contains(screen.getByTestId("poll-bar-graph"))).toBe(true);
-    expect(root.contains(cards()[19])).toBe(true);
-    expect(cards()).toHaveLength(20);
+    const offenders = [root, ...root.querySelectorAll("*")].filter((el) =>
+      SCROLL_RULES.test(el.getAttribute("class") ?? "")
+    );
+    expect(offenders.map((el) => el.getAttribute("class"))).toEqual([]);
+    // and nothing sets overflow inline either
+    for (const el of [root, ...root.querySelectorAll<HTMLElement>("*")]) {
+      expect(el.style.overflowY).not.toMatch(/auto|scroll/);
+    }
   });
 
-  it("pins the chart while a long answer list scrolls", () => {
+  it("grows with its content: every chart bar and every answer is in the DOM and unclipped", () => {
     show(poll(labels(20), labels(20).map(() => 1)));
-    expect(screen.getByTestId("poll-bar-graph").className).toContain("@2xl:sticky");
+    expect(cards()).toHaveLength(20);
+    expect(chart().querySelectorAll(".recharts-bar-rectangle")).toHaveLength(20);
+  });
+
+  it("keeps the chart pinned beside a long answer list without its own scroller", () => {
+    show(poll(labels(20), labels(20).map(() => 1)));
+    const sticky = screen.getByTestId("poll-bar-graph-sticky");
+    expect(sticky.className).toContain("@2xl:sticky");
+    expect(screen.getByTestId("poll-bar-graph").contains(sticky)).toBe(true);
   });
 });
 
@@ -306,7 +301,7 @@ describe("data updates and motion", () => {
     const before = state.containerRenders;
     view.rerender(createElement(PollBarResults, { poll: poll(["A", "B"], [1, 3]), isVoting: false, onVote: vi.fn() }));
     expect(state.containerRenders).toBeGreaterThan(before);
-    expect([...chart().querySelectorAll(".recharts-label-list text")].map((t) => t.textContent)).toEqual(["1", "3"]);
+    expect([...chart().querySelectorAll("[data-testid=poll-bar-count]")].map((t) => t.textContent)).toEqual(["1", "3"]);
     expect(cards()[1].textContent).toContain("75%");
     expect(cards()[1].textContent).toContain("3 votes");
   });
@@ -347,15 +342,42 @@ describe("data updates and motion", () => {
     expect(fills).toEqual(before);
   });
 
-  it("still animates the chart (bar labels mount only after the animation) and respects reduced motion", () => {
-    show(poll(["A", "B"], [2, 4]));
-    // Recharts mounts bar labels once its animation has finished, so none exist yet
-    expect(chart().querySelectorAll(".recharts-label-list text")).toHaveLength(0);
-    cleanup();
+  it("animates on mount and when the votes change, but not for anything else", () => {
+    vi.useFakeTimers();
+    try {
+      const view = show(poll(["A", "B"], [2, 4]));
+      const animating = () => chart().getAttribute("data-animating");
+      expect(animating()).toBe("true"); // first paint grows from zero
+      act(() => vi.advanceTimersByTime(900));
+      expect(animating()).toBe("false"); // settled
 
+      // selection-only change: same counts, only myVote differs -> no replay
+      view.rerender(createElement(PollBarResults, { poll: poll(["A", "B"], [2, 4], "o1"), isVoting: false, onVote: vi.fn() }));
+      expect(animating()).toBe("false");
+      view.rerender(createElement(PollBarResults, { poll: poll(["A", "B"], [2, 4], "o0"), isVoting: true, onVote: vi.fn() }));
+      expect(animating()).toBe("false");
+
+      // real data change -> animate, then settle again
+      view.rerender(createElement(PollBarResults, { poll: poll(["A", "B"], [3, 4], "o0"), isVoting: false, onVote: vi.fn() }));
+      expect(animating()).toBe("true");
+      act(() => vi.advanceTimersByTime(900));
+      expect(animating()).toBe("false");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("draws every vote count with its bar so counts never disappear while animating", () => {
+    show(poll(["A", "B", "C"], [2, 4, 0]));
+    // present on the very first frame, i.e. while the grow animation is running
+    expect(chart().getAttribute("data-animating")).toBe("true");
+    expect([...chart().querySelectorAll("[data-testid=poll-bar-count]")].map((t) => t.textContent)).toEqual(["2", "4", "0"]);
+  });
+
+  it("respects reduced motion: never animates", () => {
     state.reduced = true;
     show(poll(["A", "B"], [2, 4]));
-    expect([...chart().querySelectorAll(".recharts-label-list text")].map((t) => t.textContent)).toEqual(["2", "4"]);
+    expect(chart().getAttribute("data-animating")).toBe("false");
     expect(chart().querySelectorAll(".recharts-bar-rectangle path")).toHaveLength(2);
   });
 });

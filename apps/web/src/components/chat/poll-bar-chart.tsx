@@ -7,12 +7,12 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
-  ResponsiveContainer,
+  Rectangle,
   XAxis,
   YAxis,
 } from "recharts";
 import type { PollOptionResult } from "@/lib/api/services/message-service";
+import { useDataAnimation } from "@/hooks/use-data-animation";
 import { POLL_ANIMATION_MS, pollColor } from "@/components/chat/poll-chart";
 import { pollAxis } from "@/components/chat/poll-bar-scale";
 import { createTextMeasurer, wrapLabel, wrapLabelBy } from "@/components/chat/poll-bar-label";
@@ -33,8 +33,8 @@ const LINE_HEIGHT = 14;
 const LABEL_FONT_PX = 11;
 const CHAR_WIDTH = 6.6; // fallback glyph width when the font cannot be measured
 const BAND_PADDING = 4;
-/** Smallest plot (bars + counts); the column may stretch it to match the list. */
-const MIN_PLOT_HEIGHT = 200;
+/** Height of the plot itself (bars + counts), below the top margin. */
+const PLOT_HEIGHT = 200;
 const MARGIN = { top: 26, right: 8, left: 0, bottom: 0 } as const;
 
 interface PollBarChartProps {
@@ -100,6 +100,40 @@ function CategoryTick({ x = 0, y = 0, index = 0, lines: all, keysOnly }: TickPro
   );
 }
 
+interface BarShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  payload?: Datum;
+}
+
+/**
+ * One column plus its vote count. The count is part of the bar's own shape, so
+ * it is positioned from the same animated geometry and rides on top of the bar
+ * while it grows. (Recharts' LabelList is hidden for the whole animation and
+ * only reappears afterwards, which made counts blink out on every update.)
+ */
+function BarWithCount({ x = 0, y = 0, width = 0, height = 0, fill, payload }: BarShapeProps) {
+  return (
+    <g>
+      <Rectangle x={x} y={y} width={width} height={height} fill={fill} radius={[10, 10, 0, 0]} />
+      <text
+        x={x + width / 2}
+        y={y - 8}
+        textAnchor="middle"
+        fontSize={13}
+        fontWeight={600}
+        fill="var(--foreground)"
+        data-testid="poll-bar-count"
+      >
+        {payload?.votes ?? 0}
+      </text>
+    </g>
+  );
+}
+
 function sameBars(a: PollBarChartProps, b: PollBarChartProps) {
   return (
     a.className === b.className &&
@@ -118,12 +152,15 @@ function sameBars(a: PollBarChartProps, b: PollBarChartProps) {
  * Vertical, rounded column chart of poll votes.
  *
  * Space is reserved from the real container width: the width of one category
- * band decides how wide a label line may be (measured in the real font), the
- * longest wrapped label decides the height of the label area, and
- * ResponsiveContainer gives the plot whatever height is left - at least
- * MIN_PLOT_HEIGHT, more when the column is stretched beside a taller answer
- * list. Above FULL_LABEL_LIMIT options the bars carry numbered keys (matching
- * the numbered circles on the answer cards) so labels can never collide.
+ * band decides how wide a label line may be (measured in the real font) and the
+ * longest wrapped label decides the height of the label area. The chart height
+ * is computed from that, so it is fixed for a given layout and never flickers
+ * while the container is being measured.
+ *
+ * Animation runs only when the vote numbers change (and on first mount); a
+ * resize or any other layout change re-lays the bars out instantly. Above
+ * FULL_LABEL_LIMIT options, or when categories are too narrow, the bars carry
+ * number keys that match the numbered circles on the answer cards.
  */
 export const PollBarChart = React.memo(function PollBarChart({
   options,
@@ -132,6 +169,12 @@ export const PollBarChart = React.memo(function PollBarChart({
 }: PollBarChartProps) {
   const reduceMotion = useReducedMotion();
   const [boxRef, boxWidth] = useElementWidth<HTMLDivElement>(480);
+
+  const signature = React.useMemo(
+    () => options.map((option) => `${option.id}:${option.voteCount}`).join("|"),
+    [options]
+  );
+  const animate = useDataAnimation(signature, POLL_ANIMATION_MS, Boolean(reduceMotion));
 
   const data = React.useMemo<Datum[]>(
     () =>
@@ -171,6 +214,7 @@ export const PollBarChart = React.memo(function PollBarChart({
     [data, keysOnly, wrap]
   );
   const labelAreaHeight = Math.max(1, ...lines.map((entry) => entry.length)) * LINE_HEIGHT + 22;
+  const chartHeight = MARGIN.top + PLOT_HEIGHT + labelAreaHeight;
 
   const summary = options.map((o, i) => `${i + 1}. ${o.text}: ${o.voteCount}`).join("; ");
 
@@ -181,13 +225,15 @@ export const PollBarChart = React.memo(function PollBarChart({
       role="img"
       aria-label={`Bar graph of votes. ${summary}`}
       data-testid="poll-bar-chart"
+      data-animating={animate ? "true" : "false"}
     >
-      <ResponsiveContainer
-        width="100%"
-        height="100%"
-        minHeight={MIN_PLOT_HEIGHT + MARGIN.top + labelAreaHeight}
-      >
-        <BarChart data={data} margin={MARGIN} barCategoryGap="22%">
+      {/*
+        Sized from the same measurement that drives label wrapping (boxWidth), not
+        from Recharts' ResponsiveContainer. Two separate observers meant the plot
+        got the new width a frame before the label area got its new height, so a
+        resize showed one frame of squashed bars.
+      */}
+      <BarChart width={boxWidth} height={chartHeight} data={data} margin={MARGIN} barCategoryGap="22%">
           <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="var(--border)" />
           <YAxis
             width={Y_AXIS_WIDTH}
@@ -216,8 +262,8 @@ export const PollBarChart = React.memo(function PollBarChart({
           <Bar
             dataKey="votes"
             maxBarSize={64}
-            radius={[10, 10, 0, 0]}
-            isAnimationActive={!reduceMotion}
+            shape={<BarWithCount />}
+            isAnimationActive={animate}
             animationBegin={0}
             animationDuration={POLL_ANIMATION_MS}
             animationEasing="ease-out"
@@ -225,15 +271,8 @@ export const PollBarChart = React.memo(function PollBarChart({
             {data.map((datum) => (
               <Cell key={datum.id} fill={datum.fill} />
             ))}
-            <LabelList
-              dataKey="votes"
-              position="top"
-              offset={8}
-              style={{ fontSize: 13, fontWeight: 600, fill: "var(--foreground)" }}
-            />
           </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      </BarChart>
     </div>
   );
 }, sameBars);
