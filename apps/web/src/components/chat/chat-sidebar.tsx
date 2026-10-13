@@ -54,7 +54,7 @@ export function ChatSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">
             {groups.length === 0 ? "No groups yet" : "No matches"}
