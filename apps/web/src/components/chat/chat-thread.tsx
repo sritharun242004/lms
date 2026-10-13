@@ -655,7 +655,12 @@ export function ChatThread({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white/10 py-3 dark:bg-transparent"
+        // min-h-0: a flex child's height otherwise defaults to its content's
+        // size, so without it this list can grow past its share of the
+        // column and push the composer off-screen instead of scrolling.
+        // overscroll-contain: once the list hits either end, stop the
+        // leftover wheel/touch delta from chaining into a page scroll.
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-white/10 py-3 dark:bg-transparent"
       >
         {hasMore && (
           <div className="flex justify-center pb-2">
@@ -747,7 +752,7 @@ export function ChatThread({
 
       {canManage ? (
         <div className="border-t border-border/60 bg-white/32 p-3 backdrop-blur-xl dark:bg-white/[.02]">
-          {uploads.length > 0 && <div className="mb-3 space-y-2">{uploads.map((row) => { const percent = row.total > 0 ? Math.round((row.loaded / row.total) * 100) : 0; return <div key={row.key} className="rounded-xl bg-background/70 p-2 text-xs"><div className="flex justify-between gap-3"><span className="truncate font-medium">{row.name}</span><span className={row.status === "failed" ? "text-destructive" : "text-muted-foreground"}>{row.status === "completed" ? "Completed" : row.status === "failed" ? "Failed" : `${percent}% · ${(row.loaded / 1048576).toFixed(1)} / ${(row.total / 1048576).toFixed(1)} MB`}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={row.status === "failed" ? "h-full bg-destructive" : "h-full bg-primary transition-[width]"} style={{ width: `${row.status === "failed" ? 100 : percent}%` }} /></div>{row.error && <p className="mt-1 text-destructive">{row.error}</p>}</div>; })}</div>}
+          {uploads.length > 0 && <div className="mb-3 max-h-32 space-y-2 overflow-y-auto">{uploads.map((row) => { const percent = row.total > 0 ? Math.round((row.loaded / row.total) * 100) : 0; return <div key={row.key} className="rounded-xl bg-background/70 p-2 text-xs"><div className="flex justify-between gap-3"><span className="truncate font-medium">{row.name}</span><span className={row.status === "failed" ? "text-destructive" : "text-muted-foreground"}>{row.status === "completed" ? "Completed" : row.status === "failed" ? "Failed" : `${percent}% · ${(row.loaded / 1048576).toFixed(1)} / ${(row.total / 1048576).toFixed(1)} MB`}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={row.status === "failed" ? "h-full bg-destructive" : "h-full bg-primary transition-[width]"} style={{ width: `${row.status === "failed" ? 100 : percent}%` }} /></div>{row.error && <p className="mt-1 text-destructive">{row.error}</p>}</div>; })}</div>}
           <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}

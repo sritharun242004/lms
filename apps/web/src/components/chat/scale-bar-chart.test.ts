@@ -5,7 +5,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ reduced: false, chartRenders: 0 }));
-vi.mock("motion/react", () => ({ useReducedMotion: () => state.reduced }));
+vi.mock("@/hooks/use-prefers-reduced-motion", () => ({ usePrefersReducedMotion: () => state.reduced }));
 // The real tween, counted: the chart calls it exactly once per render.
 vi.mock("@/hooks/use-tweened-numbers", async () => {
   const actual = await vi.importActual<typeof import("@/hooks/use-tweened-numbers")>("@/hooks/use-tweened-numbers");

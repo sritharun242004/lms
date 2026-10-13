@@ -26,20 +26,24 @@ export function ChatShell({
   const pathname = usePathname();
   const hasActiveGroup = pathname !== "/chat";
 
+  // overflow-hidden (not just -x): without it, anything inside that grows
+  // past this already-bounded height (a tall draft, a burst of upload rows)
+  // bleeds out past this box instead of being confined to it, and since
+  // nothing above here clips either, that turns into page-level scroll.
   if (hideSidebar) {
     return (
-      <div className={cn("glass flex overflow-x-hidden", hasActiveGroup ? "h-svh w-full rounded-none" : "h-[calc(100svh-7.5rem)] rounded-3xl")}>
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className={cn("glass flex overflow-hidden", hasActiveGroup ? "h-svh w-full rounded-none" : "h-[calc(100svh-7.5rem)] rounded-3xl")}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       </div>
     );
   }
 
   return (
-    <div className={cn("glass flex overflow-x-hidden", hasActiveGroup ? "h-svh w-full rounded-none" : "h-[calc(100svh-7.5rem)] rounded-3xl")}>
+    <div className={cn("glass flex overflow-hidden", hasActiveGroup ? "h-svh w-full rounded-none" : "h-[calc(100svh-7.5rem)] rounded-3xl")}>
       <div className={cn("h-full", hasActiveGroup ? "hidden md:flex" : "flex w-full md:w-auto")}>
         <ChatSidebar groups={groups} canCreate={canCreate} />
       </div>
-      <div className={cn("min-w-0 flex-1 flex-col", hasActiveGroup ? "flex" : "hidden md:flex")}>
+      <div className={cn("min-h-0 min-w-0 flex-1 flex-col", hasActiveGroup ? "flex" : "hidden md:flex")}>
         {children}
       </div>
     </div>

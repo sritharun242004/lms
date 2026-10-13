@@ -13,8 +13,10 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
+const motionState = vi.hoisted(() => ({ reduced: false }));
 
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError } }));
+vi.mock("@/hooks/use-prefers-reduced-motion", () => ({ usePrefersReducedMotion: () => motionState.reduced }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/chat/group-1" }));
 vi.mock("@/lib/api/services/message-service", () => ({
   messageService: { createScale: mocks.createScale, submitScale: mocks.submitScale },
@@ -45,6 +47,7 @@ import { ScaleSlider } from "./scale-slider";
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
+  motionState.reduced = false;
   mocks.createScale.mockResolvedValue({ success: true, data: { id: "scale-message" } });
 });
 
@@ -135,6 +138,40 @@ describe("ScaleSlider", () => {
       fireEvent.change(screen.getByRole("slider"), { target: { value: String(value) } });
       expect(screen.getByTestId("reported").textContent).toBe(String(value));
     }
+  });
+
+  it("positions the custom thumb and fill at the value's percentage along the track", () => {
+    render(createElement(Harness, { max: 4 }));
+    fireEvent.click(screen.getAllByTestId("scale-point")[1]); // value 1 of 0..4 = 25%
+    expect(screen.getByTestId("scale-slider-thumb").style.left).toBe("25%");
+    expect(screen.getByTestId("scale-slider-fill").style.width).toBe("25%");
+  });
+
+  it("animates a discrete value change (tick click) with a transition", () => {
+    render(createElement(Harness, { max: 5, initial: 0 }));
+    fireEvent.click(screen.getAllByTestId("scale-point")[5]);
+    const transition = screen.getByTestId("scale-slider-thumb").style.transition;
+    expect(transition).toContain("left");
+    expect(transition).not.toBe("none");
+  });
+
+  it("skips the transition while reduced motion is requested", () => {
+    motionState.reduced = true;
+    render(createElement(Harness, { max: 5, initial: 0 }));
+    fireEvent.click(screen.getAllByTestId("scale-point")[5]);
+    expect(screen.getByTestId("scale-slider-thumb").style.transition).toBe("none");
+    expect(screen.getByTestId("scale-slider-fill").style.transition).toBe("none");
+  });
+
+  it("skips the transition while a pointer drag is in progress, so the thumb doesn't lag the pointer", () => {
+    render(createElement(Harness, { max: 5, initial: 0 }));
+    const slider = screen.getByRole("slider");
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, { target: { value: "3" } });
+    expect(screen.getByTestId("scale-slider-thumb").style.transition).toBe("none");
+    fireEvent.pointerUp(slider);
+    fireEvent.change(slider, { target: { value: "4" } });
+    expect(screen.getByTestId("scale-slider-thumb").style.transition).not.toBe("none");
   });
 });
 

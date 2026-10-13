@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useReducedMotion } from "motion/react";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { useTweenedNumbers } from "@/hooks/use-tweened-numbers";
 import { POLL_ANIMATION_MS } from "@/components/chat/poll-chart";
 import { scaleBars } from "@/components/chat/scale-results";
@@ -67,7 +67,7 @@ export const ScaleBarChart = React.memo(function ScaleBarChart({
   label,
   className,
 }: ScaleBarChartProps) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = usePrefersReducedMotion();
   const { bars, total, peak } = React.useMemo(
     () => scaleBars({ min, max }, distribution, selected),
     [min, max, distribution, selected]
