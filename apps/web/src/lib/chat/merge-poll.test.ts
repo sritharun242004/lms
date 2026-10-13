@@ -50,6 +50,31 @@ describe("mergeLatest with keepLocalPoll", () => {
   });
 });
 
+describe("mergeLatest with keepLocalScale", () => {
+  const scale = (distribution: number[], myValue: number) => ({
+    id: "s",
+    isClosed: false,
+    statements: [{ id: "st", text: "S", order: 0, min: 0, max: 2, leftLabel: "L", rightLabel: "R", myValue, stats: { count: 1, average: myValue, min: myValue, max: myValue, distribution } }],
+  });
+  const scaleMsg = (id: string, s: ReturnType<typeof scale>) =>
+    ({ id, createdAt: "2026-10-13T09:00:00Z", content: id, type: "SCALE", scale: s }) as unknown as ChatMessage;
+  const local = [scaleMsg("m1", scale([0, 0, 1], 2))];
+  const staleLatest = [scaleMsg("m1", scale([1, 0, 0], 0))];
+
+  it("keeps a just-saved scale when the batch was requested before the save", () => {
+    expect(mergeLatest(local, staleLatest, { keepLocalScale: () => true })[0].scale).toEqual(local[0].scale);
+  });
+
+  it("takes the server's scale otherwise, so other participants' responses still arrive", () => {
+    expect(mergeLatest(local, staleLatest, { keepLocalScale: () => false })[0].scale).toEqual(staleLatest[0].scale);
+    expect(mergeLatest(local, staleLatest)[0].scale).toEqual(staleLatest[0].scale);
+  });
+
+  it("is independent of the poll guard", () => {
+    expect(mergeLatest(local, staleLatest, { keepLocalPoll: () => true })[0].scale).toEqual(staleLatest[0].scale);
+  });
+});
+
 describe("applyPollVoteEvent", () => {
   const event = { messageId: "m1", options: [{ id: "o1", voteCount: 7 }, { id: "o2", voteCount: 2 }], totalVotes: 20 };
   const start = [msg("m1", "2026-10-12T09:00:00Z", poll([4, 5, 3, 5], "o3")), msg("m2", "2026-10-12T09:01:00Z")];

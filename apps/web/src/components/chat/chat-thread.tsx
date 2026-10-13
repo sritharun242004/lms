@@ -212,6 +212,7 @@ export function ChatThread({
   // refresh is stamped when requested, each applied vote result when applied.
   const pollClockRef = React.useRef(0);
   const pollWrittenAtRef = React.useRef<Map<string, number>>(new Map());
+  const scaleWrittenAtRef = React.useRef<Map<string, number>>(new Map());
   const [confirm, confirmDialog] = useConfirm();
 
   // Keep a live set of known message ids so polling can tell whether a
@@ -270,6 +271,7 @@ export function ChatThread({
         setMessages((prev) =>
           mergeLatest(prev, latest, {
             keepLocalPoll: (id) => (pollWrittenAtRef.current.get(id) ?? 0) > requestedAt,
+            keepLocalScale: (id) => (scaleWrittenAtRef.current.get(id) ?? 0) > requestedAt,
           })
         );
         if (hasNew && isAtBottomRef.current) {
@@ -543,6 +545,7 @@ export function ChatThread({
   }
 
   function handleScaleChanged(messageId: string, scale: ScaleData) {
+    scaleWrittenAtRef.current.set(messageId, ++pollClockRef.current);
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, scale } : m)));
   }
 
