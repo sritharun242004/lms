@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { createElement, StrictMode, useState, type ComponentType, type ReactNode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -115,6 +115,18 @@ describe("ScaleSlider", () => {
     fireEvent.change(screen.getByRole("slider"), { target: { value: "3.6" } });
     expect(Number(screen.getByTestId("reported").textContent)).toBeLessThanOrEqual(5);
     expect(Number.isInteger(Number(screen.getByTestId("reported").textContent))).toBe(true);
+  });
+
+  it("offers every value as its own point and reports a pressed point once", () => {
+    render(createElement(Harness, { max: 5 }));
+    const points = screen.getAllByTestId("scale-point");
+    expect(points.map((point) => point.textContent)).toEqual(["0", "1", "2", "3", "4", "5"]);
+    expect(points.some((point) => point.dataset.selected === "true")).toBe(false);
+    fireEvent.click(points[5]);
+    expect(screen.getByTestId("reported").textContent).toBe("5");
+    expect(screen.getAllByTestId("scale-point").filter((point) => point.dataset.selected === "true").map((point) => point.textContent)).toEqual(["5"]);
+    fireEvent.click(screen.getAllByTestId("scale-point")[0]);
+    expect(screen.getByTestId("reported").textContent).toBe("0");
   });
 
   it("can pick every integer from 0 to N", () => {
@@ -256,8 +268,8 @@ describe("ScaleMessage", () => {
     mount();
     const sliders = screen.getAllByRole("slider") as HTMLInputElement[];
     expect(sliders.map((s) => s.max)).toEqual(["5", "10"]);
-    expect(screen.getByText(/1\. Statement one/)).toBeTruthy();
-    expect(screen.getByText(/2\. Statement two/)).toBeTruthy();
+    expect(screen.getByTestId("scale-statement-st-1").textContent).toContain("1.Statement one");
+    expect(screen.getByTestId("scale-statement-st-2").textContent).toContain("2.Statement two");
     expect((screen.getByRole("button", { name: "Submit response" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -298,9 +310,88 @@ describe("ScaleMessage", () => {
     participant.unmount();
 
     mount({ scale: withStats, canManage: true });
-    expect(screen.getByTestId("scale-results-st-1").textContent).toContain("3 responses");
-    expect(screen.getByTestId("scale-results-st-1").textContent).toContain("Average 3");
+    const tiles = [...screen.getByTestId("scale-stats-st-1").querySelectorAll("div")].map((tile) => [
+      tile.querySelector("dt")!.textContent,
+      tile.querySelector("dd")!.textContent,
+    ]);
+    expect(tiles).toEqual([["Average", "3"], ["Total responses", "3"], ["Min", "0"], ["Max", "5"]]);
+    expect(within(screen.getByTestId("scale-results-st-1")).getAllByTestId("scale-bar")).toHaveLength(6);
+    // A statement nobody has answered yet has no stats: no chart, no crash.
+    expect(screen.queryByTestId("scale-results-st-2")).toBeNull();
     expect(screen.getByText("3 participants have responded")).toBeTruthy();
+  });
+
+  it("shows dashes, not zeros, for the statistics of a statement with no responses", () => {
+    const empty = {
+      ...scale,
+      totalParticipants: 0,
+      statements: [
+        { ...statement("st-1", "Statement one", 5), stats: { count: 0, average: null, min: null, max: null, distribution: [0, 0, 0, 0, 0, 0] } },
+      ],
+    };
+    mount({ scale: empty, canManage: true });
+    const values = [...screen.getByTestId("scale-stats-st-1").querySelectorAll("dd")].map((dd) => dd.textContent);
+    expect(values).toEqual(["–", "0", "–", "–"]);
+    expect(screen.getAllByTestId("scale-bar-count").map((node) => node.textContent)).toEqual(["0", "0", "0", "0", "0", "0"]);
+  });
+
+  it("gives every statement its own accent on the panel, the slider and the chart", () => {
+    const stats = { count: 1, average: 2, min: 2, max: 2, distribution: [0, 0, 1, 0, 0, 0] };
+    const three = {
+      ...scale,
+      totalParticipants: 1,
+      statements: ["st-1", "st-2", "st-3"].map((id) => ({ ...statement(id, `Statement ${id}`, 5, 2), stats })),
+    };
+    mount({ scale: three, canManage: true });
+    const accents = ["var(--chart-1)", "var(--chart-2)", "var(--chart-4)"];
+    three.statements.forEach((st, i) => {
+      const panel = screen.getByTestId(`scale-statement-${st.id}`);
+      expect(panel.style.borderLeftColor).toBe(accents[i]);
+      expect((within(panel).getByRole("slider") as HTMLInputElement).style.accentColor).toBe(accents[i]);
+      expect(within(panel).getAllByTestId("scale-bar").every((bar) => bar.style.backgroundColor === accents[i])).toBe(true);
+      const point = within(panel).getAllByTestId("scale-point").find((node) => node.dataset.selected === "true")!;
+      expect(point.textContent).toBe("2");
+      expect((point.querySelector("span span") as HTMLElement).style.backgroundColor).toBe(accents[i]);
+    });
+  });
+
+  it("moves exactly one response when the viewer changes their value", async () => {
+    const user = userEvent.setup();
+    const stats = (distribution: number[], value: number) => ({ count: 1, average: value, min: value, max: value, distribution });
+    const before = { ...scale, totalParticipants: 1, statements: [{ ...statement("st-1", "Statement one", 5, 1), stats: stats([0, 1, 0, 0, 0, 0], 1) }] };
+    const after = { ...scale, totalParticipants: 1, statements: [{ ...statement("st-1", "Statement one", 5, 4), stats: stats([0, 0, 0, 0, 1, 0], 4) }] };
+    mocks.submitScale.mockResolvedValue({ success: true, data: { scale: after } });
+
+    function Thread() {
+      const [current, setCurrent] = useState(before);
+      const Component = ScaleMessage as unknown as ComponentType<Record<string, unknown>>;
+      return createElement(Component, {
+        message: base,
+        scale: current,
+        groupId: "group-1",
+        isOwn: false,
+        canManage: true,
+        onResponded: setCurrent,
+        onDelete: vi.fn(),
+      });
+    }
+    render(createElement(Thread));
+    const shownCounts = () => screen.getAllByTestId("scale-bar-count").map((node) => node.textContent);
+    expect(shownCounts()).toEqual(["0", "1", "0", "0", "0", "0"]);
+
+    // Moving the slider is only a draft: the distribution must not change yet.
+    fireEvent.change(screen.getByRole("slider"), { target: { value: "4" } });
+    expect(shownCounts()).toEqual(["0", "1", "0", "0", "0", "0"]);
+
+    // Two presses in a row still save once.
+    const button = screen.getByRole("button", { name: "Update response" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await user.click(button).catch(() => undefined);
+    await waitFor(() => expect(shownCounts()).toEqual(["0", "0", "0", "0", "1", "0"]));
+    expect(mocks.submitScale).toHaveBeenCalledTimes(1);
+    expect(mocks.submitScale).toHaveBeenCalledWith("group-1", "message-1", { responses: [{ statementId: "st-1", value: 4 }] });
+    expect(screen.getByText("Your response was updated.")).toBeTruthy();
   });
 });
 

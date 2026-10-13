@@ -20,11 +20,15 @@ export function upsertMessage(messages: ChatMessage[], incoming: ChatMessage): C
  * result applied) AFTER this batch was requested. The batch was read from the
  * server before that vote, so its poll is stale; keeping the local poll stops
  * a slow refresh from rolling a bar back and then forward again.
+ * `keepLocalScale(id)` does the same for a Scale whose response was just saved.
  */
 export function mergeLatest(
   existing: ChatMessage[],
   latest: ChatMessage[],
-  options: { keepLocalPoll?: (messageId: string) => boolean } = {}
+  options: {
+    keepLocalPoll?: (messageId: string) => boolean;
+    keepLocalScale?: (messageId: string) => boolean;
+  } = {}
 ): ChatMessage[] {
   if (latest.length === 0) return existing;
   if (options.keepLocalPoll) {
@@ -33,6 +37,15 @@ export function mergeLatest(
       const local = byId.get(incoming.id);
       return incoming.poll && local?.poll && options.keepLocalPoll!(incoming.id)
         ? { ...incoming, poll: local.poll }
+        : incoming;
+    });
+  }
+  if (options.keepLocalScale) {
+    const byId = new Map(existing.map((m) => [m.id, m]));
+    latest = latest.map((incoming) => {
+      const local = byId.get(incoming.id);
+      return incoming.scale && local?.scale && options.keepLocalScale!(incoming.id)
+        ? { ...incoming, scale: local.scale }
         : incoming;
     });
   }

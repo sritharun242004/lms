@@ -10,6 +10,8 @@ import { getInitials, cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScaleSlider } from "@/components/chat/scale-slider";
+import { ScaleBarChart } from "@/components/chat/scale-bar-chart";
+import { formatScaleStat, scaleAccent } from "@/components/chat/scale-results";
 import { INTERACTIVE_CARD_WIDTH } from "@/components/chat/interactive-card";
 
 export function ScaleMessage({
@@ -33,14 +35,18 @@ export function ScaleMessage({
   // and null means "not answered" (never a silent 0).
   const [chosen, setChosen] = React.useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  // State lags a render behind; the ref makes a second press in the same tick a no-op.
+  const submittingRef = React.useRef(false);
   const [feedback, setFeedback] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const valueOf = (statementId: string, saved: number | null) => chosen[statementId] ?? saved;
   const dirty = scale.statements.filter((st) => chosen[st.id] !== undefined && chosen[st.id] !== st.myValue);
   const hasSaved = scale.statements.some((st) => st.myValue !== null);
+  const showResults = canManage && scale.statements.some((st) => st.stats);
 
   async function submit() {
-    if (dirty.length === 0 || isSubmitting) return;
+    if (dirty.length === 0 || isSubmitting || submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setFeedback(null);
     try {
@@ -56,6 +62,7 @@ export function ScaleMessage({
       setFeedback({ type: "error", message: text });
       toast.error(text);
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -103,52 +110,90 @@ export function ScaleMessage({
       </header>
 
       <div className="space-y-4 p-4 sm:p-5">
-        <div className="grid gap-4 @3xl:grid-cols-2">
+        {/* Participants see only the sliders, so two fit side by side. With
+            results each statement is one wide row: chart | statistics | slider. */}
+        <div className={cn("grid gap-3", !showResults && "@3xl:grid-cols-2")}>
         {scale.statements.map((statement, index) => {
           const inputId = `scale-${message.id}-${statement.id}`;
-          const stats = statement.stats;
+          const stats = showResults ? statement.stats : undefined;
+          const accent = scaleAccent(index);
           return (
-            <div key={statement.id} className="rounded-2xl border border-border bg-background/70 p-3 sm:p-4">
-              <label htmlFor={inputId} className="mb-3 block text-sm font-semibold">
-                {index + 1}. {statement.text}
+            <div
+              key={statement.id}
+              className="overflow-hidden rounded-2xl border border-l-4 border-border bg-background/70 p-3 sm:p-4"
+              style={{ borderLeftColor: accent }}
+              data-testid={`scale-statement-${statement.id}`}
+            >
+              <label htmlFor={inputId} className="mb-3 flex items-start gap-2.5 text-sm font-semibold">
+                <span
+                  className="mt-px flex size-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums"
+                  style={{ backgroundColor: `color-mix(in oklab, ${accent} 18%, transparent)` }}
+                >
+                  {index + 1}
+                  <span className="sr-only">.</span>
+                </span>
+                <span className="min-w-0 pt-0.5 leading-snug [overflow-wrap:anywhere]">{statement.text}</span>
               </label>
-              <ScaleSlider
-                id={inputId}
-                label={statement.text}
-                min={statement.min}
-                max={statement.max}
-                leftLabel={statement.leftLabel}
-                rightLabel={statement.rightLabel}
-                value={valueOf(statement.id, statement.myValue)}
-                disabled={isSubmitting || scale.isClosed}
-                onChange={(value) => {
-                  setChosen((current) => ({ ...current, [statement.id]: value }));
-                  if (feedback) setFeedback(null);
-                }}
-              />
-              {canManage && stats && (
-                <div className="mt-4 border-t border-border/60 pt-3" data-testid={`scale-results-${statement.id}`}>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    {stats.count} {stats.count === 1 ? "response" : "responses"}
-                    {stats.average !== null && ` · Average ${stats.average} · Min ${stats.min} · Max ${stats.max}`}
-                  </p>
-                  <div className="flex h-16 items-end gap-1" role="img" aria-label="Response distribution">
-                    {stats.distribution.map((count, i) => {
-                      const peak = Math.max(1, ...stats.distribution);
-                      return (
-                        <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
-                          <span className="text-[10px] tabular-nums text-muted-foreground">{count}</span>
-                          <div
-                            className="w-full rounded-t bg-primary/70"
-                            style={{ height: `${Math.max(count > 0 ? 8 : 2, (count / peak) * 40)}px` }}
-                          />
-                          <span className="text-[10px] tabular-nums">{statement.min + i}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+              <div
+                className={cn(
+                  "grid gap-4",
+                  stats && "@4xl:grid-cols-[minmax(0,1.7fr)_auto_minmax(15rem,1fr)] @4xl:items-center @4xl:gap-6"
+                )}
+              >
+                <div className={cn("min-w-0", stats && "@4xl:order-3")}>
+                  <ScaleSlider
+                    id={inputId}
+                    label={statement.text}
+                    min={statement.min}
+                    max={statement.max}
+                    leftLabel={statement.leftLabel}
+                    rightLabel={statement.rightLabel}
+                    value={valueOf(statement.id, statement.myValue)}
+                    disabled={isSubmitting || scale.isClosed}
+                    accent={accent}
+                    onChange={(value) => {
+                      setChosen((current) => ({ ...current, [statement.id]: value }));
+                      if (feedback) setFeedback(null);
+                    }}
+                  />
                 </div>
-              )}
+                {stats && (
+                  <div className="contents" data-testid={`scale-results-${statement.id}`}>
+                    <ScaleBarChart
+                      min={statement.min}
+                      max={statement.max}
+                      distribution={stats.distribution}
+                      selected={statement.myValue}
+                      accent={accent}
+                      label={statement.text}
+                      className="@4xl:order-1"
+                    />
+                    <dl
+                      className="grid grid-cols-4 gap-2 @4xl:order-2 @4xl:w-44 @4xl:grid-cols-2"
+                      data-testid={`scale-stats-${statement.id}`}
+                    >
+                      {[
+                        ["Average", formatScaleStat(stats.average)],
+                        ["Total", String(stats.count)],
+                        ["Min", formatScaleStat(stats.min)],
+                        ["Max", formatScaleStat(stats.max)],
+                      ].map(([name, value]) => (
+                        <div
+                          key={name}
+                          className="flex min-w-0 flex-col-reverse rounded-xl px-2 py-1.5 text-center"
+                          style={{ backgroundColor: `color-mix(in oklab, ${accent} 9%, transparent)` }}
+                        >
+                          <dt className="truncate text-[11px] text-muted-foreground">
+                            {name}
+                            {name === "Total" && <span className="sr-only"> responses</span>}
+                          </dt>
+                          <dd className="text-base leading-tight font-semibold tabular-nums">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

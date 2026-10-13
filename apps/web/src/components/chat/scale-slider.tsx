@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
  * work with correct a11y semantics. `value === null` means "not answered":
  * the thumb is shown muted at the midpoint and nothing is reported until the
  * participant actually interacts — 0 is a real answer, not "empty".
+ *
+ * Under the track every allowed value is its own point; pressing one chooses
+ * that value through the same `onChange` as dragging. The points are a pointer
+ * shortcut only: the range input stays the single control for keyboard and
+ * assistive tech. `accent` colours the thumb and the chosen point.
  */
 export function ScaleSlider({
   id,
@@ -20,6 +25,7 @@ export function ScaleSlider({
   value,
   onChange,
   disabled = false,
+  accent = "var(--primary)",
 }: {
   id: string;
   label: string;
@@ -30,6 +36,7 @@ export function ScaleSlider({
   value: number | null;
   onChange: (value: number) => void;
   disabled?: boolean;
+  accent?: string;
 }) {
   const answered = value !== null;
   const shown = answered ? value : Math.round((min + max) / 2);
@@ -61,14 +68,36 @@ export function ScaleSlider({
         onPointerUp={(event) => {
           if (!answered) commit(Number((event.target as HTMLInputElement).value));
         }}
-        className={cn("h-10 w-full cursor-pointer touch-pan-y accent-primary", !answered && "opacity-50")}
+        style={{ accentColor: accent }}
+        className={cn("h-10 w-full cursor-pointer touch-pan-y", !answered && "opacity-50")}
       />
-      <div className="flex justify-between px-1 text-[11px] tabular-nums text-muted-foreground" aria-hidden="true">
-        {ticks.map((tick) => (
-          <span key={tick} className={cn(answered && tick === value && "font-bold text-primary")}>
-            {tick}
-          </span>
-        ))}
+      <div className="flex justify-between text-[11px] tabular-nums" aria-hidden="true">
+        {ticks.map((tick) => {
+          const chosen = answered && tick === value;
+          return (
+            <button
+              key={tick}
+              type="button"
+              tabIndex={-1}
+              disabled={disabled}
+              onClick={() => commit(tick)}
+              data-testid="scale-point"
+              data-selected={chosen ? "true" : undefined}
+              className="group flex w-4 flex-col items-center gap-1 enabled:cursor-pointer"
+            >
+              <span className="flex h-2.5 items-center">
+                <span
+                  className={cn(
+                    "block rounded-full",
+                    chosen ? "size-2.5" : "size-1.5 bg-border group-enabled:group-hover:bg-muted-foreground"
+                  )}
+                  style={chosen ? { backgroundColor: accent } : undefined}
+                />
+              </span>
+              <span className={chosen ? "font-bold text-foreground" : "text-muted-foreground"}>{tick}</span>
+            </button>
+          );
+        })}
       </div>
       <p className="text-center text-sm font-semibold tabular-nums" aria-live="polite">
         {answered ? value : <span className="font-normal text-muted-foreground">Slide to answer</span>}
