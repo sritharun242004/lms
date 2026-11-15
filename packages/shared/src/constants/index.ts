@@ -43,9 +43,9 @@ export const MAX_ATTACHMENT_SIZE_MB = 50;
 // ============================================================
 
 // Character cap for a single text message / edit. Sized to comfortably
-// hold ~3000 words (avg ~6 chars incl. spacing) so mentors can post long
+// hold ~8000 words (avg ~6 chars incl. spacing) so mentors can post long
 // announcements in one message.
-export const MAX_MESSAGE_LENGTH = 20000;
+export const MAX_MESSAGE_LENGTH = 50000;
 
 // Fixed per-word character cap for word clouds — no longer mentor-configurable,
 // see WORD_CLOUD_MAX_WORD_LENGTH usage in createWordCloudSchema.
