@@ -35,8 +35,8 @@ export enum PollChartType {
 // FILE ATTACHMENTS
 // ============================================================
 
-export const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
-export const MAX_ATTACHMENT_SIZE_MB = 50;
+export const MAX_ATTACHMENT_SIZE_BYTES = 150 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_MB = 150;
 
 // ============================================================
 // MESSAGE LIMITS

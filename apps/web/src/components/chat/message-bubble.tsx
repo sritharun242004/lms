@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { MAX_MESSAGE_LENGTH } from "@cms/shared";
 import type { ChatMessage } from "@/lib/api/services/message-service";
-import { getInitials, cn } from "@/lib/utils";
+import { getInitials, cn, splitTextWithLinks } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -266,7 +266,23 @@ export function MessageBubble({
               <div className="flex min-w-0 flex-col gap-2">
                 <AttachmentPreview message={message} />
                 {message.content && (
-                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.content}</p>
+                  <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                    {splitTextWithLinks(message.content).map((segment, index) =>
+                      segment.isLink ? (
+                        <a
+                          key={index}
+                          href={segment.text.startsWith("www.") ? `https://${segment.text}` : segment.text}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2 hover:opacity-80"
+                        >
+                          {segment.text}
+                        </a>
+                      ) : (
+                        <React.Fragment key={index}>{segment.text}</React.Fragment>
+                      )
+                    )}
+                  </p>
                 )}
               </div>
             )}
