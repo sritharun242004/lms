@@ -8,14 +8,12 @@ import {
   VerificationError,
 } from "@/lib/workshop/verification";
 
-const ALLOWED_ROLES = new Set(["ADMIN", "SUPER_ADMIN"]);
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user || !ALLOWED_ROLES.has(user.role)) {
+  if (!user || user.role !== "ADMIN") {
     return errorResponse("Admin access required", "FORBIDDEN", 403);
   }
 

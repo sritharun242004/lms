@@ -56,12 +56,10 @@ describe("GET /api/v1/admin/registrations", () => {
     expect(res.status).toBe(200);
   });
 
-  it("returns 200 for SUPER_ADMIN", async () => {
-    getCurrentUser.mockResolvedValue({ id: "u1", role: "SUPER_ADMIN" });
-    findMany.mockResolvedValue([]);
-    groupBy.mockResolvedValue([]);
+  it("returns 403 for a MENTOR (staff is not admin)", async () => {
+    getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTOR" });
     const res = await GET(new Request("http://localhost/api/v1/admin/registrations") as any);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
   });
 });
 

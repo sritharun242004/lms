@@ -21,6 +21,15 @@ verification dashboard.
 
 **Spec:** `docs/superpowers/specs/2026-11-20-xi-workshop-platform-design.md`
 
+> **Correction applied during execution:** every `SUPER_ADMIN` role
+> reference below (Task 1's enum addition, the seed script's promotion
+> logic, and the `ALLOWED_ROLES`/`SUPER_ADMIN` checks in Task 8's admin
+> routes and tests) was reverted — see the spec's "Role model change"
+> section for why. The code actually committed uses plain `role === "ADMIN"`
+> everywhere this plan shows a SUPER_ADMIN check. Read this plan as the
+> historical record of what was attempted, not as what shipped for the role
+> model specifically; everything else below shipped as written.
+
 ## Global Constraints
 
 - Pricing: Day 1 ₹28,250, Day 2 ₹31,275 (configurable — brief flags possible

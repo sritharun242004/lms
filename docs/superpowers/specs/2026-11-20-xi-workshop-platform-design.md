@@ -53,26 +53,41 @@ integration.
 
 ## Role model change
 
-Add one enum value: `UserRole` becomes
-`SUPER_ADMIN | ADMIN | MENTOR | MENTEE`. Additive migration — no existing row
-changes meaning. A data migration step promotes the single oldest existing
-`ADMIN` user to `SUPER_ADMIN` (bootstrap: there must always be at least one).
+**Correction (2026-11-20, during implementation):** this section originally
+added a fourth `SUPER_ADMIN` enum value above `ADMIN`. That was wrong and
+was reverted after a grep across the codebase turned up 15+ existing call
+sites that gate top-authority access with a strict `role === "ADMIN"`
+check (`lib/admin/coach-management.ts`, `lib/groups/access.ts`,
+`lib/photos/access.ts`, `lib/auth/portal-navigation.ts`, the questions API,
+chat management, group management, the admin layout nav) — this app's
+existing UI already calls the `ADMIN` role "Super Admin"
+(`lib/cms/task-requirements.ts: role === "ADMIN" → "Super Admin"`). A
+seed script bootstrap had already promoted one real user
+(`official@thebotcompany.in`) to the new `SUPER_ADMIN` value before this
+was caught; that user was manually restored to `ADMIN` and a corrective
+migration (`20261119223000_revert_super_admin_role`) removed the unused
+enum value. No data was lost (the new workshop tables were all empty).
+
+**Corrected design:** no new role value. `ADMIN` is, and remains, the sole
+top-authority role (what the master prompt calls "Super Admin" and "Admin"
+collapse onto it — this workshop's actual admin team is one or two people,
+and the brief never asks for two admin tiers with different powers).
 `MENTOR` continues to mean Staff/Trainer, `MENTEE` continues to mean
-Participant — matches the master prompt's 4-role RBAC requirement without
-renaming anything already in use.
+Participant. The workshop registration/payment-verification endpoints gate
+on `role === "ADMIN"`, identically to every other admin-only endpoint in
+this codebase.
 
-Permission matrix (enforced via `requireRole(...)` at the API layer, same
-pattern as today):
+Permission matrix (enforced via the same `role !== "ADMIN"` check pattern
+used by every other admin route in this codebase):
 
-| Capability | SUPER_ADMIN | ADMIN | MENTOR | MENTEE |
-|---|---|---|---|---|
-| View/verify payments | yes | yes | no | no |
-| Promote/demote roles | yes | no | no | no |
-| Create/manage forms, feedback | yes | yes | yes | no |
-| View form/feedback analytics for own forms | yes | yes | yes | no |
-| View all analytics | yes | yes | no | no |
-| Fill assigned forms, feedback | yes | yes | yes | yes |
-| Everything participants already do | yes | yes | yes | yes |
+| Capability | ADMIN | MENTOR | MENTEE |
+|---|---|---|---|
+| View/verify payments | yes | no | no |
+| Create/manage forms, feedback | yes | yes | no |
+| View form/feedback analytics for own forms | yes | yes | no |
+| View all analytics | yes | no | no |
+| Fill assigned forms, feedback | yes | yes | yes |
+| Everything participants already do | yes | yes | yes |
 
 ## New data model (additive only)
 
@@ -155,12 +170,11 @@ model FormAnswer { id, responseId, questionId, value Json }
 ```
 
 `MessageType` gains `FORM`. `User` gains `themePreference String?` (one of
-4 palette keys) and `isSuperAdminBootstrap` is just a migration step, not a
-column.
+4 palette keys).
 
 All of the above are new tables/enum values — zero changes to existing
-tables' columns, zero data migrations on existing rows besides the one
-`SUPER_ADMIN` promotion.
+tables' columns and zero data migrations on existing rows (see the Role
+model change correction above).
 
 ## Payment flow (Modules B/C/D/E)
 
@@ -187,8 +201,7 @@ tables' columns, zero data migrations on existing rows besides the one
 ## Forms, feedback, chat delivery, analytics (Modules F–K)
 
 - Form builder: drag-reorder sections/questions, 12 question types above,
-  live preview, draft/publish/archive. Staff-only (`MENTOR`/`ADMIN`/
-  `SUPER_ADMIN`).
+  live preview, draft/publish/archive. Staff-only (`MENTOR`/`ADMIN`).
 - `FormQuestionTemplate` repository: save/search/filter/tag/insert-into-form,
   editing a template never mutates questions already copied into existing
   forms (same copy-not-reference discipline the existing
@@ -211,7 +224,7 @@ tables' columns, zero data migrations on existing rows besides the one
   invitations sent, or vs. views for public forms), per-question summaries
   (chart for choice types, rating averages, raw list for open text),
   individual response drill-in, CSV/Excel export. Access limited to the
-  form's creator plus ADMIN/SUPER_ADMIN.
+  form's creator plus ADMIN.
 
 ## Theme system (Module L)
 
