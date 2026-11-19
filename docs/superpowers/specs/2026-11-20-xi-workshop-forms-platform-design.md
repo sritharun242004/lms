@@ -182,9 +182,23 @@ No change from the original design doc.
 
 ## Explicitly deferred / known limitations
 
-- Section-level (not just question-level) conditional skip logic.
+- **Conditional branching is not implemented**, at either the question or
+  section level. The schema's `FormQuestion.config` can carry a
+  `{showIfQuestionId, showIfValue}` shape (nothing stops a future change
+  from writing it), but no builder UI exists to author it and no
+  evaluator exists in the fill page to act on it. Earlier drafts of this
+  doc described a "minimal" version as implemented; it was not — this is
+  the corrected, accurate status.
+- Section-level (not just question-level) conditional skip logic — same
+  status as above: not implemented.
 - `.xlsx` export (CSV only; opens fine in Excel).
 - File-upload questions store the uploaded file the same way payment
   proofs do (`Bytes` on a new `FormAnswerFile` row referenced by the
   answer's `value.fileId`) — implemented, but virus/content scanning is
   out of scope (matches the existing attachment upload's own scope).
+- Drag-and-drop reordering: shipped as up/down buttons instead (see the
+  implementation plan's note) — no drag library was added.
+- A staff member who sends a form into their own group chat sees the
+  plain-text fallback bubble for that message (no `FormInvitation` row is
+  created for the sender), not the form card — participants see the card
+  correctly.
