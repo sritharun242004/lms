@@ -104,6 +104,18 @@ export function messageSelect(viewerId: string, canManage = false) {
         },
       },
     },
+    // Scoped to the viewer the same way poll/openQuestion/scale already
+    // are above — each group member gets their own FormInvitation row for
+    // the same message, so this never leaks another recipient's status.
+    formInvitations: {
+      where: { recipientUserId: viewerId },
+      select: {
+        id: true,
+        status: true,
+        form: { select: { title: true, description: true } },
+      },
+      take: 1,
+    },
   } as const;
 }
 
@@ -172,6 +184,11 @@ interface RawMessage {
       responses: { userId: string; value: number }[];
     }[];
   } | null;
+  formInvitations?: {
+    id: string;
+    status: string;
+    form: { title: string; description: string | null };
+  }[];
 }
 
 export function serializeMessage<T extends RawMessage>(
@@ -257,6 +274,16 @@ export function serializeMessage<T extends RawMessage>(
       }
     : null;
 
+  const formInvitationRow = m.formInvitations?.[0];
+  const formInvitation = formInvitationRow
+    ? {
+        id: formInvitationRow.id,
+        status: formInvitationRow.status as "SENT" | "OPENED" | "SUBMITTED",
+        formTitle: formInvitationRow.form.title,
+        formDescription: formInvitationRow.form.description,
+      }
+    : null;
+
   return {
     id: m.id,
     content: m.content,
@@ -283,5 +310,6 @@ export function serializeMessage<T extends RawMessage>(
     openQuestion,
     wordCloud,
     scale,
+    formInvitation,
   };
 }
