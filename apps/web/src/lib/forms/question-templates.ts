@@ -23,7 +23,7 @@ export async function createQuestionTemplate(
       title: input.title.trim(),
       type: input.type,
       description: input.description,
-      config: input.config ?? {},
+      config: (input.config ?? {}) as object,
       category: input.category,
       tags: input.tags ?? [],
       createdById: actor.id,
@@ -57,7 +57,10 @@ export async function updateQuestionTemplate(
   if (template.createdById !== actor.id && actor.role !== "ADMIN") {
     throw new FormError("You do not have access to this template", "FORBIDDEN", 403);
   }
-  return prisma.formQuestionTemplate.update({ where: { id: templateId }, data: patch });
+  return prisma.formQuestionTemplate.update({
+    where: { id: templateId },
+    data: { ...patch, config: patch.config as object | undefined },
+  });
 }
 
 // Inserting a template into a form copies its fields into a brand new

@@ -161,7 +161,7 @@ export async function saveFormStructure(
               description: question.description,
               required: question.required ?? false,
               order: questionOrder,
-              config: question.config ?? {},
+              config: (question.config ?? {}) as object,
               templateId: question.templateId,
             })),
           },

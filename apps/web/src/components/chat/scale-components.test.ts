@@ -474,7 +474,7 @@ describe("Scale migration safety", () => {
 
   it("keeps the existing enum values intact in the schema", () => {
     const schema = readFileSync(resolve(process.cwd(), "prisma/schema.prisma"), "utf8");
-    expect(schema).toMatch(/enum MessageType\s*{\s*TEXT\s+IMAGE\s+FILE\s+ANNOUNCEMENT\s+POLL\s+OPEN_QUESTION\s+WORD_CLOUD\s+SCALE\s*}/);
+    expect(schema).toMatch(/enum MessageType\s*{\s*TEXT\s+IMAGE\s+FILE\s+ANNOUNCEMENT\s+POLL\s+OPEN_QUESTION\s+WORD_CLOUD\s+SCALE\b/);
     expect(schema).toMatch(/enum QuestionLibraryType\s*{\s*MULTIPLE_CHOICE\s+WORD_CLOUD\s+OPEN_ENDED\s+SCALE\s*}/);
   });
 });
