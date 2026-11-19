@@ -44,6 +44,7 @@ enum MessageType {
   OPEN_QUESTION
   WORD_CLOUD
   SCALE
+  FORM
 }
 
 enum PollChartType {
@@ -114,6 +115,11 @@ model User {
   profilePhoto       UserProfilePhoto?
   onboardedRegistrations WorkshopRegistration[]
   verificationLogs       PaymentVerificationLog[]
+  themePreference    String?    @map("theme_preference")
+  createdForms        Form[]
+  questionTemplates   FormQuestionTemplate[]
+  formInvitations     FormInvitation[]
+  formResponses       FormResponse[]
 
   @@map("users")
 }
@@ -322,6 +328,7 @@ model Message {
   wordCloud    WordCloud?
   scale        Scale?
   attachment   MessageAttachment?
+  formInvitations FormInvitation[]
 
   @@index([groupId, createdAt])
   @@index([senderId])
@@ -753,4 +760,196 @@ model PaymentVerificationLog {
 
   @@index([registrationId])
   @@map("workshop_payment_verification_logs")
+}
+
+// ============================================================================
+// 12. Forms platform — builder, question repository, chat delivery,
+// feedback, analytics (Modules F-K)
+// ============================================================================
+
+enum FormCategory {
+  GENERIC
+  FEEDBACK
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FormQuestionType {
+  SHORT_ANSWER
+  PARAGRAPH
+  MULTIPLE_CHOICE
+  CHECKBOXES
+  DROPDOWN
+  LINEAR_SCALE
+  STAR_RATING
+  DATE
+  TIME
+  FILE_UPLOAD
+  MULTIPLE_CHOICE_GRID
+  CHECKBOX_GRID
+}
+
+enum FormInvitationStatus {
+  SENT
+  OPENED
+  SUBMITTED
+}
+
+model Form {
+  id                     String       @id @default(cuid())
+  title                  String
+  description            String?
+  headerImageUrl         String?      @map("header_image_url")
+  themeColor             String?      @map("theme_color")
+  category               FormCategory @default(GENERIC)
+  status                 FormStatus   @default(DRAFT)
+  createdById            String       @map("created_by_id")
+  opensAt                DateTime?    @map("opens_at")
+  closesAt               DateTime?    @map("closes_at")
+  allowMultipleSubmissions Boolean    @default(false) @map("allow_multiple_submissions")
+  feedbackTargetType     String?      @map("feedback_target_type")
+  feedbackTargetLabel    String?      @map("feedback_target_label")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+
+  createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  sections    FormSection[]
+  invitations FormInvitation[]
+  responses   FormResponse[]
+
+  @@index([createdById])
+  @@index([status])
+  @@index([category])
+  @@map("forms")
+}
+
+model FormSection {
+  id          String  @id @default(cuid())
+  formId      String  @map("form_id")
+  title       String?
+  description String?
+  order       Int
+
+  form      Form           @relation(fields: [formId], references: [id], onDelete: Cascade)
+  questions FormQuestion[]
+
+  @@unique([formId, order])
+  @@map("form_sections")
+}
+
+model FormQuestion {
+  id          String           @id @default(cuid())
+  sectionId   String           @map("section_id")
+  templateId  String?          @map("template_id")
+  type        FormQuestionType
+  title       String
+  description String?
+  required    Boolean          @default(false)
+  order       Int
+  // Per-type shape: options (string[]) for MULTIPLE_CHOICE/CHECKBOXES/
+  // DROPDOWN/grid column labels; rows (string[]) for grid types; min/max
+  // for LINEAR_SCALE; maxLength for SHORT_ANSWER/PARAGRAPH; allowOther
+  // (boolean) for choice types; showIf ({questionId, value}) for the
+  // minimal conditional-display support described in the design doc.
+  config      Json             @default("{}")
+
+  section  FormSection            @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  template FormQuestionTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  answers  FormAnswer[]
+
+  @@unique([sectionId, order])
+  @@index([templateId])
+  @@map("form_questions")
+}
+
+model FormQuestionTemplate {
+  id          String           @id @default(cuid())
+  title       String
+  type        FormQuestionType
+  description String?
+  config      Json             @default("{}")
+  category    String?
+  tags        String[]         @default([])
+  createdById String           @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  createdBy User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  questions FormQuestion[]
+
+  @@index([createdById])
+  @@index([type])
+  @@index([category])
+  @@map("form_question_templates")
+}
+
+model FormInvitation {
+  id              String               @id @default(cuid())
+  formId          String               @map("form_id")
+  messageId       String?              @map("message_id")
+  groupId         String?              @map("group_id")
+  recipientUserId String               @map("recipient_user_id")
+  status          FormInvitationStatus @default(SENT)
+  sentAt          DateTime             @default(now()) @map("sent_at")
+  openedAt        DateTime?            @map("opened_at")
+  submittedAt     DateTime?            @map("submitted_at")
+
+  form      Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  message   Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  recipient User          @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  response  FormResponse?
+
+  @@index([formId])
+  @@index([recipientUserId])
+  @@index([messageId])
+  @@map("form_invitations")
+}
+
+model FormResponse {
+  id                String   @id @default(cuid())
+  formId            String   @map("form_id")
+  invitationId      String?  @unique @map("invitation_id")
+  respondentUserId  String?  @map("respondent_user_id")
+  anonymous         Boolean  @default(false)
+  submittedAt       DateTime @default(now()) @map("submitted_at")
+
+  form        Form            @relation(fields: [formId], references: [id], onDelete: Cascade)
+  invitation  FormInvitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  respondent  User?           @relation(fields: [respondentUserId], references: [id], onDelete: SetNull)
+  answers     FormAnswer[]
+
+  @@index([formId])
+  @@index([respondentUserId])
+  @@map("form_responses")
+}
+
+model FormAnswer {
+  id         String @id @default(cuid())
+  responseId String @map("response_id")
+  questionId String @map("question_id")
+  // Generic per-type shape: string | string[] | number | Record<row,
+  // value> for grids | { fileId } for FILE_UPLOAD (see FormAnswerFile).
+  value      Json
+
+  response FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question FormQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([questionId])
+  @@map("form_answers")
+}
+
+model FormAnswerFile {
+  id        String   @id @default(cuid())
+  mimeType  String   @map("mime_type")
+  fileName  String   @map("file_name")
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("form_answer_files")
 }
