@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { createRegistration, findRegistrationByCode } = vi.hoisted(() => ({
@@ -19,11 +20,11 @@ import { POST } from "./route";
 import { GET } from "./[code]/route";
 
 function jsonRequest(body: unknown) {
-  return new Request("http://localhost/api/v1/workshop/registrations", {
+  return new NextRequest("http://localhost/api/v1/workshop/registrations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  });
 }
 
 beforeEach(() => {
@@ -51,7 +52,7 @@ describe("POST /api/v1/workshop/registrations", () => {
 describe("GET /api/v1/workshop/registrations/[code]", () => {
   it("returns 404 when the code does not exist", async () => {
     findRegistrationByCode.mockResolvedValue(null);
-    const res = await GET(new Request("http://localhost") as any, {
+    const res = await GET(new NextRequest("http://localhost"), {
       params: Promise.resolve({ code: "XI-2026-9999" }),
     });
     expect(res.status).toBe(404);
@@ -59,7 +60,7 @@ describe("GET /api/v1/workshop/registrations/[code]", () => {
 
   it("returns the registration when found", async () => {
     findRegistrationByCode.mockResolvedValue({ id: "r1", registrationCode: "XI-2026-0001" });
-    const res = await GET(new Request("http://localhost") as any, {
+    const res = await GET(new NextRequest("http://localhost"), {
       params: Promise.resolve({ code: "XI-2026-0001" }),
     });
     expect(res.status).toBe(200);

@@ -10,7 +10,8 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     workshopRegistration: { findFirst, update },
     paymentProof: { create },
-    $transaction: (fn: any) => fn({ workshopRegistration: { update }, paymentProof: { create } }),
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({ workshopRegistration: { update }, paymentProof: { create } }),
   },
 }));
 

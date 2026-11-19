@@ -25,7 +25,7 @@ vi.mock("@/lib/db/prisma", () => ({
     group: { findMany: groupFindMany },
     groupMember: { create: groupMemberCreate },
     paymentVerificationLog: { create: verificationLogCreate },
-    $transaction: (fn: any) =>
+    $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         workshopRegistration: { update: registrationUpdate },
         user: { findFirst: userFindFirst, create: userCreate },

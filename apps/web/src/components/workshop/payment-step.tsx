@@ -27,23 +27,37 @@ export function PaymentStep({ registrationCode }: { registrationCode: string }) 
   const [error, setError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const refresh = React.useCallback(async () => {
+  async function fetchRegistration() {
     const response = await fetch(`/api/v1/workshop/registrations/${registrationCode}`);
     const result = await response.json();
     if (result.success) setRegistration(result.data.registration);
-  }, [registrationCode]);
+  }
 
   React.useEffect(() => {
-    void refresh();
-    fetch(`/api/v1/workshop/registrations/${registrationCode}/qr`)
-      .then((res) => res.json())
-      .then((result) => {
-        if (result.success) {
-          setQrDataUrl(result.data.qrDataUrl);
-          setDemoMode(result.data.demoMode);
-        }
-      });
-  }, [registrationCode, refresh]);
+    let cancelled = false;
+
+    async function load() {
+      const [registrationRes, qrRes] = await Promise.all([
+        fetch(`/api/v1/workshop/registrations/${registrationCode}`),
+        fetch(`/api/v1/workshop/registrations/${registrationCode}/qr`),
+      ]);
+      const [registrationResult, qrResult] = await Promise.all([
+        registrationRes.json(),
+        qrRes.json(),
+      ]);
+      if (cancelled) return;
+      if (registrationResult.success) setRegistration(registrationResult.data.registration);
+      if (qrResult.success) {
+        setQrDataUrl(qrResult.data.qrDataUrl);
+        setDemoMode(qrResult.data.demoMode);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [registrationCode]);
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -61,7 +75,7 @@ export function PaymentStep({ registrationCode }: { registrationCode: string }) 
       if (!response.ok || !result.success) {
         throw new Error(result.error?.message || "Unable to submit payment proof");
       }
-      await refresh();
+      await fetchRegistration();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit payment proof");
     } finally {

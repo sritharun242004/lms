@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { getCurrentUser, findMany, groupBy, approveRegistration, rejectRegistration, requestResubmission } =
@@ -44,7 +45,7 @@ beforeEach(() => {
 describe("GET /api/v1/admin/registrations", () => {
   it("returns 403 for a MENTEE", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTEE" });
-    const res = await GET(new Request("http://localhost/api/v1/admin/registrations") as any);
+    const res = await GET(new NextRequest("http://localhost/api/v1/admin/registrations"));
     expect(res.status).toBe(403);
   });
 
@@ -52,13 +53,13 @@ describe("GET /api/v1/admin/registrations", () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "ADMIN" });
     findMany.mockResolvedValue([{ id: "r1" }]);
     groupBy.mockResolvedValue([{ status: "APPROVED", _count: 1, _sum: { amountInInr: 28250 } }]);
-    const res = await GET(new Request("http://localhost/api/v1/admin/registrations") as any);
+    const res = await GET(new NextRequest("http://localhost/api/v1/admin/registrations"));
     expect(res.status).toBe(200);
   });
 
   it("returns 403 for a MENTOR (staff is not admin)", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTOR" });
-    const res = await GET(new Request("http://localhost/api/v1/admin/registrations") as any);
+    const res = await GET(new NextRequest("http://localhost/api/v1/admin/registrations"));
     expect(res.status).toBe(403);
   });
 });
@@ -67,10 +68,10 @@ describe("PATCH /api/v1/admin/registrations/[id]", () => {
   it("calls approveRegistration for action APPROVE", async () => {
     getCurrentUser.mockResolvedValue({ id: "admin1", role: "ADMIN" });
     approveRegistration.mockResolvedValue({ id: "r1", status: "APPROVED" });
-    const req = new Request("http://localhost", {
+    const req = new NextRequest("http://localhost", {
       method: "PATCH",
       body: JSON.stringify({ action: "APPROVE", note: "ok" }),
-    }) as any;
+    });
     const res = await PATCH(req, { params: Promise.resolve({ id: "r1" }) });
     expect(approveRegistration).toHaveBeenCalledWith("admin1", "r1", "ok");
     expect(res.status).toBe(200);
@@ -78,10 +79,10 @@ describe("PATCH /api/v1/admin/registrations/[id]", () => {
 
   it("rejects an unknown action with 400", async () => {
     getCurrentUser.mockResolvedValue({ id: "admin1", role: "ADMIN" });
-    const req = new Request("http://localhost", {
+    const req = new NextRequest("http://localhost", {
       method: "PATCH",
       body: JSON.stringify({ action: "DO_SOMETHING_ELSE" }),
-    }) as any;
+    });
     const res = await PATCH(req, { params: Promise.resolve({ id: "r1" }) });
     expect(res.status).toBe(400);
   });

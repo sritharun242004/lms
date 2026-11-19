@@ -17,7 +17,9 @@ export function RegistrationSection() {
         {registrationCode ? (
           <PaymentStep registrationCode={registrationCode} />
         ) : (
-          <RegistrationForm onRegistered={(registration) => setRegistrationCode(registration.registrationCode)} />
+          <React.Suspense fallback={null}>
+            <RegistrationForm onRegistered={(registration) => setRegistrationCode(registration.registrationCode)} />
+          </React.Suspense>
         )}
       </div>
     </section>

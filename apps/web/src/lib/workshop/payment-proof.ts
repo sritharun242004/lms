@@ -39,7 +39,7 @@ export async function submitPaymentProof(
         registrationId: registration.id,
         mimeType: file.mimeType,
         size: file.size,
-        data: file.data,
+        data: new Uint8Array(file.data),
       },
     });
     return tx.workshopRegistration.update({
