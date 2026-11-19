@@ -18,6 +18,7 @@ datasource db {
 // ============================================================================
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   MENTOR
   MENTEE
@@ -112,6 +113,8 @@ model User {
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
   profilePhoto       UserProfilePhoto?
+  onboardedRegistrations WorkshopRegistration[]
+  verificationLogs       PaymentVerificationLog[]
 
   @@map("users")
 }
@@ -663,4 +666,92 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// 11. Workshop registration / demo payment / verification
+// ============================================================================
+
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  PROOF_SUBMITTED
+  UNDER_VERIFICATION
+  APPROVED
+  REJECTED
+  RESUBMISSION_REQUESTED
+}
+
+enum WorkshopPackage {
+  DAY1
+  DAY2
+  BOTH
+}
+
+enum AiExperienceLevel {
+  NEW
+  SOMETIMES
+  DAILY
+}
+
+model WorkshopRegistration {
+  id                     String             @id @default(cuid())
+  registrationCode       String             @unique @map("registration_code")
+  fullName               String             @map("full_name")
+  email                  String
+  whatsappNumber         String             @map("whatsapp_number")
+  company                String
+  designation            String
+  workshopPackage        WorkshopPackage    @map("workshop_package")
+  previousDay1Attendance Boolean?           @map("previous_day1_attendance")
+  previousDay1When       String?            @map("previous_day1_when")
+  aiExperienceLevel      AiExperienceLevel  @map("ai_experience_level")
+  aiUseCase              String?            @map("ai_use_case")
+  subscriptions          String[]           @default([])
+  needsGstInvoice        Boolean            @default(false) @map("needs_gst_invoice")
+  gstCompanyName         String?            @map("gst_company_name")
+  gstin                  String?
+  referredBy             String?            @map("referred_by")
+  ageConfirmed           Boolean            @map("age_confirmed")
+  amountInInr            Int                @map("amount_in_inr")
+  status                 RegistrationStatus @default(PENDING_PAYMENT)
+  onboardedUserId        String?            @map("onboarded_user_id")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  onboardedUser     User?                    @relation(fields: [onboardedUserId], references: [id], onDelete: SetNull)
+  paymentProofs     PaymentProof[]
+  verificationLogs  PaymentVerificationLog[]
+
+  @@index([status])
+  @@index([email])
+  @@map("workshop_registrations")
+}
+
+model PaymentProof {
+  id             String               @id @default(cuid())
+  registrationId String               @map("registration_id")
+  mimeType       String               @map("mime_type")
+  size           Int
+  data           Bytes
+  submittedAt    DateTime             @default(now()) @map("submitted_at")
+
+  registration WorkshopRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("workshop_payment_proofs")
+}
+
+model PaymentVerificationLog {
+  id             String               @id @default(cuid())
+  registrationId String               @map("registration_id")
+  action         RegistrationStatus
+  note           String?
+  adminId        String               @map("admin_id")
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  registration WorkshopRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  admin        User                 @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([registrationId])
+  @@map("workshop_payment_verification_logs")
 }
