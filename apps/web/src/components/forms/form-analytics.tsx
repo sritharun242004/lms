@@ -1,0 +1,92 @@
+"use client";
+
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import type { QuestionSummary } from "@/lib/forms/analytics";
+
+export type FormAnalyticsData = {
+  formId: string;
+  title: string;
+  totalResponses: number;
+  invitationsSent: number;
+  completionRate: number | null;
+  questionSummaries: QuestionSummary[];
+};
+
+export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Analytics</p>
+          <h1 className="text-2xl font-bold">{analytics.title}</h1>
+        </div>
+        <Button asChild variant="outline">
+          <a href={`/api/v1/forms/${analytics.formId}/responses/export`}>
+            <Download className="size-4" /> Export CSV
+          </a>
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total responses</p>
+            <p className="text-2xl font-bold">{analytics.totalResponses}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Invitations sent</p>
+            <p className="text-2xl font-bold">{analytics.invitationsSent}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Completion rate</p>
+            <p className="text-2xl font-bold">
+              {analytics.completionRate === null ? "—" : `${Math.round(analytics.completionRate * 100)}%`}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {analytics.questionSummaries.map((summary) => (
+          <Card key={summary.questionId}>
+            <CardContent className="p-5">
+              <p className="mb-3 font-medium">{summary.title}</p>
+              {summary.type === "CHOICE" ? (
+                <div className="flex flex-col gap-2">
+                  {Object.entries(summary.counts).map(([option, count]) => (
+                    <div key={option} className="flex items-center gap-2 text-sm">
+                      <span className="w-32 shrink-0 truncate">{option}</span>
+                      <div className="h-2 flex-1 rounded-full bg-muted">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{
+                            width: `${(count / Math.max(1, Math.max(...Object.values(summary.counts)))) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-muted-foreground">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : summary.type === "RATING" ? (
+                <p className="text-sm">
+                  Average: <span className="font-semibold">{summary.average.toFixed(1)}</span>
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  {summary.answers.length === 0 ? <li>No answers yet.</li> : summary.answers.map((answer, i) => <li key={i}>{answer}</li>)}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
