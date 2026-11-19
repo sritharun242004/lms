@@ -1,12 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { form: { findMany } } }));
+const { findMany, answerFindMany } = vi.hoisted(() => ({ findMany: vi.fn(), answerFindMany: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { form: { findMany }, formAnswer: { findMany: answerFindMany } } }));
 
-import { getFeedbackWordCloud } from "./feedback-word-cloud";
+import { getFeedbackWordCloud, getOpenTextAnswersForResponses } from "./feedback-word-cloud";
 
 beforeEach(() => {
   findMany.mockReset();
+  answerFindMany.mockReset();
 });
 
 const formWithOpenAnswers = {
@@ -45,5 +46,15 @@ describe("getFeedbackWordCloud", () => {
     for (let i = 1; i < entries.length; i += 1) {
       expect(entries[i - 1].count).toBeGreaterThanOrEqual(entries[i].count);
     }
+  });
+});
+
+describe("getOpenTextAnswersForResponses", () => {
+  it("returns only string-valued open-text answers for the given responses", async () => {
+    answerFindMany.mockResolvedValue([
+      { id: "a1", value: "Great session", responseId: "r1", question: { title: "Comments" } },
+    ]);
+    const answers = await getOpenTextAnswersForResponses({ id: "staff1", role: "MENTOR" }, ["r1"]);
+    expect(answers).toEqual([{ responseId: "r1", questionTitle: "Comments", text: "Great session" }]);
   });
 });

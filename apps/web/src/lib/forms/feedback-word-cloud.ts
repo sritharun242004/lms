@@ -66,3 +66,20 @@ export async function getFeedbackWordCloud(
     .map(([word, { count, responseIds }]) => ({ word, count, responseIds: Array.from(responseIds) }))
     .sort((a, b) => b.count - a.count);
 }
+
+// Backs the word cloud's click-to-drill-in: the full open-text answers
+// (not just the count) for a set of response ids, so staff can read what
+// people actually wrote rather than only how often a word recurred.
+export async function getOpenTextAnswersForResponses(actor: Actor, responseIds: string[]) {
+  requireStaff(actor);
+  const answers = await prisma.formAnswer.findMany({
+    where: {
+      responseId: { in: responseIds },
+      question: { type: { in: ["SHORT_ANSWER", "PARAGRAPH"] } },
+    },
+    select: { id: true, value: true, responseId: true, question: { select: { title: true } } },
+  });
+  return answers
+    .filter((a) => typeof a.value === "string")
+    .map((a) => ({ responseId: a.responseId, questionTitle: a.question.title, text: a.value as string }));
+}
