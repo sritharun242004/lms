@@ -20,6 +20,7 @@ describe("interactive card width", () => {
     "open-question-message.tsx",
     "word-cloud-message.tsx",
     "scale-message.tsx",
+    "form-invitation-message.tsx",
   ])("%s uses the shared width and no longer hard-codes max-w-4xl", (file) => {
     const source = readFileSync(resolve(dir, file), "utf8");
     expect(source).toContain("INTERACTIVE_CARD_WIDTH");
