@@ -53,3 +53,38 @@ export async function createInvitations(
     )
   );
 }
+
+// Posts a FORM message into a group chat and creates one invitation per
+// current MENTEE member — mirrors the existing poll/word-cloud send flow
+// (message + per-recipient interactive state created together).
+export async function sendFormToGroup(actor: Actor, groupId: string, formId: string) {
+  requireStaff(actor);
+  const form = await prisma.form.findUnique({ where: { id: formId } });
+  if (!form) throw new FormError("Form not found", "NOT_FOUND", 404);
+  if (form.status !== "PUBLISHED") {
+    throw new FormError("Only a published form can be sent", "NOT_PUBLISHED", 400);
+  }
+
+  const members = await prisma.groupMember.findMany({
+    where: { groupId, role: "MENTEE" },
+    select: { userId: true },
+  });
+  if (members.length === 0) {
+    throw new FormError("This group has no participants to send the form to", "NO_RECIPIENTS", 400);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const message = await tx.message.create({
+      data: { content: form.title, type: "FORM", groupId, senderId: actor.id },
+    });
+    await tx.formInvitation.createMany({
+      data: members.map((member) => ({
+        formId,
+        messageId: message.id,
+        groupId,
+        recipientUserId: member.userId,
+      })),
+    });
+    return message.id;
+  });
+}

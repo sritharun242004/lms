@@ -1,27 +1,49 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { invitationFindUnique, invitationUpdate, formFindUnique, invitationCreate } = vi.hoisted(() => ({
+const {
+  invitationFindUnique,
+  invitationUpdate,
+  formFindUnique,
+  invitationCreate,
+  invitationCreateMany,
+  groupMemberFindMany,
+  messageCreate,
+} = vi.hoisted(() => ({
   invitationFindUnique: vi.fn(),
   invitationUpdate: vi.fn(),
   formFindUnique: vi.fn(),
   invitationCreate: vi.fn(),
+  invitationCreateMany: vi.fn(),
+  groupMemberFindMany: vi.fn(),
+  messageCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
-    formInvitation: { findUnique: invitationFindUnique, update: invitationUpdate, create: invitationCreate },
+    formInvitation: { findUnique: invitationFindUnique, update: invitationUpdate, create: invitationCreate, createMany: invitationCreateMany },
     form: { findUnique: formFindUnique },
-    $transaction: (ops: unknown[]) => Promise.all(ops),
+    groupMember: { findMany: groupMemberFindMany },
+    message: { create: messageCreate },
+    $transaction: (arg: unknown) =>
+      Array.isArray(arg)
+        ? Promise.all(arg)
+        : (arg as (tx: unknown) => unknown)({
+            message: { create: messageCreate },
+            formInvitation: { createMany: invitationCreateMany },
+          }),
   },
 }));
 
-import { getInvitationForFilling, createInvitations } from "./invitations";
+import { getInvitationForFilling, createInvitations, sendFormToGroup } from "./invitations";
 
 beforeEach(() => {
   invitationFindUnique.mockReset();
   invitationUpdate.mockReset();
   formFindUnique.mockReset();
   invitationCreate.mockReset();
+  invitationCreateMany.mockReset();
+  groupMemberFindMany.mockReset();
+  messageCreate.mockReset();
 });
 
 describe("getInvitationForFilling", () => {
@@ -58,5 +80,36 @@ describe("createInvitations", () => {
     });
     expect(invitationCreate).toHaveBeenCalledTimes(2);
     expect(result).toHaveLength(2);
+  });
+});
+
+describe("sendFormToGroup", () => {
+  it("rejects when the group has no participant members", async () => {
+    formFindUnique.mockResolvedValue({ id: "f1", status: "PUBLISHED", title: "Feedback" });
+    groupMemberFindMany.mockResolvedValue([]);
+    await expect(
+      sendFormToGroup({ id: "staff1", role: "MENTOR" }, "g1", "f1")
+    ).rejects.toThrow(/no participants/i);
+  });
+
+  it("creates a FORM message and one invitation per MENTEE member", async () => {
+    formFindUnique.mockResolvedValue({ id: "f1", status: "PUBLISHED", title: "Feedback" });
+    groupMemberFindMany.mockResolvedValue([{ userId: "mentee1" }, { userId: "mentee2" }]);
+    messageCreate.mockResolvedValue({ id: "msg1" });
+
+    const messageId = await sendFormToGroup({ id: "staff1", role: "MENTOR" }, "g1", "f1");
+
+    expect(messageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ type: "FORM", groupId: "g1", content: "Feedback" }) })
+    );
+    expect(invitationCreateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({ recipientUserId: "mentee1", messageId: "msg1" }),
+          expect.objectContaining({ recipientUserId: "mentee2", messageId: "msg1" }),
+        ],
+      })
+    );
+    expect(messageId).toBe("msg1");
   });
 });
