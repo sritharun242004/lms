@@ -45,6 +45,11 @@ export default async function AppLayout({
                 Coach account management
               </Link>
             )}
+            {user.role === "ADMIN" && (
+              <Link href="/admin/registrations" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
+                Workshop registrations
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-1 sm:gap-2">
             <ThemeToggle />
