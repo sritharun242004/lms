@@ -64,6 +64,18 @@ describe("RegistrationForm", () => {
     expect(screen.queryByLabelText(/^email$/i)).toBeNull();
   });
 
+  it("does not grab focus on page load (which would scroll visitors past the landing page)", () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    expect(document.activeElement).not.toBe(screen.getByLabelText(/full name/i));
+  });
+
+  it("moves focus into the next step once the visitor taps Next", async () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Asha Rao" } });
+    await next();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/^email$/i)));
+  });
+
   it("does not advance past a step with a missing required field", async () => {
     render(createElement(RegistrationForm, { onRegistered: () => {} }));
     await next();

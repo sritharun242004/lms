@@ -209,7 +209,10 @@ export function RegistrationForm({
               <FormItem>
                 <FormLabel>Full name</FormLabel>
                 <FormControl>
-                  <Input {...field} className={FIELD} placeholder="As on your certificate" autoComplete="name" autoFocus />
+                  {/* No autoFocus here: this step renders on page load, and focusing
+                      it would scroll every visitor straight past the landing
+                      page to the form. Later steps only mount after "Next". */}
+                  <Input {...field} className={FIELD} placeholder="As on your certificate" autoComplete="name" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
