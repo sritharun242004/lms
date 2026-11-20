@@ -59,20 +59,32 @@ describe("PaymentStep", () => {
   });
 
   it("polls for status and switches to the approved view without a manual refresh", async () => {
+    // Fake timers from the start, so the setInterval the component
+    // creates is one the fake clock actually owns — installing fake
+    // timers only after a real setInterval already exists leaves that
+    // interval running on the real clock, un-advanceable here. Promise
+    // microtasks (the fetch mocks) still flush normally under fake
+    // timers; only literal timer callbacks are faked.
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    global.fetch = mockFetchSequence([
-      baseRegistration,
-      { ...baseRegistration, status: "APPROVED", whatsappGroupInviteUrl: "https://wa.me/919876543210" },
-    ]) as unknown as typeof fetch;
+    try {
+      global.fetch = mockFetchSequence([
+        baseRegistration,
+        { ...baseRegistration, status: "APPROVED", whatsappGroupInviteUrl: "https://wa.me/919876543210" },
+      ]) as unknown as typeof fetch;
 
-    render(createElement(PaymentStep, { registrationCode: "XI-2026-0001" }));
-    await waitFor(() => expect(screen.getByText(/awaiting admin review|under admin verification|submitted/i)).toBeTruthy());
+      render(createElement(PaymentStep, { registrationCode: "XI-2026-0001" }));
 
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-      await Promise.resolve();
-    });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByText(/submitted/i)).toBeTruthy();
 
-    await waitFor(() => expect(screen.getByText(/payment verified/i)).toBeTruthy());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(screen.getByText(/payment verified/i)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
