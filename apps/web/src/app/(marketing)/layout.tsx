@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk } from "next/font/google";
 import { SmoothScroll } from "@/components/workshop/landing/smooth-scroll";
+import { BrandPalette } from "@/components/workshop/landing/brand-palette";
 
 export const metadata: Metadata = {
   // The public homepage carries the brand alone, not the app's "| CMS" suffix.
@@ -26,6 +27,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div
       className={`${schibstedGrotesk.variable} light min-h-svh bg-white text-slate-900 font-[family-name:var(--font-schibsted)]`}
     >
+      <BrandPalette />
       <SmoothScroll>{children}</SmoothScroll>
     </div>
   );

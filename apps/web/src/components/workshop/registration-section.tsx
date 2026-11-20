@@ -34,11 +34,11 @@ export function RegistrationSection() {
   }
 
   return (
-    <BlueBand id="register" className="mt-4" innerClassName="px-5 py-20 sm:px-8 sm:py-28">
+    <BlueBand id="register" className="mt-4" innerClassName="px-3 py-16 sm:px-8 sm:py-28">
       <SectionHeader center onBlue label="Register" title="Reserve your seat">
         Fill this in. You&apos;ll see the amount and payment options right after.
       </SectionHeader>
-      <div className="mx-auto mt-12 flex max-w-3xl flex-col gap-4 rounded-[28px] bg-white p-6 text-slate-900 shadow-[0_40px_90px_-40px_rgba(2,6,23,0.7)] sm:p-10">
+      <div className="mx-auto mt-12 flex max-w-3xl flex-col gap-4 rounded-[24px] bg-white p-5 text-slate-900 sm:rounded-[28px] shadow-[0_40px_90px_-40px_rgba(2,6,23,0.7)] sm:p-10">
         {registrationCode ? (
           <PaymentStep registrationCode={registrationCode} whatsAppUrl={generalWhatsAppUrl} />
         ) : (
