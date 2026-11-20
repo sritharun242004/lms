@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Geist_Mono } from "next/font/google";
 import { Providers } from "@/providers";
+import { DEFAULT_PALETTE } from "@/lib/theme/palettes";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -58,8 +59,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Stays a static, cookie-free render so public routes (landing page,
+  // login, etc.) keep prerendering statically. The authenticated (app)
+  // layout — already dynamic, already reading the session — corrects
+  // this to the signed-in user's saved palette via an inline script
+  // before paint, the same flash-avoidance trick next-themes itself uses
+  // for light/dark.
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-palette={DEFAULT_PALETTE}>
       <body
         className={`${manrope.variable} ${geistMono.variable} font-sans antialiased`}
       >

@@ -207,6 +207,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         emailVerified: true,
         isActive: true,
         authVersion: true,
+        themePreference: true,
       },
     });
 
@@ -219,6 +220,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       role: user.role as UserRole,
       avatarUrl: user.avatarUrl,
       emailVerified: user.emailVerified,
+      themePreference: user.themePreference,
     };
   } catch {
     return null;

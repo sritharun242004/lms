@@ -23,6 +23,7 @@ export enum MessageType {
   OPEN_QUESTION = "OPEN_QUESTION",
   WORD_CLOUD = "WORD_CLOUD",
   SCALE = "SCALE",
+  FORM = "FORM",
 }
 
 export enum PollChartType {
@@ -35,17 +36,17 @@ export enum PollChartType {
 // FILE ATTACHMENTS
 // ============================================================
 
-export const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
-export const MAX_ATTACHMENT_SIZE_MB = 50;
+export const MAX_ATTACHMENT_SIZE_BYTES = 150 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_MB = 150;
 
 // ============================================================
 // MESSAGE LIMITS
 // ============================================================
 
 // Character cap for a single text message / edit. Sized to comfortably
-// hold ~3000 words (avg ~6 chars incl. spacing) so mentors can post long
+// hold ~8000 words (avg ~6 chars incl. spacing) so mentors can post long
 // announcements in one message.
-export const MAX_MESSAGE_LENGTH = 20000;
+export const MAX_MESSAGE_LENGTH = 50000;
 
 // Fixed per-word character cap for word clouds — no longer mentor-configurable,
 // see WORD_CLOUD_MAX_WORD_LENGTH usage in createWordCloudSchema.

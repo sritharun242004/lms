@@ -27,6 +27,9 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  // The public XI workshop landing page + registration/payment flow —
+  // prospective participants reach these with no account at all.
+  "/workshop/x-intelligence",
 ];
 
 // API routes that don't require authentication
@@ -40,6 +43,20 @@ const PUBLIC_API_ROUTES = [
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/reset-password",
   "/api/v1/auth/verify-email",
+  // Non-secret workshop config (the general post-registration WhatsApp
+  // link) — the public registration flow reads this before any auth
+  // exists.
+  "/api/v1/workshop/config",
+];
+
+// API route prefixes that don't require authentication — unlike
+// PUBLIC_API_ROUTES' exact matches, these cover a family of routes with
+// dynamic segments (a registration code, etc).
+const PUBLIC_API_ROUTE_PREFIXES = [
+  // Registration creation/lookup, payment proof upload, and QR — all
+  // used by an anonymous visitor before any account exists. Does not
+  // cover /api/v1/admin/registrations, a different, protected prefix.
+  "/api/v1/workshop/registrations",
 ];
 
 // Role-based route prefixes
@@ -91,9 +108,11 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
-  const isPublicApi = PUBLIC_API_ROUTES.some(
-    (route) => pathname === route
-  );
+  const isPublicApi =
+    PUBLIC_API_ROUTES.some((route) => pathname === route) ||
+    PUBLIC_API_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+    );
 
   if (isPublicApi) {
     return NextResponse.next();

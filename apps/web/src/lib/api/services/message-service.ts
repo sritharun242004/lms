@@ -141,6 +141,15 @@ export interface ChatMessage {
   wordCloud?: WordCloudData | null;
   /** Present only when `type === "SCALE"`. */
   scale?: ScaleData | null;
+  /** Present only when `type === "FORM"` — the viewer's own invitation. */
+  formInvitation?: FormInvitationData | null;
+}
+
+export interface FormInvitationData {
+  id: string;
+  status: "SENT" | "OPENED" | "SUBMITTED";
+  formTitle: string;
+  formDescription: string | null;
 }
 
 export const messageService = {
