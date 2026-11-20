@@ -27,8 +27,9 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
-  // The public XI workshop landing page + registration/payment flow —
-  // prospective participants reach these with no account at all.
+  // Legacy address of the landing page (now "/"); next.config redirects it
+  // before the proxy runs, kept here so a missed redirect still never
+  // bounces a visitor to login.
   "/workshop/x-intelligence",
 ];
 
@@ -90,7 +91,7 @@ function unauthenticatedEntry(pathname: string): string {
   if (pathname === "/questions" || pathname.startsWith("/questions/") || pathname === "/dashboard") {
     return "/admin/login";
   }
-  return "/";
+  return "/login";
 }
 
 export async function proxy(request: NextRequest) {
@@ -221,7 +222,7 @@ export async function proxy(request: NextRequest) {
       : (() => {
           const entryPath = unauthenticatedEntry(pathname);
           const loginUrl = new URL(entryPath, request.url);
-          if (entryPath !== "/") {
+          if (entryPath !== "/login") {
             const requestedPath = `${pathname}${request.nextUrl.search}`;
             loginUrl.searchParams.set("redirect", sanitizeReturnPath(requestedPath, pathname));
           }
@@ -235,7 +236,8 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Has a valid token and on public auth page → redirect to dashboard
+  // Has a valid token and on public auth page → redirect to dashboard.
+  // "/" is the public landing page, which signed-in users may still read.
   if (payload && isPublicRoute && pathname !== "/") {
     const dashboard = ROLE_DASHBOARD[payload.role] || "/dashboard";
     return withRotatedCookies(NextResponse.redirect(new URL(dashboard, request.url)));

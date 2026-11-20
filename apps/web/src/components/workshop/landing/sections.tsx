@@ -331,7 +331,7 @@ export function WorkshopNav() {
         <div className="flex items-center gap-1 sm:gap-2">
           {/* The session portal registered participants join from. */}
           <Button asChild variant="ghost" className="h-10 rounded-full px-3 font-semibold text-slate-700 sm:px-4">
-            <Link href="/">Log in</Link>
+            <Link href="/login">Log in</Link>
           </Button>
           <Button asChild className="h-10 rounded-full px-5 font-semibold">
             <a href="#register">Register</a>

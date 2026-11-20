@@ -3,7 +3,8 @@ import { Schibsted_Grotesk } from "next/font/google";
 import { SmoothScroll } from "@/components/workshop/landing/smooth-scroll";
 
 export const metadata: Metadata = {
-  title: "X Intelligence · AI Empowerment Workshop",
+  // The public homepage carries the brand alone, not the app's "| CMS" suffix.
+  title: { absolute: "X Intelligence · AI Empowerment Workshop" },
 };
 
 // A single warm, heavy grotesk for both display and text — the type

@@ -48,7 +48,7 @@ describe("portal-aware proxy redirects", () => {
     ["/mentor/dashboard", "/admin/login?redirect=%2Fmentor%2Fdashboard"],
     ["/questions?returnTo=%2Fchat%2Fgroup-1", "/admin/login?redirect=%2Fquestions%3FreturnTo%3D%252Fchat%252Fgroup-1"],
     ["/dashboard", "/admin/login?redirect=%2Fdashboard"],
-    ["/chat/group-1", "/"],
+    ["/chat/group-1", "/login"],
   ] as const)("redirects unauthenticated %s to %s", async (path, expected) => {
     const response = await proxy(request(path));
 
@@ -59,6 +59,8 @@ describe("portal-aware proxy redirects", () => {
     ["/admin/login", "MENTOR", "/coach/dashboard"],
     ["/admin/login", "ADMIN", "/admin/dashboard"],
     ["/participant/login", "MENTEE", "/chat"],
+    ["/login", "MENTEE", "/chat"],
+    ["/login", "ADMIN", "/admin/dashboard"],
   ] as const)("redirects an authenticated %s visitor to the existing role destination", async (path, role, expected) => {
     const response = await proxy(request(path, role));
 
@@ -134,6 +136,16 @@ describe("portal-aware proxy redirects", () => {
     expect(rejected.headers.get("location")).toBe(
       "http://localhost/admin/login?redirect=%2Fmentor%2Fdashboard"
     );
+  });
+
+  it.each(["/", "/login"])("lets an unauthenticated visitor open %s (landing page, participant portal)", async (path) => {
+    const response = await proxy(request(path));
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("lets a signed-in user read the landing page at / instead of bouncing them to a dashboard", async () => {
+    const response = await proxy(request("/", "ADMIN"));
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it.each([

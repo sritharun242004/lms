@@ -3,7 +3,7 @@ import type { UserRole } from "@cms/shared";
 export type AuthPortal = "participant" | "coach" | "super-admin" | "admin";
 
 const LOGIN_PATHS: Record<AuthPortal, string> = {
-  participant: "/",
+  participant: "/login",
   coach: "/admin/login",
   "super-admin": "/admin/login",
   admin: "/admin/login",

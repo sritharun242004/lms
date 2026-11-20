@@ -49,14 +49,14 @@ describe("role-aware logout", () => {
 
     await waitFor(() => {
       expect(mocks.logout).toHaveBeenCalledTimes(1);
-      expect(mocks.push).toHaveBeenCalledWith("/");
+      expect(mocks.push).toHaveBeenCalledWith("/login");
     });
   });
 
   it.each([
     ["ADMIN", "/admin/login"],
     ["MENTOR", "/admin/login"],
-    ["MENTEE", "/"],
+    ["MENTEE", "/login"],
   ] as const)("returns %s users to %s", async (role, expected) => {
     const user = userEvent.setup();
     render(createElement(UserMenu, { user: authUser(role as UserRole) }));
