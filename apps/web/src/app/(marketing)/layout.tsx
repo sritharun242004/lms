@@ -23,7 +23,7 @@ const schibstedGrotesk = Schibsted_Grotesk({
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`${schibstedGrotesk.variable} min-h-svh bg-background text-foreground font-[family-name:var(--font-schibsted)]`}
+      className={`${schibstedGrotesk.variable} light min-h-svh bg-white text-slate-900 font-[family-name:var(--font-schibsted)]`}
     >
       <SmoothScroll>{children}</SmoothScroll>
     </div>

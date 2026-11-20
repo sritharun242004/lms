@@ -1,4 +1,5 @@
 import {
+  WorkshopNav,
   Hero,
   WhyNow,
   About,
@@ -19,6 +20,7 @@ import { RegistrationSection } from "@/components/workshop/registration-section"
 export default function XiLandingPage() {
   return (
     <main>
+      <WorkshopNav />
       <Hero />
       <WhyNow />
       <About />
