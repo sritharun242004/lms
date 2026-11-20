@@ -4,14 +4,15 @@ import {
   WhyNow,
   About,
   Journey,
-  Curriculum,
   Outcomes,
+  Curriculum,
   DailySchedule,
-  Audience,
+  DailyOutcomes,
   Trainers,
   Pricing,
-  WhatToBring,
+  Audience,
   Faq,
+  CityBand,
   WorkshopFooter,
 } from "@/components/workshop/landing/sections";
 import { RegistrationSection } from "@/components/workshop/registration-section";
@@ -24,14 +25,15 @@ export default function XiLandingPage() {
       <WhyNow />
       <About />
       <Journey />
-      <Curriculum />
       <Outcomes />
+      <Curriculum />
       <DailySchedule />
-      <Audience />
+      <DailyOutcomes />
       <Trainers />
       <Pricing />
-      <WhatToBring />
+      <Audience />
       <Faq />
+      <CityBand />
       <RegistrationSection />
       <WorkshopFooter />
     </main>

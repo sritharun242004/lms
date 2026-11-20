@@ -34,9 +34,14 @@ afterEach(() => {
 });
 
 describe("XI workshop landing page", () => {
-  it("renders the single approved price and the primary CTA text", () => {
+  it("renders all three approved package prices and the primary CTA text", () => {
     const { container, getAllByText } = render(createElement(XiLandingPage));
     expect(container.textContent).toContain("28,250");
+    expect(container.textContent).toContain("31,275");
+    expect(container.textContent).toContain("55,490");
+    expect(container.textContent).toContain("USD 252");
+    expect(container.textContent).toContain("USD 279");
+    expect(container.textContent).toContain("USD 495");
     expect(getAllByText(/Reserve my seat/i).length).toBeGreaterThan(0);
   });
 
@@ -45,13 +50,10 @@ describe("XI workshop landing page", () => {
     expect(container.textContent).toMatch(/venue.*(to be confirmed|TBC)/i);
   });
 
-  it("shows no workshop dates, no Vjal Institute mentions, and no second price", () => {
+  it("shows no workshop dates and no Vjal Institute mentions", () => {
     const { container } = render(createElement(XiLandingPage));
     expect(container.textContent).not.toMatch(/\b(26|27) Nov\b/i);
     expect(container.textContent).not.toContain("Nov 2026");
     expect(container.textContent).not.toMatch(/vjal/i);
-    expect(container.textContent).not.toContain("31,275");
-    expect(container.textContent).not.toContain("55,490");
-    expect(container.textContent).not.toContain("23,940");
   });
 });
