@@ -113,7 +113,6 @@ model User {
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
   profilePhoto       UserProfilePhoto?
-  onboardedRegistrations WorkshopRegistration[]
   verificationLogs       PaymentVerificationLog[]
   themePreference    String?    @map("theme_preference")
   createdForms        Form[]
@@ -699,13 +698,29 @@ enum AiExperienceLevel {
   DAILY
 }
 
+// Whether this registration was submitted via the Individual or Company
+// path on the registration form. Each registrant — company-affiliated or
+// not — still gets exactly one of these rows; this never implies bulk /
+// multi-attendee registration.
+enum RegistrationKind {
+  INDIVIDUAL
+  COMPANY
+}
+
 model WorkshopRegistration {
   id                     String             @id @default(cuid())
   registrationCode       String             @unique @map("registration_code")
+  registrationKind       RegistrationKind   @default(INDIVIDUAL) @map("registration_kind")
   fullName               String             @map("full_name")
   email                  String
   whatsappNumber         String             @map("whatsapp_number")
-  company                String
+  // Free-text organisation name, collected only for an Individual
+  // registration (optional there). Company registrations carry their
+  // company identity in companyName/companyAddress/companyGstin below —
+  // kept separate from participant identity per the business's request,
+  // and separate again from gstCompanyName/gstin, which back the
+  // unrelated "need a GST invoice" toggle available to either kind.
+  company                String?
   designation            String
   workshopPackage        WorkshopPackage    @map("workshop_package")
   previousDay1Attendance Boolean?           @map("previous_day1_attendance")
@@ -716,15 +731,21 @@ model WorkshopRegistration {
   needsGstInvoice        Boolean            @default(false) @map("needs_gst_invoice")
   gstCompanyName         String?            @map("gst_company_name")
   gstin                  String?
+  // Company-registration-only identity fields (null for Individual).
+  companyName            String?            @map("company_name")
+  companyAddress         String?            @map("company_address")
+  companyGstin           String?            @map("company_gstin")
   referredBy             String?            @map("referred_by")
   ageConfirmed           Boolean            @map("age_confirmed")
   amountInInr            Int                @map("amount_in_inr")
   status                 RegistrationStatus @default(PENDING_PAYMENT)
-  onboardedUserId        String?            @map("onboarded_user_id")
+  // Set by an admin during approval — never auto-populated, never a
+  // dependency on the CMS's own Group model. Validated as a wa.me /
+  // chat.whatsapp.com invite link before approval can complete.
+  whatsappGroupInviteUrl String?            @map("whatsapp_group_invite_url")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
-  onboardedUser     User?                    @relation(fields: [onboardedUserId], references: [id], onDelete: SetNull)
   paymentProofs     PaymentProof[]
   verificationLogs  PaymentVerificationLog[]
 
