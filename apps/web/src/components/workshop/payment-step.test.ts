@@ -2,7 +2,7 @@
 
 import { createElement } from "react";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PaymentStep } from "./payment-step";
 
 afterEach(() => {
@@ -16,7 +16,7 @@ const baseRegistration = {
   amountInInr: 28250,
   workshopPackage: "DAY1" as const,
   status: "PROOF_SUBMITTED",
-  whatsappGroupInviteUrl: null,
+  whatsappGroupInviteUrl: null as string | null,
 };
 
 function mockFetchSequence(registrations: (typeof baseRegistration)[]) {

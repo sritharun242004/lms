@@ -55,10 +55,25 @@ describe("RegistrationForm", () => {
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Asha Rao" } });
     fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: "asha@example.com" } });
     fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: "+919876543210" } });
-    fireEvent.change(screen.getByLabelText(/company/i), { target: { value: "Acme" } });
+    fireEvent.change(screen.getByLabelText(/company \/ organisation/i), { target: { value: "Acme" } });
     fireEvent.change(screen.getByLabelText(/designation/i), { target: { value: "Founder" } });
     fireEvent.click(screen.getByLabelText(/16 or older/i));
     fireEvent.click(screen.getByRole("button", { name: /continue to payment/i }));
     await waitFor(() => expect(onRegistered).toHaveBeenCalled());
+  });
+
+  it("defaults to Individual and shows the optional Company/organisation field", () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    expect(screen.getByLabelText(/company \/ organisation/i)).toBeTruthy();
+    expect(screen.queryByLabelText(/company gstin/i)).toBeNull();
+  });
+
+  it("switches to Company Registration and shows the company detail fields", () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    fireEvent.click(screen.getByLabelText(/company registration/i));
+    expect(screen.getByLabelText(/^company name$/i)).toBeTruthy();
+    expect(screen.getByLabelText(/company address/i)).toBeTruthy();
+    expect(screen.getByLabelText(/company gstin/i)).toBeTruthy();
+    expect(screen.queryByLabelText(/company \/ organisation/i)).toBeNull();
   });
 });

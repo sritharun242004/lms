@@ -26,10 +26,11 @@ import {
 // bundled into a client component.
 const formSchema = z
   .object({
+    registrationKind: z.enum(["INDIVIDUAL", "COMPANY"]),
     fullName: z.string().trim().min(2, "Enter your full name").max(120),
     email: z.string().trim().email("Enter a valid email"),
     whatsappNumber: z.string().trim().min(8, "Enter a valid WhatsApp number").max(20),
-    company: z.string().trim().min(1, "Enter your company or organisation"),
+    company: z.string().trim().optional(),
     designation: z.string().trim().min(1, "Enter your role or designation"),
     workshopPackage: z.enum(["DAY1", "DAY2", "BOTH"]),
     previousDay1Attendance: z.boolean().optional(),
@@ -40,6 +41,9 @@ const formSchema = z
     needsGstInvoice: z.boolean(),
     gstCompanyName: z.string().trim().optional(),
     gstin: z.string().trim().optional(),
+    companyName: z.string().trim().optional(),
+    companyAddress: z.string().trim().optional(),
+    companyGstin: z.string().trim().optional(),
     referredBy: z.string().trim().optional(),
     ageConfirmed: z.literal(true, { errorMap: () => ({ message: "You must confirm you are 16 or older" }) }),
   })
@@ -50,6 +54,17 @@ const formSchema = z
         path: ["previousDay1Attendance"],
         message: "Day 2 needs Day 1 first",
       });
+    }
+    if (value.registrationKind === "COMPANY") {
+      if (!value.companyName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyName"], message: "Enter your company name" });
+      }
+      if (!value.companyAddress) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyAddress"], message: "Enter your company address" });
+      }
+      if (!value.companyGstin) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyGstin"], message: "Enter your company GSTIN" });
+      }
     }
   });
 
@@ -76,6 +91,7 @@ export function RegistrationForm({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      registrationKind: "INDIVIDUAL",
       fullName: "",
       email: "",
       whatsappNumber: "+91",
@@ -90,11 +106,15 @@ export function RegistrationForm({
       needsGstInvoice: false,
       gstCompanyName: "",
       gstin: "",
+      companyName: "",
+      companyAddress: "",
+      companyGstin: "",
       referredBy: "",
       ageConfirmed: undefined as unknown as true,
     },
   });
 
+  const registrationKind = form.watch("registrationKind");
   const workshopPackage = form.watch("workshopPackage");
   const previousDay1Attendance = form.watch("previousDay1Attendance");
   const needsGstInvoice = form.watch("needsGstInvoice");
@@ -128,6 +148,23 @@ export function RegistrationForm({
             {serverError}
           </p>
         ) : null}
+
+        <fieldset className="grid gap-2">
+          <legend className="text-sm font-medium">Registration type</legend>
+          {([
+            ["INDIVIDUAL", "Individual Registration"],
+            ["COMPANY", "Company Registration"],
+          ] as const).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                checked={registrationKind === value}
+                onChange={() => form.setValue("registrationKind", value)}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
 
         <FormField
           control={form.control}
@@ -171,19 +208,64 @@ export function RegistrationForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="company"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Company / organisation</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {registrationKind === "INDIVIDUAL" ? (
+          <FormField
+            control={form.control}
+            name="company"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Company / organisation (optional)</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : (
+          <div className="grid gap-4 rounded-lg border border-border p-4">
+            <p className="text-sm font-medium">Company details</p>
+            <FormField
+              control={form.control}
+              name="companyName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="companyAddress"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company address</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="companyGstin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company GSTIN</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <FormField
           control={form.control}

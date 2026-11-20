@@ -53,8 +53,7 @@ describe("registrationInputSchema", () => {
   });
 
   it("defaults registrationKind to INDIVIDUAL and allows no company name", () => {
-    const { company, ...withoutCompany } = base;
-    const result = registrationInputSchema.safeParse(withoutCompany);
+    const result = registrationInputSchema.safeParse({ ...base, company: undefined });
     expect(result.success).toBe(true);
     expect(result.success && result.data.registrationKind).toBe("INDIVIDUAL");
   });
