@@ -405,7 +405,7 @@ export function Trainers() {
 
 const PACKAGES = [
   { key: "DAY1", label: "Day 1 only", base: "₹23,940", incl: "₹28,250", small: "USD 252", button: "Reserve Day 1", best: false },
-  { key: "BOTH", label: "Day 1 + Day 2", base: "₹47,025", incl: "₹55,490", small: "USD 495 · save ₹3,420", button: "Reserve both days", best: true },
+  { key: "BOTH", label: "Day 1 + Day 2", base: "₹47,025", incl: "₹55,490", small: "USD 495 · save USD 36 vs booking separately", button: "Reserve both days", best: true },
   { key: "DAY2", label: "Day 2 only", base: "₹26,505", incl: "₹31,275", small: "USD 279 · for Day 1 graduates only", button: "Reserve Day 2", best: false },
 ] as const;
 
