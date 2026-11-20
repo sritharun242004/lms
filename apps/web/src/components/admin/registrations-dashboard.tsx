@@ -60,6 +60,12 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   RESUBMISSION_REQUESTED: "secondary",
 };
 
+const PACKAGE_LABEL: Record<RegistrationRow["workshopPackage"], string> = {
+  DAY1: "Day 1",
+  DAY2: "Day 2",
+  BOTH: "Both days",
+};
+
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const result = await response.json();
@@ -179,7 +185,10 @@ export function RegistrationsDashboard({
                       <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      {row.registrationCode} · {row.email} · {row.whatsappNumber} · ₹{row.amountInInr.toLocaleString("en-IN")}
+                      {row.registrationCode} · {PACKAGE_LABEL[row.workshopPackage]} · {row.email} · {row.whatsappNumber} · ₹{row.amountInInr.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.designation} · Registered {new Date(row.createdAt).toLocaleString()}
                     </p>
                     {row.registrationKind === "COMPANY" ? (
                       <p className="mt-1 text-sm text-muted-foreground">

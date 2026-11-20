@@ -60,6 +60,8 @@ describe("RegistrationsDashboard", () => {
     );
     expect(screen.getByText(/asha rao/i)).toBeTruthy();
     expect(screen.getByText(/individual/i)).toBeTruthy();
+    expect(screen.getByText(/day 1/i)).toBeTruthy();
+    expect(screen.getByText(/founder/i)).toBeTruthy();
   });
 
   it("shows company details for a COMPANY registration", () => {
