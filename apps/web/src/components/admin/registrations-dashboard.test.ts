@@ -1,11 +1,9 @@
 /** @vitest-environment jsdom */
 
 import { createElement } from "react";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { RegistrationsDashboard } from "./registrations-dashboard";
-
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const baseRegistration = {
   id: "r1",
@@ -29,77 +27,29 @@ const baseRegistration = {
   gstin: null,
   referredBy: null,
   amountInInr: 28250,
-  status: "PROOF_SUBMITTED",
-  whatsappGroupId: null as string | null,
-  whatsappGroupName: null as string | null,
-  whatsappGroupInviteUrl: null as string | null,
+  status: "PENDING_PAYMENT",
+  paymentMarkedDoneAt: null as string | null,
   createdAt: "2026-11-20T00:00:00Z",
   updatedAt: "2026-11-20T00:00:00Z",
-  paymentProofs: [{ id: "p1", mimeType: "image/png", submittedAt: "2026-11-20T00:00:00Z" }],
-  verificationLogs: [] as Array<{ id: string; action: string; note: string | null; createdAt: string; adminId: string; admin: { name: string | null; email: string } | null }>,
 };
-
-function mockFetch() {
-  return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-    if (typeof url === "string" && url.includes("/api/v1/admin/whatsapp-groups")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: { groups: [{ id: "g1", name: "XI Workshop — Day 1", inviteUrl: "https://chat.whatsapp.com/ABC123", isActive: true }] },
-        }),
-      });
-    }
-    if (typeof url === "string" && url.includes("/api/v1/admin/registrations/") && init?.method === "PATCH") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            registration: {
-              ...baseRegistration,
-              status: "APPROVED",
-              whatsappGroupId: "g1",
-              whatsappGroupName: "XI Workshop — Day 1",
-              whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
-            },
-          },
-        }),
-      });
-    }
-    return Promise.resolve({ ok: true, json: async () => ({ success: true, data: {} }) });
-  });
-}
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
-});
-
-beforeEach(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-  );
-  global.fetch = mockFetch() as unknown as typeof fetch;
 });
 
 describe("RegistrationsDashboard", () => {
-  it("shows the summary counts passed in", () => {
+  it("shows the summary counts and the new status label, not the old verification language", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PROOF_SUBMITTED: 1 }, approvedRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
       })
     );
     expect(screen.getByText(/asha rao/i)).toBeTruthy();
-    expect(screen.getByText(/individual/i)).toBeTruthy();
-    expect(screen.getByText(/day 1/i)).toBeTruthy();
-    expect(screen.getByText(/founder/i)).toBeTruthy();
+    expect(screen.getAllByText(/registered — payment pending/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^approve$/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^reject$/i })).toBeNull();
+    expect(screen.queryByText(/whatsapp group/i)).toBeNull();
   });
 
   it("shows company details for a COMPANY registration", () => {
@@ -108,93 +58,76 @@ describe("RegistrationsDashboard", () => {
         registrations: [
           { ...baseRegistration, registrationKind: "COMPANY" as const, companyName: "Acme Co", companyAddress: "Chennai", companyGstin: "33AAACA1234A1Z5" },
         ],
-        summary: { total: 1, byStatus: {}, approvedRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
       })
     );
     expect(screen.getByText(/acme co/i)).toBeTruthy();
     expect(screen.getByText(/33aaaca1234a1z5/i)).toBeTruthy();
   });
 
-  it("loads active WhatsApp groups into the approval dropdown and sends the selected group id", async () => {
+  it("shows Payment Marked Done status and the confirmation timestamp in details", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [{ ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T10:30:00Z" }],
+        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, paymentDoneRevenueInInr: 28250 },
+      })
+    );
+    expect(screen.getAllByText(/payment marked done/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(screen.getByText(/payment done clicked/i)).toBeTruthy();
+    expect(screen.getByText(/payment confirmation timestamp/i)).toBeTruthy();
+  });
+
+  it("filters by status and by workshop package", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [
+          baseRegistration,
+          { ...baseRegistration, id: "r2", fullName: "Ravi Kumar", status: "PAYMENT_DONE", workshopPackage: "BOTH" as const },
+        ],
+        summary: { total: 2, byStatus: {}, paymentDoneRevenueInInr: 0 },
+      })
+    );
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "PAYMENT_DONE" } });
+    expect(screen.queryByText(/asha rao/i)).toBeNull();
+    expect(screen.getByText(/ravi kumar/i)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "ALL" } });
+    fireEvent.change(screen.getByLabelText(/filter by workshop package/i), { target: { value: "BOTH" } });
+    expect(screen.queryByText(/asha rao/i)).toBeNull();
+    expect(screen.getByText(/ravi kumar/i)).toBeTruthy();
+  });
+
+  it("links the export buttons to the export endpoint with the active filters", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PROOF_SUBMITTED: 1 }, approvedRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
       })
     );
-    fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
-
-    await waitFor(() => expect(screen.getByText("XI Workshop — Day 1")).toBeTruthy());
-
-    fireEvent.change(screen.getByLabelText(/whatsapp group/i), { target: { value: "g1" } });
-    fireEvent.click(screen.getByRole("button", { name: /confirm approval/i }));
-
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/admin/registrations/r1"),
-        expect.objectContaining({
-          method: "PATCH",
-          body: JSON.stringify({
-            action: "APPROVE",
-            note: "",
-            whatsappGroupId: "g1",
-            allowMissingWhatsappLink: false,
-          }),
-        })
-      )
-    );
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "PENDING_PAYMENT" } });
+    const csvLink = screen.getByRole("link", { name: /export csv/i });
+    expect(csvLink.getAttribute("href")).toBe("/api/v1/admin/registrations/export?format=csv&status=PENDING_PAYMENT");
   });
 
-  it("disables confirming approval until a group is selected or the exception is checked", async () => {
-    render(
-      createElement(RegistrationsDashboard, {
-        registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PROOF_SUBMITTED: 1 }, approvedRevenueInInr: 0 },
-      })
-    );
-    fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
-    await waitFor(() => expect(screen.getByText("XI Workshop — Day 1")).toBeTruthy());
-
-    expect(screen.getByRole("button", { name: /confirm approval/i })).toHaveProperty("disabled", true);
-
-    fireEvent.click(screen.getByText(/approve without a group/i));
-    expect(screen.getByRole("button", { name: /confirm approval/i })).toHaveProperty("disabled", false);
-  });
-
-  it("opens a details view showing all submitted fields", () => {
+  it("opens a details view showing all submitted fields, including GST invoice billing details", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [
           {
             ...baseRegistration,
-            registrationKind: "COMPANY" as const,
-            companyName: "Acme Co",
-            companyAddress: "Chennai",
-            companyGstin: "33AAACA1234A1Z5",
             aiUseCase: "internal reporting",
             needsGstInvoice: true,
             gstCompanyName: "Acme Invoicing Pvt Ltd",
             gstin: "33AAACA1234A1Z6",
           },
         ],
-        summary: { total: 1, byStatus: {}, approvedRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
       })
     );
     fireEvent.click(screen.getByRole("button", { name: /view details/i }));
     expect(screen.getByText(/internal reporting/i)).toBeTruthy();
     expect(screen.getByText(/acme invoicing pvt ltd/i)).toBeTruthy();
     expect(screen.getByText(/33aaaca1234a1z6/i)).toBeTruthy();
-  });
-
-  it("filters the table by status", () => {
-    render(
-      createElement(RegistrationsDashboard, {
-        registrations: [baseRegistration, { ...baseRegistration, id: "r2", fullName: "Ravi Kumar", status: "APPROVED" }],
-        summary: { total: 2, byStatus: {}, approvedRevenueInInr: 0 },
-      })
-    );
-    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "APPROVED" } });
-    expect(screen.queryByText(/asha rao/i)).toBeNull();
-    expect(screen.getByText(/ravi kumar/i)).toBeTruthy();
   });
 });

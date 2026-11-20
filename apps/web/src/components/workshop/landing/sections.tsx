@@ -78,7 +78,7 @@ export function Hero() {
     <section className="mx-auto grid max-w-6xl gap-10 px-6 pt-20 pb-24 md:grid-cols-[1.3fr_1fr] md:gap-16 md:pt-28">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[.22em] text-primary">
-          Friends &amp; Family Edition · 26-27 Nov 2026 · Chennai
+          Friends &amp; Family Edition · Chennai
         </p>
         <h1 className={`${SERIF} mt-6 text-5xl font-medium leading-[1.05] tracking-tight text-foreground sm:text-6xl lg:text-7xl`}>
           AI that works
@@ -97,11 +97,9 @@ export function Hero() {
             See the curriculum ↓
           </a>
         </div>
-        <dl className="mt-14 grid grid-cols-2 gap-6 border-t border-border pt-6 text-sm text-muted-foreground sm:grid-cols-4">
-          <div>Thu 26 &amp; Fri 27 Nov</div>
+        <dl className="mt-14 grid grid-cols-2 gap-6 border-t border-border pt-6 text-sm text-muted-foreground">
           <div>9:15 am – 5:30 pm</div>
           <div>Chennai (venue TBC)</div>
-          <div>Day 1 certification via Vjal Institute</div>
         </dl>
         <p className="mt-4 text-xs text-muted-foreground">Limited seats. Confirmed on a first-paid basis.</p>
       </div>
@@ -214,7 +212,7 @@ export function Journey() {
         ))}
       </div>
       <p className="mt-8 text-sm text-muted-foreground">
-        Day 2 is open only to people who have done Day 1, either earlier or on 26 Nov.
+        Day 2 is open only to people who have done Day 1 before.
       </p>
     </section>
   );
@@ -228,11 +226,10 @@ export function Curriculum() {
       </Reveal>
       <div className="mt-14 grid gap-14 border-t border-border pt-10 md:grid-cols-2 md:gap-16">
         <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 1 · Thu 26 Nov</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 1</p>
           <h3 className={`${SERIF} mt-2 text-2xl font-medium`}>AI Empowerment for Professionals</h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            From the fundamentals all the way up to agentic AI. Certification through the Vjal
-            Institute.
+            From the fundamentals all the way up to agentic AI.
           </p>
           <ol className="mt-6 flex flex-col gap-5">
             {[
@@ -252,7 +249,7 @@ export function Curriculum() {
           </ol>
         </Reveal>
         <Reveal delay={0.1}>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 2 · Fri 27 Nov</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 2</p>
           <h3 className={`${SERIF} mt-2 text-2xl font-medium`}>AI Empowerment for Business Leaders 2.0</h3>
           <p className="mt-2 text-sm text-muted-foreground">For Day 1 graduates. More hands-on, more depth.</p>
           <ol className="mt-6 flex flex-col gap-5">
@@ -403,48 +400,25 @@ export function Trainers() {
   );
 }
 
-const PACKAGES = [
-  { key: "DAY1", label: "Day 1 only", base: "₹23,940", incl: "₹28,250", small: "USD 252", button: "Reserve Day 1", best: false },
-  { key: "BOTH", label: "Day 1 + Day 2", base: "₹47,025", incl: "₹55,490", small: "USD 495 · save USD 36 vs booking separately", button: "Reserve both days", best: true },
-  { key: "DAY2", label: "Day 2 only", base: "₹26,505", incl: "₹31,275", small: "USD 279 · for Day 1 graduates only", button: "Reserve Day 2", best: false },
-] as const;
-
 export function Pricing() {
   return (
     <section id="fees" className="mx-auto max-w-6xl px-6 py-24">
       <Reveal>
         <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>Fees</h2>
       </Reveal>
-      <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-3">
-        {PACKAGES.map((pkg, index) => (
-          <Reveal
-            key={pkg.key}
-            delay={index * 0.08}
-            className={`flex flex-col gap-4 bg-background p-8 ${pkg.best ? "relative" : ""}`}
-          >
-            {pkg.best ? (
-              <span className="absolute right-6 top-6 text-xs font-semibold uppercase tracking-wide text-primary">
-                Best value
-              </span>
-            ) : null}
-            <p className="text-sm font-medium text-muted-foreground">{pkg.label}</p>
-            <div>
-              <p className="text-sm text-muted-foreground/60 line-through">{pkg.base}</p>
-              <p className={`${SERIF} text-4xl font-medium ${pkg.best ? "text-primary" : "text-foreground"}`}>{pkg.incl}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{pkg.small}</p>
-            </div>
-            <Button asChild variant={pkg.best ? "default" : "outline"} className="mt-2 w-full rounded-full">
-              <a href={`?package=${pkg.key}#register`}>{pkg.button}</a>
-            </Button>
-          </Reveal>
-        ))}
-      </div>
+      <Reveal delay={0.08} className="mt-14 flex flex-col items-start gap-4 rounded-2xl border border-border bg-background p-10">
+        <p className="text-sm font-medium text-muted-foreground">One price. Everyone.</p>
+        <p className={`${SERIF} text-5xl font-medium text-primary`}>₹28,250</p>
+        <p className="text-sm text-muted-foreground">18% GST added. No other fees.</p>
+        <Button asChild size="lg" className="mt-2 rounded-full px-7">
+          <a href="#register">Reserve my seat</a>
+        </Button>
+      </Reveal>
       <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
         Fees cover the full-day training, lunch and refreshments. This friends-and-family round is
         priced well below our usual corporate rates.
       </p>
       <dl className="mt-10 grid max-w-md gap-2 border-t border-border pt-8 text-sm text-muted-foreground">
-        <div><span className="font-medium text-foreground">Dates:</span> Thu 26 Nov and Fri 27 Nov 2026</div>
         <div><span className="font-medium text-foreground">Time:</span> 9:15 am - 5:30 pm (reporting at 8:45 am)</div>
         <div><span className="font-medium text-foreground">Venue:</span> to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)</div>
         <div><span className="font-medium text-foreground">Seats:</span> limited, confirmed on a first-paid basis</div>
@@ -497,7 +471,7 @@ export function WhatToBring() {
 const FAQS = [
   { q: "I'm new to AI. Is Day 1 too advanced?", a: "No. Day 1 starts from the fundamentals and builds up step by step." },
   { q: "Can I attend only Day 2?", a: "Only if you have done our Day 1 before. If you haven't, take both days." },
-  { q: "Do I get a certificate?", a: "Yes. Day 1 is a certification program through the Vjal Institute." },
+  { q: "Do I get a certificate?", a: "[CERTIFICATION DETAILS: TO BE CONFIRMED]" },
   { q: "Do I really need the paid subscriptions?", a: "Yes. The sessions are hands-on, and free plans cut off the features we use. Please set them up before the day." },
   { q: "Is food included?", a: "Yes, lunch and refreshments on both days." },
   { q: "Can I bring my spouse or a colleague?", a: "Yes. Each person registers separately. Minimum age is 16." },
@@ -533,8 +507,7 @@ export function WorkshopFooter() {
         <p className={`${SERIF} text-foreground`}>X Intelligence · xintelligence.in</p>
         <p>Contact: [PHONE / WHATSAPP] · [EMAIL]</p>
       </div>
-      <div className="mx-auto mt-6 flex max-w-6xl flex-col gap-1 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p>Day 1 certification in partnership with the Vjal Institute</p>
+      <div className="mx-auto mt-6 flex max-w-6xl flex-col gap-1 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-end">
         <p>© 2026 X Intelligence</p>
       </div>
     </footer>

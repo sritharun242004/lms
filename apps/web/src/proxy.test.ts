@@ -140,7 +140,7 @@ describe("portal-aware proxy redirects", () => {
     "/workshop/x-intelligence",
     "/api/v1/workshop/registrations",
     "/api/v1/workshop/registrations/XI-2026-0001",
-    "/api/v1/workshop/registrations/XI-2026-0001/payment-proof",
+    "/api/v1/workshop/registrations/XI-2026-0001/payment-done",
     "/api/v1/workshop/registrations/XI-2026-0001/qr",
     "/api/v1/workshop/config",
   ])("never redirects an unauthenticated visitor away from the public workshop route %s", async (path) => {

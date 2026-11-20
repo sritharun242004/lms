@@ -70,10 +70,9 @@ describe("GET /api/v1/workshop/registrations/[code]", () => {
     findRegistrationByCode.mockResolvedValue({
       id: "r1",
       registrationCode: "XI-2026-0001",
-      status: "APPROVED",
+      status: "PAYMENT_DONE",
       workshopPackage: "DAY1",
       amountInInr: 28250,
-      whatsappGroupInviteUrl: "https://wa.me/919876543210",
       fullName: "Asha Rao",
       email: "asha@example.com",
       whatsappNumber: "+919876543210",
@@ -88,10 +87,9 @@ describe("GET /api/v1/workshop/registrations/[code]", () => {
     const body = await res.json();
     expect(body.data.registration).toEqual({
       registrationCode: "XI-2026-0001",
-      status: "APPROVED",
+      status: "PAYMENT_DONE",
       workshopPackage: "DAY1",
       amountInInr: 28250,
-      whatsappGroupInviteUrl: "https://wa.me/919876543210",
     });
   });
 });

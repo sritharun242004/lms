@@ -113,7 +113,6 @@ model User {
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
   profilePhoto       UserProfilePhoto?
-  verificationLogs       PaymentVerificationLog[]
   themePreference    String?    @map("theme_preference")
   createdForms        Form[]
   questionTemplates   FormQuestionTemplate[]
@@ -677,13 +676,12 @@ model AuditLog {
 // 11. Workshop registration / demo payment / verification
 // ============================================================================
 
+// Payment is never verified inside this application — the participant
+// self-reports by clicking "Payment Done"; an admin follows up outside
+// the app. There is intentionally no "approved"/"rejected" state here.
 enum RegistrationStatus {
   PENDING_PAYMENT
-  PROOF_SUBMITTED
-  UNDER_VERIFICATION
-  APPROVED
-  REJECTED
-  RESUBMISSION_REQUESTED
+  PAYMENT_DONE
 }
 
 enum WorkshopPackage {
@@ -739,76 +737,17 @@ model WorkshopRegistration {
   ageConfirmed           Boolean            @map("age_confirmed")
   amountInInr            Int                @map("amount_in_inr")
   status                 RegistrationStatus @default(PENDING_PAYMENT)
-  // Selected by an admin from the reusable WhatsAppGroup list during
-  // approval — never auto-populated, never a dependency on the CMS's
-  // own Group model. whatsappGroupName/whatsappGroupInviteUrl are a
-  // snapshot taken at approval time, not a live read of the group:
-  // editing or deleting the WhatsAppGroup row later must never change
-  // what an already-approved participant sees or was sent, so the
-  // registration keeps its own copy. whatsappGroupId is kept only so
-  // the admin UI can show which group record it came from, and is set
-  // to null (onDelete: SetNull) if that group is later deleted.
-  whatsappGroupId        String?            @map("whatsapp_group_id")
-  whatsappGroupName      String?            @map("whatsapp_group_name")
-  whatsappGroupInviteUrl String?            @map("whatsapp_group_invite_url")
+  // Set once, the moment the participant clicks "Payment Done" on their
+  // own payment page. There is no admin verification step — this
+  // timestamp plus `status` is the entire payment record; an admin
+  // follows up with the participant outside the application.
+  paymentMarkedDoneAt    DateTime?          @map("payment_marked_done_at")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
-  paymentProofs     PaymentProof[]
-  verificationLogs  PaymentVerificationLog[]
-  whatsappGroup     WhatsAppGroup?           @relation(fields: [whatsappGroupId], references: [id], onDelete: SetNull)
-
   @@index([status])
   @@index([email])
-  @@index([whatsappGroupId])
   @@map("workshop_registrations")
-}
-
-// Reusable WhatsApp groups an admin manages once and selects from
-// during approval, instead of pasting a raw invite link per
-// registration. Deleting a group never touches past registrations —
-// see the snapshot fields on WorkshopRegistration above.
-model WhatsAppGroup {
-  id        String   @id @default(cuid())
-  name      String
-  inviteUrl String   @map("invite_url")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  registrations WorkshopRegistration[]
-
-  @@index([isActive])
-  @@map("workshop_whatsapp_groups")
-}
-
-model PaymentProof {
-  id             String               @id @default(cuid())
-  registrationId String               @map("registration_id")
-  mimeType       String               @map("mime_type")
-  size           Int
-  data           Bytes
-  submittedAt    DateTime             @default(now()) @map("submitted_at")
-
-  registration WorkshopRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-
-  @@index([registrationId])
-  @@map("workshop_payment_proofs")
-}
-
-model PaymentVerificationLog {
-  id             String               @id @default(cuid())
-  registrationId String               @map("registration_id")
-  action         RegistrationStatus
-  note           String?
-  adminId        String               @map("admin_id")
-  createdAt      DateTime             @default(now()) @map("created_at")
-
-  registration WorkshopRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  admin        User                 @relation(fields: [adminId], references: [id], onDelete: Restrict)
-
-  @@index([registrationId])
-  @@map("workshop_payment_verification_logs")
 }
 
 // ============================================================================

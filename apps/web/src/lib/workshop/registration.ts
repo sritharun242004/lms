@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { getPackageAmountInr, type WorkshopPackageKey } from "./pricing";
+import { getPackageAmountInr } from "./pricing";
 import type { WorkshopRegistration } from "@prisma/client";
 
 export class RegistrationError extends Error {
@@ -90,7 +90,7 @@ export async function createRegistration(
     );
   }
   const data = parsed.data;
-  const amountInInr = getPackageAmountInr(data.workshopPackage as WorkshopPackageKey);
+  const amountInInr = getPackageAmountInr();
   const year = new Date().getFullYear();
 
   // Retry once on the unique-code race: two submissions in the same
