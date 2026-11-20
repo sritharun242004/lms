@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
         take: 1,
         select: { id: true, mimeType: true, submittedAt: true },
       },
+      verificationLogs: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, action: true, note: true, createdAt: true, adminId: true },
+      },
     },
   });
 
