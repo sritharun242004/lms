@@ -9,5 +9,18 @@ export async function GET(
   const { code } = await params;
   const registration = await findRegistrationByCode(code);
   if (!registration) return errorResponse("Registration not found", "NOT_FOUND", 404);
-  return successResponse({ registration });
+
+  // Unauthenticated, code-based lookup — anyone who knows (or guesses,
+  // since codes are sequential) a registration code can hit this. Only
+  // return the fields the participant's own status page actually
+  // renders, never email/WhatsApp number/company/GSTIN/etc.
+  return successResponse({
+    registration: {
+      registrationCode: registration.registrationCode,
+      status: registration.status,
+      workshopPackage: registration.workshopPackage,
+      amountInInr: registration.amountInInr,
+      whatsappGroupInviteUrl: registration.whatsappGroupInviteUrl,
+    },
+  });
 }

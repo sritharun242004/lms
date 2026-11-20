@@ -25,7 +25,7 @@ export async function PATCH(
     if (body.action === "APPROVE") {
       const registration = await approveRegistration(user.id, id, {
         note,
-        whatsappGroupInviteUrl: typeof body.whatsappGroupInviteUrl === "string" ? body.whatsappGroupInviteUrl : undefined,
+        whatsappGroupId: typeof body.whatsappGroupId === "string" ? body.whatsappGroupId : undefined,
         allowMissingWhatsappLink: body.allowMissingWhatsappLink === true,
       });
       return successResponse({ registration });

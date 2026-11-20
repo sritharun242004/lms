@@ -19,13 +19,57 @@ const baseRegistration = {
   companyAddress: null,
   companyGstin: null,
   workshopPackage: "DAY1" as const,
+  previousDay1Attendance: null,
+  previousDay1When: null,
+  aiExperienceLevel: "SOMETIMES" as const,
+  aiUseCase: null,
+  subscriptions: [] as string[],
+  needsGstInvoice: false,
+  gstCompanyName: null,
+  gstin: null,
+  referredBy: null,
   amountInInr: 28250,
   status: "PROOF_SUBMITTED",
-  whatsappGroupInviteUrl: null,
+  whatsappGroupId: null as string | null,
+  whatsappGroupName: null as string | null,
+  whatsappGroupInviteUrl: null as string | null,
   createdAt: "2026-11-20T00:00:00Z",
+  updatedAt: "2026-11-20T00:00:00Z",
   paymentProofs: [{ id: "p1", mimeType: "image/png", submittedAt: "2026-11-20T00:00:00Z" }],
-  verificationLogs: [],
+  verificationLogs: [] as Array<{ id: string; action: string; note: string | null; createdAt: string; adminId: string; admin: { name: string | null; email: string } | null }>,
 };
+
+function mockFetch() {
+  return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+    if (typeof url === "string" && url.includes("/api/v1/admin/whatsapp-groups")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { groups: [{ id: "g1", name: "XI Workshop — Day 1", inviteUrl: "https://chat.whatsapp.com/ABC123", isActive: true }] },
+        }),
+      });
+    }
+    if (typeof url === "string" && url.includes("/api/v1/admin/registrations/") && init?.method === "PATCH") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            registration: {
+              ...baseRegistration,
+              status: "APPROVED",
+              whatsappGroupId: "g1",
+              whatsappGroupName: "XI Workshop — Day 1",
+              whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
+            },
+          },
+        }),
+      });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ success: true, data: {} }) });
+  });
+}
 
 afterEach(() => {
   cleanup();
@@ -41,13 +85,7 @@ beforeEach(() => {
       disconnect() {}
     }
   );
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({
-      success: true,
-      data: { registration: { ...baseRegistration, status: "APPROVED", whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123" } },
-    }),
-  }) as unknown as typeof fetch;
+  global.fetch = mockFetch() as unknown as typeof fetch;
 });
 
 describe("RegistrationsDashboard", () => {
@@ -77,7 +115,7 @@ describe("RegistrationsDashboard", () => {
     expect(screen.getByText(/33aaaca1234a1z5/i)).toBeTruthy();
   });
 
-  it("sends the WhatsApp group link entered by the admin when approving", async () => {
+  it("loads active WhatsApp groups into the approval dropdown and sends the selected group id", async () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
@@ -85,9 +123,10 @@ describe("RegistrationsDashboard", () => {
       })
     );
     fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
-    fireEvent.change(screen.getByLabelText(/whatsapp group invitation link/i), {
-      target: { value: "https://chat.whatsapp.com/ABC123" },
-    });
+
+    await waitFor(() => expect(screen.getByText("XI Workshop — Day 1")).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText(/whatsapp group/i), { target: { value: "g1" } });
     fireEvent.click(screen.getByRole("button", { name: /confirm approval/i }));
 
     await waitFor(() =>
@@ -98,11 +137,64 @@ describe("RegistrationsDashboard", () => {
           body: JSON.stringify({
             action: "APPROVE",
             note: "",
-            whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
+            whatsappGroupId: "g1",
             allowMissingWhatsappLink: false,
           }),
         })
       )
     );
+  });
+
+  it("disables confirming approval until a group is selected or the exception is checked", async () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration],
+        summary: { total: 1, byStatus: { PROOF_SUBMITTED: 1 }, approvedRevenueInInr: 0 },
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
+    await waitFor(() => expect(screen.getByText("XI Workshop — Day 1")).toBeTruthy());
+
+    expect(screen.getByRole("button", { name: /confirm approval/i })).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByText(/approve without a group/i));
+    expect(screen.getByRole("button", { name: /confirm approval/i })).toHaveProperty("disabled", false);
+  });
+
+  it("opens a details view showing all submitted fields", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [
+          {
+            ...baseRegistration,
+            registrationKind: "COMPANY" as const,
+            companyName: "Acme Co",
+            companyAddress: "Chennai",
+            companyGstin: "33AAACA1234A1Z5",
+            aiUseCase: "internal reporting",
+            needsGstInvoice: true,
+            gstCompanyName: "Acme Invoicing Pvt Ltd",
+            gstin: "33AAACA1234A1Z6",
+          },
+        ],
+        summary: { total: 1, byStatus: {}, approvedRevenueInInr: 0 },
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(screen.getByText(/internal reporting/i)).toBeTruthy();
+    expect(screen.getByText(/acme invoicing pvt ltd/i)).toBeTruthy();
+    expect(screen.getByText(/33aaaca1234a1z6/i)).toBeTruthy();
+  });
+
+  it("filters the table by status", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration, { ...baseRegistration, id: "r2", fullName: "Ravi Kumar", status: "APPROVED" }],
+        summary: { total: 2, byStatus: {}, approvedRevenueInInr: 0 },
+      })
+    );
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "APPROVED" } });
+    expect(screen.queryByText(/asha rao/i)).toBeNull();
+    expect(screen.getByText(/ravi kumar/i)).toBeTruthy();
   });
 });

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
 import { consoleNotificationService, type NotificationService } from "./notifications";
-import { isValidWhatsAppInviteUrl } from "./whatsapp";
 import type { WorkshopRegistration } from "@prisma/client";
 
 export class VerificationError extends Error {
@@ -32,11 +31,14 @@ async function requireProofSubmitted(registrationId: string) {
 
 export type ApproveRegistrationInput = {
   note?: string;
-  // The group link an admin pastes in during approval. Optional only
-  // when the registration already has one saved from a prior approval
+  // A reusable WhatsAppGroup's id, selected by the admin from a
+  // dropdown of active groups during approval. Optional only when the
+  // registration already has a group saved from a prior approval
   // attempt, or when `allowMissingWhatsappLink` is explicitly set — the
   // workshop's own explicit exception path, never a silent default.
-  whatsappGroupInviteUrl?: string;
+  // Never a raw URL: groups are created/edited once in WhatsApp Group
+  // management and only ever selected here, never typed in by hand.
+  whatsappGroupId?: string;
   allowMissingWhatsappLink?: boolean;
 };
 
@@ -53,19 +55,33 @@ export async function approveRegistration(
 ): Promise<WorkshopRegistration> {
   const registration = await requireProofSubmitted(registrationId);
 
-  const whatsappGroupInviteUrl = input.whatsappGroupInviteUrl?.trim() || registration.whatsappGroupInviteUrl;
+  // Snapshot the group's current name/link at approval time. A group
+  // selected here is never re-read later — editing or deleting the
+  // WhatsAppGroup row afterward must never change what an already
+  // approved participant was told, so the registration keeps its own
+  // copy rather than a live reference.
+  let whatsappGroupId = registration.whatsappGroupId;
+  let whatsappGroupName = registration.whatsappGroupName;
+  let whatsappGroupInviteUrl = registration.whatsappGroupInviteUrl;
+
+  if (input.whatsappGroupId) {
+    const group = await prisma.whatsAppGroup.findUnique({ where: { id: input.whatsappGroupId } });
+    if (!group || !group.isActive) {
+      throw new VerificationError(
+        "Selected WhatsApp group is not available. Choose an active group.",
+        "INVALID_WHATSAPP_GROUP",
+        400
+      );
+    }
+    whatsappGroupId = group.id;
+    whatsappGroupName = group.name;
+    whatsappGroupInviteUrl = group.inviteUrl;
+  }
 
   if (!whatsappGroupInviteUrl && !input.allowMissingWhatsappLink) {
     throw new VerificationError(
-      "Add the WhatsApp group invitation link before approving, or explicitly allow approving without one",
+      "Select a WhatsApp group before approving, or explicitly allow approving without one",
       "WHATSAPP_LINK_REQUIRED",
-      400
-    );
-  }
-  if (whatsappGroupInviteUrl && !isValidWhatsAppInviteUrl(whatsappGroupInviteUrl)) {
-    throw new VerificationError(
-      "That doesn't look like a WhatsApp invite link (expected a wa.me or chat.whatsapp.com URL)",
-      "INVALID_WHATSAPP_URL",
       400
     );
   }
@@ -75,7 +91,9 @@ export async function approveRegistration(
       where: { id: registration.id },
       data: {
         status: "APPROVED",
-        ...(whatsappGroupInviteUrl ? { whatsappGroupInviteUrl } : {}),
+        whatsappGroupId,
+        whatsappGroupName,
+        whatsappGroupInviteUrl,
       },
     });
 

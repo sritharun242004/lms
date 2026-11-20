@@ -739,19 +739,47 @@ model WorkshopRegistration {
   ageConfirmed           Boolean            @map("age_confirmed")
   amountInInr            Int                @map("amount_in_inr")
   status                 RegistrationStatus @default(PENDING_PAYMENT)
-  // Set by an admin during approval — never auto-populated, never a
-  // dependency on the CMS's own Group model. Validated as a wa.me /
-  // chat.whatsapp.com invite link before approval can complete.
+  // Selected by an admin from the reusable WhatsAppGroup list during
+  // approval — never auto-populated, never a dependency on the CMS's
+  // own Group model. whatsappGroupName/whatsappGroupInviteUrl are a
+  // snapshot taken at approval time, not a live read of the group:
+  // editing or deleting the WhatsAppGroup row later must never change
+  // what an already-approved participant sees or was sent, so the
+  // registration keeps its own copy. whatsappGroupId is kept only so
+  // the admin UI can show which group record it came from, and is set
+  // to null (onDelete: SetNull) if that group is later deleted.
+  whatsappGroupId        String?            @map("whatsapp_group_id")
+  whatsappGroupName      String?            @map("whatsapp_group_name")
   whatsappGroupInviteUrl String?            @map("whatsapp_group_invite_url")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
   paymentProofs     PaymentProof[]
   verificationLogs  PaymentVerificationLog[]
+  whatsappGroup     WhatsAppGroup?           @relation(fields: [whatsappGroupId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([email])
+  @@index([whatsappGroupId])
   @@map("workshop_registrations")
+}
+
+// Reusable WhatsApp groups an admin manages once and selects from
+// during approval, instead of pasting a raw invite link per
+// registration. Deleting a group never touches past registrations —
+// see the snapshot fields on WorkshopRegistration above.
+model WhatsAppGroup {
+  id        String   @id @default(cuid())
+  name      String
+  inviteUrl String   @map("invite_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  registrations WorkshopRegistration[]
+
+  @@index([isActive])
+  @@map("workshop_whatsapp_groups")
 }
 
 model PaymentProof {

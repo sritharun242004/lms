@@ -35,7 +35,14 @@ export async function GET(req: NextRequest) {
       },
       verificationLogs: {
         orderBy: { createdAt: "desc" },
-        select: { id: true, action: true, note: true, createdAt: true, adminId: true },
+        select: {
+          id: true,
+          action: true,
+          note: true,
+          createdAt: true,
+          adminId: true,
+          admin: { select: { name: true, email: true } },
+        },
       },
     },
   });

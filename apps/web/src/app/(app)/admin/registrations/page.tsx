@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { RegistrationsDashboard } from "@/components/admin/registrations-dashboard";
+import { WhatsAppGroupsManager } from "@/components/admin/whatsapp-groups-manager";
 
 export default async function AdminRegistrationsPage() {
   const user = await getCurrentUser();
@@ -19,7 +20,14 @@ export default async function AdminRegistrationsPage() {
       },
       verificationLogs: {
         orderBy: { createdAt: "desc" },
-        select: { id: true, action: true, note: true, createdAt: true, adminId: true },
+        select: {
+          id: true,
+          action: true,
+          note: true,
+          createdAt: true,
+          adminId: true,
+          admin: { select: { name: true, email: true } },
+        },
       },
     },
   });
@@ -34,10 +42,15 @@ export default async function AdminRegistrationsPage() {
     approvedRevenueInInr: grouped.find((g) => g.status === "APPROVED")?._sum.amountInInr ?? 0,
   };
 
+  const whatsAppGroups = await prisma.whatsAppGroup.findMany({ orderBy: { createdAt: "desc" } });
+
   return (
-    <RegistrationsDashboard
-      registrations={JSON.parse(JSON.stringify(registrations))}
-      summary={summary}
-    />
+    <div className="flex flex-col gap-10">
+      <RegistrationsDashboard
+        registrations={JSON.parse(JSON.stringify(registrations))}
+        summary={summary}
+      />
+      <WhatsAppGroupsManager groups={JSON.parse(JSON.stringify(whatsAppGroups))} />
+    </div>
   );
 }

@@ -65,4 +65,33 @@ describe("GET /api/v1/workshop/registrations/[code]", () => {
     });
     expect(res.status).toBe(200);
   });
+
+  it("never leaks PII to this unauthenticated endpoint, only the fields the status page renders", async () => {
+    findRegistrationByCode.mockResolvedValue({
+      id: "r1",
+      registrationCode: "XI-2026-0001",
+      status: "APPROVED",
+      workshopPackage: "DAY1",
+      amountInInr: 28250,
+      whatsappGroupInviteUrl: "https://wa.me/919876543210",
+      fullName: "Asha Rao",
+      email: "asha@example.com",
+      whatsappNumber: "+919876543210",
+      companyName: "Acme Robotics",
+      companyAddress: "12 MG Road",
+      companyGstin: "33AAAAA0000A1Z5",
+      aiUseCase: "internal reporting",
+    });
+    const res = await GET(new NextRequest("http://localhost"), {
+      params: Promise.resolve({ code: "XI-2026-0001" }),
+    });
+    const body = await res.json();
+    expect(body.data.registration).toEqual({
+      registrationCode: "XI-2026-0001",
+      status: "APPROVED",
+      workshopPackage: "DAY1",
+      amountInInr: 28250,
+      whatsappGroupInviteUrl: "https://wa.me/919876543210",
+    });
+  });
 });
