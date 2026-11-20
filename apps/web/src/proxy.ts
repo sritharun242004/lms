@@ -43,6 +43,10 @@ const PUBLIC_API_ROUTES = [
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/reset-password",
   "/api/v1/auth/verify-email",
+  // Non-secret workshop config (the general post-registration WhatsApp
+  // link) — the public registration flow reads this before any auth
+  // exists.
+  "/api/v1/workshop/config",
 ];
 
 // API route prefixes that don't require authentication — unlike
