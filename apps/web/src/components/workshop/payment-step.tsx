@@ -121,7 +121,7 @@ export function PaymentStep({ registrationCode }: { registrationCode: string }) 
           paid, let us know below — we do not verify payment inside this app.
         </p>
 
-        <Button type="button" size="lg" disabled={isSubmitting} onClick={handlePaymentDone}>
+        <Button type="button" size="lg" disabled={isSubmitting} onClick={handlePaymentDone} className="rounded-none shadow-none">
           {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
           Payment Done
         </Button>

@@ -76,4 +76,16 @@ describe("RegistrationForm", () => {
     expect(screen.getByLabelText(/company gstin/i)).toBeTruthy();
     expect(screen.queryByLabelText(/company \/ organisation/i)).toBeNull();
   });
+
+  it("shows the Need a GST invoice toggle for Individual", () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    expect(screen.getByText(/need a gst invoice/i)).toBeTruthy();
+  });
+
+  it("hides the Need a GST invoice toggle for Company, since the company details already cover it", () => {
+    render(createElement(RegistrationForm, { onRegistered: () => {} }));
+    fireEvent.click(screen.getByLabelText(/company registration/i));
+    expect(screen.queryByText(/need a gst invoice/i)).toBeNull();
+    expect(screen.getByText(/gst invoice will use the company details/i)).toBeTruthy();
+  });
 });

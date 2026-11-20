@@ -4,22 +4,21 @@ import * as React from "react";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { Button } from "@/components/ui/button";
 
-const SERIF = "font-[family-name:var(--font-fraunces)]";
-
-// Scroll-triggered fade/rise, skipped entirely for a visitor who has
-// asked for reduced motion — content renders in its final state
-// immediately rather than ever being animated for them.
+// Scroll-triggered fade/rise for a section's parts, skipped entirely
+// for a visitor who has asked for reduced motion.
 function Reveal({
   children,
   className,
   delay = 0,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  style?: React.CSSProperties;
 }) {
   const reduceMotion = useReducedMotion();
-  if (reduceMotion) return <div className={className}>{children}</div>;
+  if (reduceMotion) return <div className={className} style={style}>{children}</div>;
 
   const variants: Variants = {
     hidden: { opacity: 0, y: 28 },
@@ -29,6 +28,7 @@ function Reveal({
   return (
     <motion.div
       className={className}
+      style={style}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-10% 0px -10% 0px" }}
@@ -39,431 +39,462 @@ function Reveal({
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionHeading({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[.22em] text-primary">{children}</p>
+    <h2 className={`font-extrabold tracking-[-0.03em] leading-[0.95] text-foreground ${className}`}>
+      {children}
+    </h2>
   );
 }
 
 const NAV_LINKS = [
-  { href: "#curriculum", label: "Program" },
   { href: "#curriculum", label: "Curriculum" },
   { href: "#trainers", label: "Trainers" },
   { href: "#fees", label: "Fees" },
-  { href: "#faq", label: "FAQ" },
 ];
 
 export function WorkshopNav() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <span className={`${SERIF} text-lg font-medium tracking-tight text-foreground`}>X Intelligence</span>
-        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-          {NAV_LINKS.map((link) => (
-            <a key={link.label} href={link.href} className="transition-colors hover:text-foreground">
-              {link.label}
-            </a>
-          ))}
-        </nav>
-        <Button asChild size="sm" variant="outline" className="rounded-full">
-          <a href="#register">Register</a>
-        </Button>
-      </div>
-    </header>
+    <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-5 py-6 sm:px-7">
+      <span className="text-base font-extrabold tracking-tight text-foreground">X Intelligence</span>
+      <nav className="hidden items-center gap-7 text-sm font-semibold text-muted-foreground sm:flex">
+        {NAV_LINKS.map((link) => (
+          <a key={link.label} href={link.href} className="transition-colors hover:text-foreground">
+            {link.label}
+          </a>
+        ))}
+      </nav>
+      <Button asChild size="sm" className="rounded-none px-5 !shadow-none sm:hidden">
+        <a href="#register">Register</a>
+      </Button>
+    </div>
   );
 }
 
+// Hero — "One word, cropped": a single giant word (from the product's
+// own name) overflows both screen edges in the lower half; everything
+// else — wordmark, nav, the real description, the CTA — sits small in
+// the upper third. The description sentence carries the page's h1,
+// since it is the thing that actually tells a visitor what this is;
+// the giant word is brand type, not the semantic title.
 export function Hero() {
   return (
-    <section className="mx-auto grid max-w-6xl gap-10 px-6 pt-20 pb-24 md:grid-cols-[1.3fr_1fr] md:gap-16 md:pt-28">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[.22em] text-primary">
-          Friends &amp; Family Edition · Chennai
-        </p>
-        <h1 className={`${SERIF} mt-6 text-5xl font-medium leading-[1.05] tracking-tight text-foreground sm:text-6xl lg:text-7xl`}>
-          AI that works
-          <br />
-          for you.
+    <section className="relative min-h-[112svh] overflow-hidden bg-background sm:min-h-svh">
+      <WorkshopNav />
+      <div className="absolute left-5 top-24 z-20 max-w-xs sm:left-7 sm:top-28">
+        <h1 className="text-[clamp(1.25rem,1.7vw,1.625rem)] font-semibold leading-tight text-foreground">
+          A hands-on, 2-day AI empowerment workshop for professionals and business leaders.
         </h1>
-        <p className="mt-6 max-w-md text-lg leading-relaxed text-muted-foreground">
-          A hands-on, 2-day workshop for professionals and business leaders. You learn by doing,
-          on your own work, with your own laptop.
+        <p className="mt-3 max-w-[34ch] text-[clamp(1.0625rem,1.6vw,1.375rem)] leading-snug text-muted-foreground">
+          Friends &amp; Family Edition, Chennai. You learn by doing, on your own work, with your own
+          laptop.
         </p>
-        <div className="mt-9 flex flex-wrap items-center gap-6">
-          <Button asChild size="lg" className="rounded-full px-7">
-            <a href="#register">Reserve my seat</a>
-          </Button>
-          <a href="#curriculum" className="text-sm font-medium text-foreground underline-offset-4 hover:underline">
-            See the curriculum ↓
-          </a>
-        </div>
-        <dl className="mt-14 grid grid-cols-2 gap-6 border-t border-border pt-6 text-sm text-muted-foreground">
-          <div>9:15 am – 5:30 pm</div>
-          <div>Chennai (venue TBC)</div>
-        </dl>
-        <p className="mt-4 text-xs text-muted-foreground">Limited seats. Confirmed on a first-paid basis.</p>
+        <Button asChild size="lg" className="mt-5 rounded-none px-7 !shadow-none">
+          <a href="#register">Reserve my seat</a>
+        </Button>
       </div>
-
-      <div className="flex flex-col justify-end border-t border-border pt-8 md:border-t-0 md:border-l md:pt-0 md:pl-12">
-        <p className={`${SERIF} text-6xl font-medium leading-none text-primary`}>92%</p>
-        <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-          of knowledge workers in India already use AI at work. The global figure is 75%.
-        </p>
-        <p className="mt-3 text-xs uppercase tracking-wide text-muted-foreground/70">
-          Microsoft &amp; LinkedIn Work Trend Index, 2024
-        </p>
-      </div>
+      <motion.p
+        aria-hidden="true"
+        initial={{ opacity: 0, scale: 1.04 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        className="pointer-events-none absolute -left-[10vw] bottom-0 select-none whitespace-nowrap text-[clamp(16rem,36vw,34rem)] font-extrabold leading-[0.8] tracking-[-0.05em] text-primary"
+      >
+        INTELLIGENCE
+      </motion.p>
     </section>
   );
 }
 
-const CLIPPINGS = [
-  {
-    big: "92%",
-    line: "of knowledge workers in India already use AI at work. The global figure is 75%.",
-    source: "Microsoft & LinkedIn Work Trend Index, 2024",
-  },
-  {
-    big: "54%",
-    line: "of Indian leaders worry their company has no plan for AI.",
-    source: "Microsoft & LinkedIn Work Trend Index, 2024",
-  },
-  {
-    big: "25% faster, 40% better",
-    line: "BCG consultants using GPT-4 finished tasks 25% faster, with 40% higher quality work.",
-    source: "Harvard Business School & BCG study, 2023",
-  },
-  {
-    big: "+34%",
-    line: "productivity for newer, less experienced staff using an AI assistant. The average gain was 14%.",
-    source: "Stanford & MIT, NBER working paper, 2023",
-  },
-];
-
+// stats — "One figure owns the screen": the single strongest number,
+// alone, full height, with the other three WhyNow stats folded into
+// the About section below rather than repeating this screen four times.
 export function WhyNow() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
+    <section className="flex flex-col gap-24 bg-background px-5 py-24 sm:px-7">
       <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>The numbers are already in.</h2>
+        <SectionHeading className="text-[clamp(1.5rem,3.2vw,2.75rem)]">
+          AI adoption is already here.
+        </SectionHeading>
       </Reveal>
-      <div className="mt-14 grid gap-10 border-t border-border pt-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-        {CLIPPINGS.map((item, index) => (
-          <Reveal key={item.big} delay={index * 0.08}>
-            <p className={`${SERIF} text-4xl font-medium text-foreground`}>{item.big}</p>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.line}</p>
-            <p className="mt-4 text-[11px] uppercase tracking-wide text-muted-foreground/60">{item.source}</p>
-          </Reveal>
-        ))}
-      </div>
-      <p className="mt-14 max-w-2xl text-balance text-lg leading-relaxed text-foreground">
-        Everyone has the tools. Very few know how to use them well. That gap is what these two
-        days close.
-      </p>
+      <Reveal delay={0.1} className="max-w-xl">
+        <p className="text-[clamp(11.25rem,23vw,23.75rem)] font-extrabold leading-[0.8] tracking-[-0.04em] text-foreground">
+          92<span className="align-top text-[0.3em] text-primary">%</span>
+        </p>
+        <p className="mt-4 max-w-[32ch] text-base leading-relaxed text-muted-foreground">
+          of knowledge workers in India already use AI at work. The global figure is 75%.
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground/70">Microsoft &amp; LinkedIn Work Trend Index, 2024</p>
+      </Reveal>
     </section>
   );
 }
 
+// about — "Side facts, wide paragraph": the real About claim as a wide
+// statement, with the lead-trainer fact and the other three WhyNow
+// stats (54%, the BCG study, the Stanford/MIT figure) as side facts —
+// nothing invented, this is the content the old page already had.
 export function About() {
+  const facts = [
+    { label: "Lead trainer", value: "~50 organisations trained" },
+    { label: "Format", value: "2 days, hands-on" },
+    { label: "Edition", value: "Friends & family" },
+  ];
+  const sideStats = [
+    { big: "54%", line: "of Indian leaders worry their company has no plan for AI.", source: "Microsoft & LinkedIn Work Trend Index, 2024" },
+    { big: "25% / 40%", line: "faster and higher-quality work from BCG consultants using GPT-4.", source: "Harvard Business School & BCG, 2023" },
+    { big: "+34%", line: "productivity gain for less experienced staff using an AI assistant.", source: "Stanford & MIT, NBER, 2023" },
+  ];
   return (
-    <section className="mx-auto max-w-3xl px-6 py-24">
-      <Reveal>
-        <SectionLabel>X Intelligence</SectionLabel>
-        <p className={`${SERIF} mt-5 text-3xl font-medium leading-snug tracking-tight sm:text-4xl`}>
-          We run AI empowerment programs for founders, CXOs and senior leaders. Our focus is the
-          AI mindset, not just the tools.
-        </p>
-        <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-          Tools change every month. The way you think and work with them is what lasts.
-        </p>
-        <p className="mt-8 text-sm font-medium text-foreground">
-          Our lead trainer has trained around 50 organisations in AI empowerment.
-        </p>
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-          This edition is a small, specially priced round for friends and family. It runs on the
-          same content as our corporate program, adjusted for your kind of work.
-        </p>
-      </Reveal>
+    <section className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[220px_1fr]">
+        <Reveal className="flex flex-col gap-6">
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <p className="text-sm font-semibold text-muted-foreground">{fact.label}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{fact.value}</p>
+            </div>
+          ))}
+        </Reveal>
+        <div>
+          <Reveal>
+            <p className="max-w-[46ch] text-[clamp(1.5rem,2.3vw,1.875rem)] font-semibold leading-snug text-foreground">
+              We run AI empowerment programs for founders, CXOs and senior leaders. Our focus is the
+              AI mindset, not just the tools. Tools change every month. The way you think and work
+              with them is what lasts.
+            </p>
+          </Reveal>
+          <div className="mt-14 grid gap-10 sm:grid-cols-3">
+            {sideStats.map((stat, index) => (
+              <Reveal key={stat.big} delay={index * 0.08}>
+                <p className="text-2xl font-extrabold text-foreground">{stat.big}</p>
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground">{stat.line}</p>
+                <p className="mt-2 text-sm text-muted-foreground/60">{stat.source}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
 
+// how-it-works — "Lines that step across": the Journey's three stages
+// as a staircase of short clauses, each starting further right.
 export function Journey() {
   const stops = [
-    { label: "Me + AI", sub: "Day 1 · Track 1", line: "Get fluent. Prompting, assistants, analytics, imaging, bots and agents. From basics to agentic AI." },
-    { label: "Team + AI", sub: "Day 2 · Track 2", line: "Go deeper. Claude for real work, analytics on your data, workflows, vibe coding, advanced imaging." },
-    { label: "Keep going", sub: "What's next", line: "Ask us about our 10-week coaching program." },
+    { line: "First, you become fluent yourself.", detail: "Day 1: prompting, assistants, analytics, imaging, bots and agents." },
+    { line: "Then your team builds with Claude.", detail: "Day 2: real work, your own data, workflows and vibe coding." },
+    { line: "Keep going after the workshop.", detail: "Ask us about our 10-week coaching program." },
   ];
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>From you, to your team.</h2>
-      </Reveal>
-      <div className="mt-14 grid gap-0 border-t border-border md:grid-cols-3">
+    <section className="bg-foreground px-5 py-24 text-background sm:px-7">
+      <div className="mx-auto max-w-5xl">
         {stops.map((stop, index) => (
           <Reveal
-            key={stop.label}
+            key={stop.line}
             delay={index * 0.1}
-            className={`border-b border-border py-8 md:border-b-0 md:border-r md:py-10 md:pr-8 ${index > 0 ? "md:pl-8" : ""} ${index === stops.length - 1 ? "md:border-r-0" : ""}`}
+            className="py-5"
+            style={{ marginLeft: `${index * 8}%` } as React.CSSProperties}
           >
-            <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">{stop.sub}</p>
-            <p className={`${SERIF} mt-3 text-2xl font-medium`}>{stop.label}</p>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{stop.line}</p>
+            <p
+              className={`max-w-3xl text-[clamp(1.5rem,4.6vw,3.5rem)] font-extrabold leading-[1] tracking-[-0.02em] ${
+                index === stops.length - 1 ? "text-primary" : "text-background"
+              }`}
+            >
+              {stop.line}
+            </p>
+            <p className="mt-3 max-w-[34ch] text-sm text-background/60">{stop.detail}</p>
           </Reveal>
         ))}
       </div>
-      <p className="mt-8 text-sm text-muted-foreground">
-        Day 2 is open only to people who have done Day 1 before.
-      </p>
     </section>
   );
 }
 
-export function Curriculum() {
+// showcase — "Two giant words compared": Day 1 and Day 2 set side by
+// side at poster scale, with the real eligibility line above them.
+export function Outcomes() {
   return (
-    <section id="curriculum" className="mx-auto max-w-6xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>What we cover</h2>
-      </Reveal>
-      <div className="mt-14 grid gap-14 border-t border-border pt-10 md:grid-cols-2 md:gap-16">
-        <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 1</p>
-          <h3 className={`${SERIF} mt-2 text-2xl font-medium`}>AI Empowerment for Professionals</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            From the fundamentals all the way up to agentic AI.
+    <section className="overflow-hidden bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-6xl">
+        <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">From you, to your team.</SectionHeading>
+          <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+            Day 2 is open only to people who have done Day 1 before, either earlier or on Day 1 of
+            this edition.
           </p>
-          <ol className="mt-6 flex flex-col gap-5">
-            {[
-              ["AI for everyday productivity", "the tools that save you real hours every week"],
-              ["Smart prompting", "how to ask so you get usable answers the first time"],
-              ["Your own AI assistants", "build and customise assistants for your work"],
-              ["Beyond chat", "analytics, imaging, bots and agentic AI, shown through real use cases"],
-            ].map(([title, body], index) => (
-              <li key={title} className="flex gap-4">
-                <span className={`${SERIF} text-lg text-muted-foreground/50`}>{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <p className="font-medium text-foreground">{title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
         </Reveal>
-        <Reveal delay={0.1}>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Day 2</p>
-          <h3 className={`${SERIF} mt-2 text-2xl font-medium`}>AI Empowerment for Business Leaders 2.0</h3>
-          <p className="mt-2 text-sm text-muted-foreground">For Day 1 graduates. More hands-on, more depth.</p>
-          <ol className="mt-6 flex flex-col gap-5">
-            {[
-              ["Quick recap", "of Day 1"],
-              ["Claude, hands-on", "using it for real day-to-day work"],
-              ["AI analytics", "on your kind of data"],
-              ["AI-enabled workflows", "set them up once and they run with very little effort"],
-              ["Vibe coding", "build simple apps and interfaces without writing code yourself"],
-              ["Advanced imaging", "professional-quality visuals, concepts and techniques"],
-            ].map(([title, body], index) => (
-              <li key={title} className="flex gap-4">
-                <span className={`${SERIF} text-lg text-muted-foreground/50`}>{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <p className="font-medium text-foreground">{title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Reveal>
+        <div className="mt-16 grid gap-14 sm:grid-cols-2">
+          <Reveal>
+            <p className="text-[clamp(3.5rem,11vw,7rem)] font-extrabold leading-[0.85] tracking-[-0.04em] text-foreground">
+              Day 1
+            </p>
+            <p className="mt-4 max-w-[26ch] text-lg font-semibold text-muted-foreground">
+              AI Empowerment for Professionals
+            </p>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="text-[clamp(3.5rem,11vw,7rem)] font-extrabold leading-[0.85] tracking-[-0.04em] text-primary">
+              Day 2
+            </p>
+            <p className="mt-4 max-w-[26ch] text-lg font-semibold text-muted-foreground">
+              AI Empowerment for Business Leaders 2.0
+            </p>
+          </Reveal>
+        </div>
       </div>
     </section>
   );
 }
 
-export function Outcomes() {
-  const tiles = [
-    { day: "Day 1", text: "A custom AI assistant built for a task you do every week" },
-    { day: "Day 1", text: "A prompt approach you can reuse for any task" },
-    { day: "Day 1", text: "Hands-on time with images, analytics and agents" },
-    { day: "Day 2", text: "A dashboard or analysis made from your own kind of data" },
-    { day: "Day 2", text: "A working automated workflow" },
-    { day: "Day 2", text: "A simple app or interface you built yourself" },
+// features — "Capabilities as a menu": the full curriculum, both days,
+// as two groups on one sheet.
+export function Curriculum() {
+  const day1 = [
+    ["AI for everyday productivity", "the tools that save you real hours every week"],
+    ["Smart prompting", "how to ask so you get usable answers the first time"],
+    ["Your own AI assistants", "build and customise assistants for your work"],
+    ["Beyond chat", "analytics, imaging, bots and agentic AI, shown through real use cases"],
+  ];
+  const day2 = [
+    ["Quick recap", "of Day 1"],
+    ["Claude, hands-on", "using it for real day-to-day work"],
+    ["AI analytics", "on your kind of data"],
+    ["AI-enabled workflows", "set them up once and they run with very little effort"],
+    ["Vibe coding", "build simple apps and interfaces without writing code yourself"],
+    ["Advanced imaging", "professional-quality visuals, concepts and techniques"],
   ];
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>
-          You don&apos;t just watch. You build.
-        </h2>
-      </Reveal>
-      <div className="mt-14 grid gap-x-10 gap-y-8 border-t border-border pt-10 sm:grid-cols-2 lg:grid-cols-3">
-        {tiles.map((tile, index) => (
-          <Reveal key={index} delay={(index % 3) * 0.08}>
-            <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">{tile.day}</p>
-            <p className="mt-2 text-sm leading-relaxed text-foreground">{tile.text}</p>
+    <section id="curriculum" className="bg-muted px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-5xl">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">What we cover</SectionHeading>
+        </Reveal>
+        <div className="mt-14 grid gap-16 rounded-[2rem] bg-background p-8 sm:p-14 lg:grid-cols-2 lg:gap-20">
+          <Reveal>
+            <p className="text-lg font-bold text-foreground">Day 1: AI Empowerment for Professionals</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              From the fundamentals all the way up to agentic AI.
+            </p>
+            <ol className="mt-8 flex flex-col gap-6">
+              {day1.map(([title, body]) => (
+                <li key={title} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <span className="text-base font-semibold text-foreground">{title}</span>
+                  <span className="hidden flex-1 border-b-4 border-dotted border-muted-foreground/30 sm:block" />
+                  <span className="text-sm text-muted-foreground sm:shrink-0 sm:text-right">{body}</span>
+                </li>
+              ))}
+            </ol>
           </Reveal>
-        ))}
+          <Reveal delay={0.08}>
+            <p className="text-lg font-bold text-foreground">Day 2: AI Empowerment for Business Leaders 2.0</p>
+            <p className="mt-1 text-sm text-muted-foreground">For Day 1 graduates. More hands-on, more depth.</p>
+            <ol className="mt-8 flex flex-col gap-6">
+              {day2.map(([title, body]) => (
+                <li key={title} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <span className="text-base font-semibold text-foreground">{title}</span>
+                  <span className="hidden flex-1 border-b-4 border-dotted border-muted-foreground/30 sm:block" />
+                  <span className="text-sm text-muted-foreground sm:shrink-0 sm:text-right">{body}</span>
+                </li>
+              ))}
+            </ol>
+          </Reveal>
+        </div>
       </div>
     </section>
   );
 }
 
+// list (table) — "Line-up at one type size": the daily schedule as a
+// clean, large-type programme.
 export function DailySchedule() {
   const items = [
     { time: "8:45 am", label: "Reporting & check-in" },
-    { time: "9:15 am", label: "We start — Learn, Try, Build, repeating each module" },
+    { time: "9:15 am", label: "We start: Learn, Try, Build, repeating each module" },
     { time: "", label: "Lunch & refreshments (included)" },
     { time: "5:30 pm", label: "Wrap-up" },
   ];
   return (
-    <section className="mx-auto max-w-2xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>A full day. Mostly hands-on.</h2>
-      </Reveal>
-      <ol className="mt-12 flex flex-col gap-6 border-t border-border pt-10">
-        {items.map((item, index) => (
-          <Reveal key={index} delay={index * 0.06} className="flex gap-6 text-sm">
-            <span className="w-20 shrink-0 font-medium text-primary">{item.time}</span>
-            <span className="text-muted-foreground">{item.label}</span>
-          </Reveal>
-        ))}
-      </ol>
-      <p className="mt-10 text-lg leading-relaxed text-foreground">
-        Bring real work. That&apos;s where the learning sticks.
-      </p>
-    </section>
-  );
-}
-
-export function Audience() {
-  const items = [
-    "You run a business or lead a team",
-    "You use ChatGPT sometimes, but feel you are only scratching the surface",
-    "You want to save hours every week, not just try new apps",
-    "You are new to AI and want to start properly (Day 1 starts from the basics)",
-    "You are 16 or older",
-  ];
-  return (
-    <section className="mx-auto max-w-2xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>Is this for you?</h2>
-      </Reveal>
-      <ul className="mt-10 flex flex-col gap-4 border-t border-border pt-8 text-base">
-        {items.map((item, index) => (
-          <Reveal key={item} delay={index * 0.05} className="flex gap-3">
-            <span className="text-primary">—</span>
-            <span className="text-foreground">{item}</span>
-          </Reveal>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-const TRAINERS = [
-  {
-    name: "Mehul Nanavati",
-    role: "Lead Trainer",
-    bio: "Former Managing Director, Raj Petro Specialities. Decades of experience running a large enterprise. He has trained around 50 organisations in AI empowerment.",
-  },
-  {
-    name: "Philip Moses",
-    role: "Trainer",
-    bio: "Founder & CEO, Belsterns Technologies. Leads the hands-on sessions on analytics, workflows and building with AI.",
-  },
-  {
-    name: "Madhan Raj",
-    role: "Trainer",
-    bio: "Founder & CEO, The Bot Company, an AI agency. Leads the sessions on advanced imaging and building apps with AI.",
-  },
-];
-
-export function Trainers() {
-  return (
-    <section id="trainers" className="mx-auto max-w-4xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>Who&apos;s teaching</h2>
-      </Reveal>
-      <div className="mt-14 flex flex-col divide-y divide-border border-t border-border">
-        {TRAINERS.map((trainer, index) => (
-          <Reveal
-            key={trainer.name}
-            delay={index * 0.08}
-            className="grid gap-2 py-8 sm:grid-cols-[1fr_2fr] sm:gap-10"
-          >
-            <div>
-              <p className={`${SERIF} text-xl font-medium`}>{trainer.name}</p>
-              <p className="mt-1 text-xs font-medium uppercase tracking-wide text-primary">{trainer.role}</p>
-              <p className="mt-2 text-xs text-muted-foreground/70">Photo pending</p>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">{trainer.bio}</p>
-          </Reveal>
-        ))}
+    <section className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-4xl">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">A full day, mostly hands-on</SectionHeading>
+        </Reveal>
+        <div className="mt-14">
+          {items.map((item, index) => (
+            <Reveal key={index} delay={index * 0.05} className="flex items-baseline justify-between py-4">
+              <span className="text-[clamp(1.25rem,2.1vw,1.875rem)] font-semibold text-foreground">{item.label}</span>
+              <span className="shrink-0 pl-6 text-base tabular-nums text-muted-foreground">{item.time}</span>
+            </Reveal>
+          ))}
+        </div>
+        <p className="mt-10 max-w-[48ch] text-lg leading-relaxed text-foreground">
+          Bring real work. That&apos;s where the learning sticks.
+        </p>
       </div>
     </section>
   );
 }
 
-export function Pricing() {
+// list (two-ended rows) — outcomes, each paired with which day it
+// comes from.
+export function DailyOutcomes() {
+  const items = [
+    { text: "A custom AI assistant built for a task you do every week", day: "Day 1" },
+    { text: "A prompt approach you can reuse for any task", day: "Day 1" },
+    { text: "Hands-on time with images, analytics and agents", day: "Day 1" },
+    { text: "A dashboard or analysis made from your own kind of data", day: "Day 2" },
+    { text: "A working automated workflow", day: "Day 2" },
+    { text: "A simple app or interface you built yourself", day: "Day 2" },
+  ];
   return (
-    <section id="fees" className="mx-auto max-w-6xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>Fees</h2>
-      </Reveal>
-      <Reveal delay={0.08} className="mt-14 flex flex-col items-start gap-4 rounded-2xl border border-border bg-background p-10">
-        <p className="text-sm font-medium text-muted-foreground">One price. Everyone.</p>
-        <p className={`${SERIF} text-5xl font-medium text-primary`}>₹28,250</p>
-        <p className="text-sm text-muted-foreground">18% GST added. No other fees.</p>
-        <Button asChild size="lg" className="mt-2 rounded-full px-7">
-          <a href="#register">Reserve my seat</a>
-        </Button>
-      </Reveal>
-      <p className="mt-8 text-sm leading-relaxed text-muted-foreground">
-        Fees cover the full-day training, lunch and refreshments. This friends-and-family round is
-        priced well below our usual corporate rates.
-      </p>
-      <dl className="mt-10 grid max-w-md gap-2 border-t border-border pt-8 text-sm text-muted-foreground">
-        <div><span className="font-medium text-foreground">Time:</span> 9:15 am - 5:30 pm (reporting at 8:45 am)</div>
-        <div><span className="font-medium text-foreground">Venue:</span> to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)</div>
-        <div><span className="font-medium text-foreground">Seats:</span> limited, confirmed on a first-paid basis</div>
-      </dl>
+    <section className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-3xl">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">
+            You don&apos;t just watch. You build.
+          </SectionHeading>
+        </Reveal>
+        <div className="mt-14">
+          {items.map((item, index) => (
+            <Reveal key={index} delay={index * 0.04} className="flex items-start justify-between gap-6 py-4">
+              <span className="text-base text-foreground sm:text-lg">{item.text}</span>
+              <span className="shrink-0 text-sm font-semibold text-primary">{item.day}</span>
+            </Reveal>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
 
-export function WhatToBring() {
+// proof (table) — "Recognition as a table": who's teaching, set as a
+// clean, ruleless table rather than three identical bordered cards.
+export function Trainers() {
+  const trainers = [
+    { name: "Mehul Nanavati", role: "Lead Trainer", org: "Formerly Managing Director, Raj Petro Specialities", bio: "Decades of experience running a large enterprise. He has trained around 50 organisations in AI empowerment." },
+    { name: "Philip Moses", role: "Trainer", org: "Founder & CEO, Belsterns Technologies", bio: "Leads the hands-on sessions on analytics, workflows and building with AI." },
+    { name: "Madhan Raj", role: "Trainer", org: "Founder & CEO, The Bot Company", bio: "Leads the sessions on advanced imaging and building apps with AI." },
+  ];
   return (
-    <section className="mx-auto max-w-2xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>Before you come</h2>
-      </Reveal>
-      <table className="mt-12 w-full border-t border-border text-sm">
-        <thead>
-          <tr className="text-left text-muted-foreground">
-            <th className="py-3"> </th>
-            <th className="py-3 font-medium">Day 1</th>
-            <th className="py-3 font-medium">Day 2</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-t border-border">
-            <td className="py-4">Laptop (no iPads)</td>
-            <td className="py-4">Required</td>
-            <td className="py-4">Required</td>
-          </tr>
-          <tr className="border-t border-border">
-            <td className="py-4">ChatGPT Business or Claude Pro</td>
-            <td className="py-4">Required, at least one</td>
-            <td className="py-4"></td>
-          </tr>
-          <tr className="border-t border-border">
-            <td className="py-4">Claude Pro and ChatGPT Business</td>
-            <td className="py-4"></td>
-            <td className="py-4">Required, both</td>
-          </tr>
-          <tr className="border-t border-border">
-            <td className="py-4">Microsoft Copilot Studio</td>
-            <td className="py-4"></td>
-            <td className="py-4">Good to have. Without it, you can follow the workflows in demo mode.</td>
-          </tr>
-        </tbody>
-      </table>
+    <section id="trainers" className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-4xl">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">Who&apos;s teaching</SectionHeading>
+        </Reveal>
+        <div className="mt-14">
+          {trainers.map((trainer, index) => (
+            <Reveal
+              key={trainer.name}
+              delay={index * 0.06}
+              className={`grid gap-2 py-6 sm:grid-cols-[1fr_2fr] sm:gap-10 ${index % 2 === 1 ? "bg-muted" : ""} -mx-5 px-5 sm:-mx-6 sm:px-6`}
+            >
+              <div>
+                <p className="text-lg font-bold text-foreground">{trainer.name}</p>
+                <p className="text-sm font-semibold text-primary">{trainer.role}</p>
+                <p className="mt-1 text-sm text-foreground/70">{trainer.org}</p>
+              </div>
+              <p className="text-base leading-relaxed text-foreground/80">{trainer.bio}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// pricing — three real packages, shown plainly: no crossed-out base
+// price, no invented savings beyond the one real USD 36 the Day1+Day2
+// bundle actually saves vs booking separately.
+export function Pricing() {
+  const packages = [
+    { label: "Day 1 only", usd: "USD 252", inr: "₹28,250", note: "₹23,940 + 18% GST" },
+    { label: "Day 2 only", usd: "USD 279", inr: "₹31,275", note: "₹26,505 + 18% GST" },
+    { label: "Day 1 + Day 2", usd: "USD 495 — save USD 36", inr: "₹55,490", note: "₹47,025 + 18% GST" },
+  ];
+  const requirements = [
+    { item: "Laptop (no iPads)", need: "Both days" },
+    { item: "ChatGPT Business or Claude Pro", need: "Day 1, at least one" },
+    { item: "Claude Pro and ChatGPT Business", need: "Day 2, both" },
+    { item: "Microsoft Copilot Studio", need: "Good to have on Day 2" },
+  ];
+  return (
+    <section id="fees" className="flex flex-col bg-foreground px-5 py-32 text-background sm:px-7">
+      <div className="mx-auto w-full max-w-5xl">
+        <Reveal>
+          <SectionHeading className="text-background text-[clamp(1.75rem,3.4vw,2.75rem)]">Fees</SectionHeading>
+        </Reveal>
+        <Reveal delay={0.08} className="mt-12 flex flex-col">
+          {packages.map((pkg, index) => (
+            <div
+              key={pkg.label}
+              className={`flex flex-col gap-1 py-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6 ${index % 2 === 0 ? "bg-background/5" : ""} px-4`}
+            >
+              <span className="text-lg font-bold">{pkg.label}</span>
+              <span className="text-sm text-background/60">{pkg.note}</span>
+              <span className="text-sm text-background/60">{pkg.usd}</span>
+              <span className="text-2xl font-extrabold text-primary">{pkg.inr}</span>
+            </div>
+          ))}
+        </Reveal>
+        <Reveal delay={0.1} className="mt-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <p className="max-w-md text-base text-background/70">
+            All prices include 18% GST. Covers the full-day training, lunch and refreshments.
+          </p>
+          <Button asChild size="lg" variant="secondary" className="rounded-none px-8 !shadow-none">
+            <a href="#register">Reserve my seat</a>
+          </Button>
+        </Reveal>
+        <Reveal delay={0.16} className="mt-10 grid max-w-xl gap-2 text-sm text-background/60">
+          <p>Time: 9:15 am – 5:30 pm (reporting at 8:45 am)</p>
+          <p>Venue: to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)</p>
+          <p>Seats: limited, confirmed on a first-paid basis</p>
+        </Reveal>
+        <Reveal delay={0.2} className="mt-16 max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-wide text-background/50">What to bring</p>
+          <div className="mt-5 flex flex-col gap-1">
+            {requirements.map((r, index) => (
+              <div
+                key={r.item}
+                className={`flex items-baseline justify-between gap-6 px-4 py-3 ${index % 2 === 0 ? "bg-background/5" : ""}`}
+              >
+                <span className="text-sm text-background">{r.item}</span>
+                <span className="shrink-0 text-sm text-background/60">{r.need}</span>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// list (poster) — "Is this for you?" as a short poster list.
+export function Audience() {
+  const items = [
+    "You run a business or lead a team",
+    "You use ChatGPT sometimes, but only scratch the surface",
+    "You want to save hours every week, not just try new apps",
+    "You're new to AI and want to start properly",
+    "You're 16 or older",
+  ];
+  return (
+    <section className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto max-w-5xl">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,2.6vw,2.25rem)]">Is this for you?</SectionHeading>
+        </Reveal>
+        <div className="mt-14 flex flex-col gap-3">
+          {items.map((item, index) => (
+            <Reveal key={item} delay={index * 0.05}>
+              <p className="text-[clamp(1.25rem,3.4vw,2.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-foreground transition-colors hover:text-primary">
+                {item}
+              </p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
@@ -481,34 +512,101 @@ const FAQS = [
 
 export function Faq() {
   return (
-    <section id="faq" className="mx-auto max-w-2xl px-6 py-24">
-      <Reveal>
-        <h2 className={`${SERIF} text-3xl font-medium tracking-tight sm:text-4xl`}>FAQ</h2>
-      </Reveal>
-      <div className="mt-12 flex flex-col divide-y divide-border border-t border-border">
-        {FAQS.map((item) => (
-          <details key={item.q} className="group py-5">
-            <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-foreground">
-              {item.q}
-              <span className="ml-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-45">+</span>
-            </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
-          </details>
-        ))}
+    <section id="faq" className="bg-background px-5 py-24 sm:px-7">
+      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1fr_2fr]">
+        <Reveal>
+          <SectionHeading className="text-[clamp(1.5rem,3vw,2.5rem)]">Questions</SectionHeading>
+        </Reveal>
+        <div className="flex flex-col gap-2">
+          {FAQS.map((item, index) => (
+            <Reveal key={item.q} delay={index * 0.03}>
+              <details className="group rounded-2xl px-4 py-4 open:bg-muted">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold text-foreground">
+                  {item.q}
+                  <span className="shrink-0 text-xl text-muted-foreground transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <p className="mt-3 max-w-[48ch] text-base leading-relaxed text-muted-foreground">{item.a}</p>
+              </details>
+            </Reveal>
+          ))}
+        </div>
       </div>
+    </section>
+  );
+}
+
+const CHENNAI_IMAGES = [
+  { src: "/workshop/periamet-masjid-and-chennai-city-aerial-view.jpg", alt: "Aerial view of Chennai" },
+  { src: "/workshop/chennai-city-centre.jpg", alt: "Chennai city centre, where this edition is hosted" },
+  { src: "/workshop/sunrise-at-chennai-marina-beach.jpg", alt: "Sunrise at Chennai's Marina Beach" },
+  { src: "/workshop/chennai-egmore-railway-station-in-chennai-city.jpg", alt: "Chennai Egmore railway station" },
+];
+
+// One real-image band — the honest answer for "no photographs of the
+// workshop itself exist yet": real, credited pictures of the host
+// city, never presented as the workshop's own.
+export function CityBand() {
+  return (
+    <section className="grid gap-px overflow-hidden bg-foreground sm:grid-cols-4">
+      {CHENNAI_IMAGES.map((image) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={image.src}
+          src={image.src}
+          alt={image.alt}
+          width={1920}
+          height={1280}
+          className="h-64 w-full object-cover grayscale sm:h-80"
+        />
+      ))}
     </section>
   );
 }
 
 export function WorkshopFooter() {
   return (
-    <footer className="border-t border-border px-6 py-14 text-sm text-muted-foreground">
+    <footer className="bg-background px-5 py-16 text-sm text-muted-foreground sm:px-7">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className={`${SERIF} text-foreground`}>X Intelligence · xintelligence.in</p>
+        <p className="text-base font-extrabold text-foreground">X Intelligence · xintelligence.in</p>
         <p>Contact: [PHONE / WHATSAPP] · [EMAIL]</p>
       </div>
-      <div className="mx-auto mt-6 flex max-w-6xl flex-col gap-1 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-end">
+      <div className="mx-auto mt-6 flex max-w-6xl flex-col gap-3 rounded-2xl bg-muted p-6 sm:flex-row sm:items-center sm:justify-between">
         <p>© 2026 X Intelligence</p>
+        <p className="max-w-2xl text-sm text-muted-foreground/70">
+          City pictures:{" "}
+          <a className="underline" href="https://commons.wikimedia.org/w/index.php?curid=160993109">
+            &ldquo;Periamet Masjid and Chennai city aerial view&rdquo;
+          </a>{" "}
+          by Saiphani02,{" "}
+          <a className="underline" href="https://creativecommons.org/licenses/by-sa/4.0/">
+            CC BY-SA 4.0
+          </a>
+          ;{" "}
+          <a className="underline" href="https://commons.wikimedia.org/w/index.php?curid=19778355">
+            &ldquo;Chennai City Centre&rdquo;
+          </a>{" "}
+          by Soham Banerjee,{" "}
+          <a className="underline" href="https://creativecommons.org/licenses/by/2.0/">
+            CC BY 2.0
+          </a>
+          ;{" "}
+          <a className="underline" href="https://commons.wikimedia.org/w/index.php?curid=48631939">
+            &ldquo;Sunrise at Chennai Marina beach&rdquo;
+          </a>{" "}
+          by Irfanahmed605,{" "}
+          <a className="underline" href="https://creativecommons.org/licenses/by-sa/4.0/">
+            CC BY-SA 4.0
+          </a>
+          ;{" "}
+          <a className="underline" href="https://commons.wikimedia.org/w/index.php?curid=149794753">
+            &ldquo;Chennai Egmore railway station&rdquo;
+          </a>{" "}
+          by Pinakpani,{" "}
+          <a className="underline" href="https://creativecommons.org/licenses/by/4.0/">
+            CC BY 4.0
+          </a>
+          , via Wikimedia Commons.
+        </p>
       </div>
     </footer>
   );

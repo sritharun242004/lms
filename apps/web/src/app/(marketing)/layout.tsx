@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Fraunces } from "next/font/google";
+import { Schibsted_Grotesk } from "next/font/google";
 import { SmoothScroll } from "@/components/workshop/landing/smooth-scroll";
 
 export const metadata: Metadata = {
   title: "X Intelligence · AI Empowerment Workshop",
 };
 
-// Display serif for headlines only — body copy stays in the app's own
-// Manrope sans (set on <body> by the root layout). This one pairing is
-// most of what separates an editorial feel from a generic SaaS page.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+// A single warm, heavy grotesk for both display and text — the type
+// direction this page was redesigned around treats typography itself
+// as the image, so display and body stay in one family rather than
+// pairing a serif against the app's own Manrope.
+const schibstedGrotesk = Schibsted_Grotesk({
+  variable: "--font-schibsted",
   subsets: ["latin"],
-  axes: ["opsz", "SOFT", "WONK"],
+  weight: ["400", "600", "800"],
   display: "swap",
 });
 
@@ -21,7 +22,9 @@ const fraunces = Fraunces({
 // session-related.
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${fraunces.variable} min-h-svh bg-background text-foreground`}>
+    <div
+      className={`${schibstedGrotesk.variable} min-h-svh bg-background text-foreground font-[family-name:var(--font-schibsted)]`}
+    >
       <SmoothScroll>{children}</SmoothScroll>
     </div>
   );

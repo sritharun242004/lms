@@ -396,41 +396,49 @@ export function RegistrationForm({
           ))}
         </fieldset>
 
-        <div className="flex items-center justify-between rounded-lg border border-border p-4">
-          <span className="text-sm font-medium">Need a GST invoice?</span>
-          <Switch
-            checked={needsGstInvoice}
-            onCheckedChange={(checked) => form.setValue("needsGstInvoice", checked)}
-          />
-        </div>
-        {needsGstInvoice ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="gstCompanyName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="gstin"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>GSTIN</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-        ) : null}
+        {registrationKind === "INDIVIDUAL" ? (
+          <>
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <span className="text-sm font-medium">Need a GST invoice?</span>
+              <Switch
+                checked={needsGstInvoice}
+                onCheckedChange={(checked) => form.setValue("needsGstInvoice", checked)}
+              />
+            </div>
+            {needsGstInvoice ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="gstCompanyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gstin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>GSTIN</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Your GST invoice will use the company details above — no separate entry needed.
+          </p>
+        )}
 
         <FormField
           control={form.control}
@@ -456,7 +464,7 @@ export function RegistrationForm({
           <p className="text-sm text-destructive">{form.formState.errors.ageConfirmed.message}</p>
         ) : null}
 
-        <Button type="submit" disabled={isSubmitting} size="lg">
+        <Button type="submit" disabled={isSubmitting} size="lg" className="rounded-none shadow-none">
           {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
           Continue to payment
         </Button>
