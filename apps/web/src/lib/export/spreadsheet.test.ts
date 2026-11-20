@@ -25,6 +25,19 @@ describe("rowsToCsv", () => {
     const csv = rowsToCsv([]);
     expect(csv.trim()).toBe("");
   });
+
+  it("neutralizes a formula-triggering value so Excel/Sheets never auto-executes it", () => {
+    const csv = rowsToCsv([{ Name: '=HYPERLINK("http://evil.example","click")', Feedback: "+1 the session" }]);
+    expect(csv).not.toMatch(/^=|,=/);
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+1 the session");
+  });
+
+  it("leaves an ordinary value starting with a non-trigger character untouched", () => {
+    const csv = rowsToCsv([{ Name: "Asha Rao" }]);
+    expect(csv).toContain("Asha Rao");
+    expect(csv).not.toContain("'Asha Rao");
+  });
 });
 
 describe("rowsToXlsxBuffer", () => {
@@ -35,5 +48,12 @@ describe("rowsToXlsxBuffer", () => {
     const sheet = workbook.Sheets["Feedback"];
     const rows = XLSX.utils.sheet_to_json(sheet);
     expect(rows).toEqual(ROWS);
+  });
+
+  it("neutralizes a formula-triggering value in the XLSX output too", () => {
+    const buffer = rowsToXlsxBuffer([{ Name: "@SUM(1,2)" }]);
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]) as Record<string, unknown>[];
+    expect(rows[0].Name).toBe("'@SUM(1,2)");
   });
 });
