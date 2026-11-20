@@ -28,16 +28,29 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Every field the registration form collects, so the sheet is the full
+  // record rather than a summary.
   const rows = registrations.map((r) => ({
     "Registration ID": r.registrationCode,
     "Full Name": r.fullName,
     Email: r.email,
     "WhatsApp Number": r.whatsappNumber,
+    Designation: r.designation,
     Type: r.registrationKind === "COMPANY" ? "Company" : "Individual",
+    "Company / Organisation": r.company ?? "",
     "Company Name": r.companyName ?? "",
     "Company Address": r.companyAddress ?? "",
     GSTIN: r.companyGstin ?? "",
     Package: r.workshopPackage,
+    "Done Day 1 Before": r.previousDay1Attendance === null ? "" : r.previousDay1Attendance ? "Yes" : "No",
+    "Day 1 When": r.previousDay1When ?? "",
+    "AI Level": r.aiExperienceLevel,
+    "AI Task": r.aiUseCase ?? "",
+    Subscriptions: r.subscriptions.join(", "),
+    "Needs GST Invoice": r.needsGstInvoice ? "Yes" : "No",
+    "GST Invoice Company": r.gstCompanyName ?? "",
+    "GST Invoice GSTIN": r.gstin ?? "",
+    "Referred By": r.referredBy ?? "",
     "Amount (INR)": r.amountInInr,
     Status: STATUS_LABEL[r.status] ?? r.status,
     "Payment Marked Done At": r.paymentMarkedDoneAt ? r.paymentMarkedDoneAt.toISOString() : "",

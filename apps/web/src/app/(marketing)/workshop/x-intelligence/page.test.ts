@@ -50,10 +50,14 @@ describe("XI workshop landing page", () => {
     expect(container.textContent).toMatch(/venue.*(to be confirmed|TBC)/i);
   });
 
-  it("shows no workshop dates and no Vjal Institute mentions", () => {
+  it("shows the workshop dates but no Vjal Institute mention until its use is approved", () => {
     const { container } = render(createElement(XiLandingPage));
-    expect(container.textContent).not.toMatch(/\b(26|27) Nov\b/i);
-    expect(container.textContent).not.toContain("Nov 2026");
+    expect(container.textContent).toContain("26-27 Nov 2026");
     expect(container.textContent).not.toMatch(/vjal/i);
+  });
+
+  it("follows the brief's no-dash copy rule", () => {
+    const { container } = render(createElement(XiLandingPage));
+    expect(container.textContent).not.toMatch(/[\u2013\u2014]/);
   });
 });

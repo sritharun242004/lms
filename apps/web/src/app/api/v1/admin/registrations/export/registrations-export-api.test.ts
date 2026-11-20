@@ -18,6 +18,17 @@ const row = {
   email: "asha@example.com",
   whatsappNumber: "+919876543210",
   registrationKind: "INDIVIDUAL",
+  designation: "Founder",
+  company: "Acme Labs",
+  previousDay1Attendance: null,
+  previousDay1When: null,
+  aiExperienceLevel: "DAILY",
+  aiUseCase: "Summarise board packs",
+  subscriptions: ["Claude Pro", "ChatGPT Business"],
+  needsGstInvoice: true,
+  gstCompanyName: "Acme Labs Pvt Ltd",
+  gstin: "33ABCDE1234F1Z5",
+  referredBy: "Mehul",
   companyName: null,
   companyAddress: null,
   companyGstin: null,
@@ -50,6 +61,12 @@ describe("GET /api/v1/admin/registrations/export", () => {
     expect(text).toContain("Registration ID");
     expect(text).toContain("XI-2026-0001");
     expect(text).toContain("Payment Marked Done");
+    for (const column of ["Designation", "Company / Organisation", "Done Day 1 Before", "AI Level", "AI Task", "Subscriptions", "Needs GST Invoice", "Referred By"]) {
+      expect(text).toContain(column);
+    }
+    for (const value of ["Acme Labs", "Summarise board packs", "Claude Pro, ChatGPT Business", "33ABCDE1234F1Z5", "Mehul"]) {
+      expect(text).toContain(value);
+    }
   });
 
   it("exports a real XLSX workbook", async () => {

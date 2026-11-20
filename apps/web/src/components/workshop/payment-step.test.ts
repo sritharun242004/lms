@@ -36,16 +36,16 @@ describe("PaymentStep", () => {
   it("shows the demo QR, amount, and a Payment Done button while pending", async () => {
     global.fetch = mockFetch() as unknown as typeof fetch;
     render(createElement(PaymentStep, { registrationCode: "XI-2026-0001" }));
-    await waitFor(() => expect(screen.getByText("XI-2026-0001")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("XI-2026-0001").length).toBeGreaterThan(0));
     expect(screen.getByText(/demo payment qr/i)).toBeTruthy();
-    expect(screen.getByText("₹28,250")).toBeTruthy();
+    expect(screen.getAllByText("₹28,250").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /payment done/i })).toBeTruthy();
   });
 
   it("shows no proof-upload control and no verification language anywhere", async () => {
     global.fetch = mockFetch() as unknown as typeof fetch;
     render(createElement(PaymentStep, { registrationCode: "XI-2026-0001" }));
-    await waitFor(() => expect(screen.getByText("XI-2026-0001")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("XI-2026-0001").length).toBeGreaterThan(0));
     expect(screen.queryByRole("button", { name: /upload/i })).toBeNull();
     expect(screen.queryByText(/payment verified/i)).toBeNull();
     expect(screen.queryByText(/payment approved/i)).toBeNull();
@@ -77,5 +77,18 @@ describe("PaymentStep", () => {
       expect(screen.getByText("Thank you for registering! We will reach out to you shortly.")).toBeTruthy()
     );
     expect(screen.queryByRole("button", { name: /payment done/i })).toBeNull();
+  });
+
+  it("copies the registration ID with the copy button", async () => {
+    global.fetch = mockFetch() as unknown as typeof fetch;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(createElement(PaymentStep, { registrationCode: "XI-2026-0001" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /copy registration id/i })).toBeTruthy());
+    await act(async () => {
+      screen.getByRole("button", { name: /copy registration id/i }).click();
+    });
+    expect(writeText).toHaveBeenCalledWith("XI-2026-0001");
+    expect(screen.getByText("Copied")).toBeTruthy();
   });
 });

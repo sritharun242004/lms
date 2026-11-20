@@ -37,21 +37,8 @@ export const registrationInputSchema = z
     ageConfirmed: z.literal(true),
   })
   .superRefine((value, ctx) => {
-    if (value.workshopPackage === "DAY2") {
-      if (!value.previousDay1Attendance) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousDay1Attendance"],
-          message: "Day 2 requires prior Day 1 attendance — choose Both days instead",
-        });
-      } else if (!value.previousDay1When) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["previousDay1When"],
-          message: "Say when you completed Day 1",
-        });
-      }
-    }
+    // Day 2 without Day 1 is allowed: the form warns, it never blocks.
+    // previousDay1Attendance/When are kept as information for the team.
     if (value.registrationKind === "COMPANY") {
       if (!value.companyName) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyName"], message: "Company name is required" });
