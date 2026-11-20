@@ -18,6 +18,14 @@ beforeEach(() => {
       disconnect() {}
     }
   );
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
 });
 
 afterEach(() => {

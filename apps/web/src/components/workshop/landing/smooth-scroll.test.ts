@@ -3,6 +3,10 @@
 import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { useReducedMotion } = vi.hoisted(() => ({ useReducedMotion: vi.fn() }));
+vi.mock("motion/react", () => ({ useReducedMotion }));
+
 import { SmoothScroll } from "./smooth-scroll";
 
 afterEach(() => {
@@ -11,6 +15,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  useReducedMotion.mockReset();
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -19,30 +24,22 @@ beforeEach(() => {
       disconnect() {}
     }
   );
-});
-
-function mockMatchMedia(reduced: boolean) {
   vi.stubGlobal(
     "matchMedia",
-    vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes("reduce") ? reduced : false,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }))
+    vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
   );
-}
+});
 
 describe("SmoothScroll", () => {
   it("still renders its children when the visitor prefers reduced motion", () => {
-    mockMatchMedia(true);
-    render(createElement(SmoothScroll, {}, createElement("p", null, "Hello")));
+    useReducedMotion.mockReturnValue(true);
+    render(createElement(SmoothScroll, null, createElement("p", null, "Hello")));
     expect(screen.getByText("Hello")).toBeTruthy();
   });
 
   it("still renders its children when smooth scrolling is enabled", () => {
-    mockMatchMedia(false);
-    render(createElement(SmoothScroll, {}, createElement("p", null, "Hello")));
+    useReducedMotion.mockReturnValue(false);
+    render(createElement(SmoothScroll, null, createElement("p", null, "Hello")));
     expect(screen.getByText("Hello")).toBeTruthy();
   });
 });
