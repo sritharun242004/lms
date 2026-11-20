@@ -121,7 +121,7 @@ export function RegistrationsDashboard({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">X Intelligence registrations</h1>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <SummaryCard label="Total" value={summary.total} />
         <SummaryCard label="Payment pending" value={summary.byStatus.PENDING_PAYMENT ?? 0} />
         <SummaryCard label="Payment marked done" value={summary.byStatus.PAYMENT_DONE ?? 0} />
@@ -195,7 +195,7 @@ export function RegistrationsDashboard({
                       <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
                       {isDay2WithoutDay1(row) ? <Badge variant="destructive">No Day 1 yet</Badge> : null}
                     </div>
-                    <p className="truncate text-sm text-muted-foreground">
+                    <p className="text-sm break-words text-muted-foreground sm:truncate">
                       {row.registrationCode} · {PACKAGE_LABEL[row.workshopPackage]} · {row.email} · {row.whatsappNumber} · ₹{row.amountInInr.toLocaleString("en-IN")}
                     </p>
                     <p className="text-xs text-muted-foreground">

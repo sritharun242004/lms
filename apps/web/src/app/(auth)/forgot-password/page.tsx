@@ -93,7 +93,7 @@ function ForgotPasswordForm() {
             )}
           />
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             Send reset link
           </Button>

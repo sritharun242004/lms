@@ -51,7 +51,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
         </Button>
       )}
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <DropdownMenuTrigger className="flex min-h-10 min-w-10 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         <Avatar>
           <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
           <AvatarFallback>{getInitials(user.name)}</AvatarFallback>

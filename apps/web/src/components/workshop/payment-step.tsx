@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, CheckCircle2, Copy, Loader2, MessageCircle } from "lucide-react";
+import { Check, CheckCircle2, Copy, Download, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WizardProgress } from "./wizard-progress";
@@ -139,6 +139,18 @@ export function PaymentStep({
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
           )}
+          {qrDataUrl && !demoMode ? (
+            // A phone can't scan its own screen: save the same, untouched
+            // image and pick it in the UPI app's "scan from gallery".
+            <a
+              href={qrDataUrl}
+              download="x-intelligence-upi-qr.png"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-primary md:hidden"
+            >
+              <Download className="size-4" />
+              Save QR to gallery
+            </a>
+          ) : null}
           {demoMode ? <Badge variant="destructive" className="h-auto whitespace-normal py-1 text-center">DEMO PAYMENT QR. NOT VALID FOR PAYMENT</Badge> : null}
         </div>
 

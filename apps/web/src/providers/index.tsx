@@ -2,6 +2,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { usePathname } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import { getQueryClient } from "@/lib/query-client";
 import { AuthProvider } from "@/providers/auth-provider";
@@ -17,11 +18,15 @@ interface ProvidersProps {
  */
 export function Providers({ children }: ProvidersProps) {
   const queryClient = getQueryClient();
+  // The public landing page is designed light-only; a dark-mode choice
+  // made inside the app must not turn its white cards' text white.
+  const forcedTheme = usePathname() === "/" ? "light" : undefined;
 
   return (
     <ThemeProvider
       attribute="class"
       defaultTheme="light"
+      forcedTheme={forcedTheme}
       enableSystem
       disableTransitionOnChange={false}
     >

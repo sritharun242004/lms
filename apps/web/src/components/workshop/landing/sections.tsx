@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   AnimatePresence,
@@ -36,7 +37,8 @@ import {
 // as deliberate rather than playful.
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const EYEBROW = "font-mono text-[11px] font-medium uppercase tracking-[0.18em]";
+// 12px on phones (legible at arm's length), the tighter 11px from sm up.
+const EYEBROW = "font-mono text-xs font-medium uppercase tracking-[0.12em] sm:text-[11px] sm:tracking-[0.18em]";
 const HEADING = "font-extrabold tracking-[-0.035em] leading-[1.02] [text-wrap:balance]";
 
 // Deep-blue band gradient. Kept to the brand ramp (brand-900 → brand-500)
@@ -312,7 +314,7 @@ export function WorkshopNav() {
   return (
     <header className="fixed inset-x-0 top-4 z-50 px-4 sm:top-6 sm:px-6">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between rounded-full border border-white/40 bg-white/80 pl-2 pr-2 shadow-[0_10px_40px_-12px_rgba(10,22,64,0.35)] backdrop-blur-xl">
-        <a href="#top" className="flex items-center gap-2.5 pl-1 text-[15px] font-extrabold tracking-tight text-slate-950">
+        <a href="#top" className="flex min-h-11 items-center gap-2.5 pl-1 text-[15px] font-extrabold tracking-tight text-slate-950">
           <span
             aria-hidden="true"
             className={`inline-flex size-9 items-center justify-center rounded-full text-[12px] font-extrabold text-white ${BAND_GRADIENT}`}
@@ -331,7 +333,7 @@ export function WorkshopNav() {
         <div className="flex items-center gap-1 sm:gap-2">
           {/* The session portal registered participants join from. */}
           <Button asChild variant="ghost" className="h-10 rounded-full px-3 font-semibold text-slate-700 sm:px-4">
-            <Link href="/">Log in</Link>
+            <Link href="/login">Log in</Link>
           </Button>
           <Button asChild className="h-10 rounded-full px-5 font-semibold">
             <a href="#register">Register</a>
@@ -372,7 +374,6 @@ function HandUnderline() {
 }
 
 const HERO_FACTS = [
-  { label: "Dates", value: "Thu 26 & Fri 27 Nov" },
   { label: "Hours", value: "9:15 am - 5:30 pm" },
   { label: "Place", value: "Chennai (venue TBC)" },
   { label: "Credential", value: "Day 1 certification" },
@@ -402,7 +403,7 @@ export function Hero() {
             {...enter(0)}
             className={`${EYEBROW} inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-white/90 backdrop-blur-sm`}
           >
-            Friends &amp; Family Edition · 26-27 Nov 2026 · Chennai
+            Friends &amp; Family Edition · Chennai
           </motion.p>
           <motion.h1 {...enter(0.12)} className={`${HEADING} mt-8 text-[clamp(2.5rem,6.4vw,5.5rem)] text-white`}>
             AI that works for you.
@@ -426,7 +427,7 @@ export function Hero() {
             </Button>
             <a
               href="#curriculum"
-              className="group inline-flex items-center gap-2 text-[15px] font-semibold text-white/85 transition-colors hover:text-white"
+              className="group inline-flex min-h-11 items-center gap-2 px-2 text-[15px] font-semibold text-white/85 transition-colors hover:text-white"
             >
               See the curriculum
               <ArrowDown className="size-4 transition-transform duration-200 group-hover:translate-y-0.5" />
@@ -434,7 +435,7 @@ export function Hero() {
           </motion.div>
         </motion.div>
 
-        <dl className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-3 text-left lg:grid-cols-4">
+        <dl className="mx-auto mt-20 grid max-w-4xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
           {HERO_FACTS.map((fact, index) => (
             <motion.div
               key={fact.label}
@@ -565,7 +566,7 @@ function ClippingCard({ clipping, index }: { clipping: Clipping; index: number }
         href={clipping.href}
         target="_blank"
         rel="noreferrer"
-        className="mt-6 border-t border-[#e7e2d6] pt-4 font-mono text-[10.5px] uppercase leading-relaxed tracking-[0.14em] text-slate-500 underline-offset-4 transition-colors hover:text-primary hover:underline"
+        className="mt-6 border-t border-[#e7e2d6] pt-4 font-mono text-xs uppercase leading-relaxed sm:text-[10.5px] tracking-[0.14em] text-slate-500 underline-offset-4 transition-colors hover:text-primary hover:underline"
       >
         {clipping.source} ↗
       </a>
@@ -687,7 +688,7 @@ const JOURNEY = [
   },
 ] as const;
 
-const JOURNEY_NOTE = "Day 2 is open only to people who have done Day 1, either earlier or on 26 Nov.";
+const JOURNEY_NOTE = "Day 2 builds on Day 1, so you should already know the Day 1 material.";
 
 function JourneyProgress({ active }: { active: number }) {
   return (
@@ -805,7 +806,7 @@ export function Journey() {
 const CURRICULUM = [
   {
     tab: "Day 1",
-    when: "Day 1 · Thu 26 Nov",
+    when: "Day 1 · Track 1",
     title: "AI Empowerment for Professionals",
     sub: "From the fundamentals all the way up to agentic AI.",
     modules: [
@@ -817,7 +818,7 @@ const CURRICULUM = [
   },
   {
     tab: "Day 2",
-    when: "Day 2 · Fri 27 Nov",
+    when: "Day 2 · Track 2",
     title: "AI Empowerment for Business Leaders 2.0",
     sub: "For Day 1 graduates. More hands-on, more depth.",
     modules: [
@@ -876,7 +877,7 @@ export function Curriculum() {
                 <ol className="mt-8 flex flex-col gap-2">
                   {day.modules.map(([title, body], index) => (
                     <li key={title} className="grid grid-cols-[36px_1fr] gap-3 rounded-2xl px-3 py-3 transition-colors duration-200 hover:bg-brand-50/70">
-                      <span className="flex size-8 items-center justify-center rounded-full bg-brand-50 font-mono text-[11px] font-semibold text-primary">
+                      <span className="flex size-8 items-center justify-center rounded-full bg-brand-50 font-mono text-xs font-semibold text-primary sm:text-[11px]">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <p className="pt-1 text-[15px] leading-relaxed text-slate-600">
@@ -926,8 +927,14 @@ export function Builds() {
                   >
                     <Icon className="size-5" strokeWidth={1.8} />
                   </span>
-                  <p className="flex-1 text-[16px] font-semibold leading-snug text-slate-950">{item.text}</p>
-                  <span className="shrink-0 rounded-full bg-white px-3 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-primary ring-1 ring-brand-100">
+                  {/* On phones the day sits above the text so the line keeps its width. */}
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-primary sm:hidden">
+                      {item.day}
+                    </p>
+                    <p className="text-[16px] font-semibold leading-snug text-slate-950">{item.text}</p>
+                  </div>
+                  <span className="hidden shrink-0 rounded-full sm:inline bg-white px-3 py-1 font-mono text-xs font-semibold uppercase sm:text-[10.5px] tracking-[0.12em] text-primary ring-1 ring-brand-100">
                     {item.day}
                   </span>
                 </li>
@@ -968,7 +975,7 @@ function LearnTryBuild() {
     <div ref={ref} className="rounded-[24px] border border-brand-100 bg-white p-4 shadow-[0_24px_50px_-36px_rgba(29,78,216,0.6)] sm:p-5">
       <div className="flex items-center justify-between px-1">
         <p className={`${EYEBROW} text-primary`}>Each module</p>
-        <span className="inline-flex items-center gap-2 font-mono text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-2 font-mono text-xs text-slate-500 sm:text-[11px]">
           <motion.span
             className="inline-flex"
             animate={cycling ? { rotate: 360 } : { rotate: 0 }}
@@ -1103,21 +1110,21 @@ export function Audience() {
 const TRAINERS = [
   {
     name: "Mehul Nanavati",
-    initials: "MN",
+    photo: "/workshop/trainers/mehul-nanavati.jpg",
     role: "Lead Trainer",
     line: "Former Managing Director, Raj Petro Specialities.",
     bio: "Decades of experience running a large enterprise. He has trained around 50 organisations in AI empowerment.",
   },
   {
     name: "Philip Moses",
-    initials: "PM",
+    photo: "/workshop/trainers/philip-moses.jpg",
     role: "Trainer",
     line: "Founder & CEO, Belsterns Technologies.",
     bio: "Leads the hands-on sessions on analytics, workflows and building with AI.",
   },
   {
     name: "Madhan Raj",
-    initials: "MR",
+    photo: "/workshop/trainers/madhan-raj.jpg",
     role: "Trainer",
     line: "Founder & CEO, The Bot Company, an AI agency.",
     bio: "Leads the sessions on advanced imaging and building apps with AI.",
@@ -1132,18 +1139,20 @@ export function Trainers() {
         {TRAINERS.map((trainer, index) => (
           <Reveal key={trainer.name} delay={index * 0.1}>
             <article className="h-full rounded-[28px] border border-slate-200 bg-white p-3 shadow-[0_30px_60px_-44px_rgba(15,23,42,0.45)]">
-              {/* Photo slot. Initials stand in until the approved photos arrive. */}
-              <div
-                className={`relative flex aspect-[4/5] items-end overflow-hidden rounded-[22px] p-6 ${BAND_GRADIENT}`}
-              >
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 opacity-30 [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:22px_22px]"
+              {/* Photos are pre-cropped to 4:5 at matching head size. Phones
+                  show them square (kept on the face) so three stacked cards
+                  stay a comfortable scroll. */}
+              <div className={`relative aspect-square overflow-hidden rounded-[22px] md:aspect-[4/5] ${BAND_GRADIENT}`}>
+                <Image
+                  src={trainer.photo}
+                  alt={`${trainer.name}, ${trainer.role}`}
+                  fill
+                  sizes="(min-width: 768px) 33vw, 100vw"
+                  className="object-cover object-[50%_18%] md:object-center"
                 />
-                <span className="relative text-[5.5rem] font-extrabold leading-none tracking-[-0.05em] text-white/30">
-                  {trainer.initials}
-                </span>
-                <span className={`${EYEBROW} absolute right-4 top-4 rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur-sm`}>
+                {/* Role label sits low, clear of every face. */}
+                <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/45 to-transparent" />
+                <span className={`${EYEBROW} absolute bottom-4 left-4 rounded-full bg-white/20 px-3 py-1.5 text-white backdrop-blur-sm`}>
                   {trainer.role}
                 </span>
               </div>
@@ -1181,7 +1190,6 @@ function selectPackage(pkg: WorkshopPackageKey) {
 }
 
 const DETAILS = [
-  { label: "Dates", value: "Thu 26 Nov and Fri 27 Nov 2026" },
   { label: "Time", value: "9:15 am - 5:30 pm (reporting at 8:45 am)" },
   { label: "Venue", value: "to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)" },
   { label: "Seats", value: "limited, confirmed on a first-paid basis" },
@@ -1215,7 +1223,7 @@ function PriceCard({ pkg }: { pkg: (typeof PACKAGES)[number] }) {
         <p className={`mt-3 text-sm ${onBlue ? "text-white/75" : "text-slate-500"}`}>
           {inr(WORKSHOP_PACKAGE_BASE_FEE_INR[pkg.key])} + 18% GST
         </p>
-        <p className={`mt-1 font-mono text-[11px] uppercase tracking-[0.12em] ${onBlue ? "text-sky-200" : "text-slate-400"}`}>
+        <p className={`mt-1 font-mono text-xs uppercase tracking-[0.12em] sm:text-[11px] ${onBlue ? "text-sky-200" : "text-slate-400"}`}>
           {pkg.usdNote ? `${usd} · ${pkg.usdNote}` : usd}
         </p>
         <div className="mt-auto pt-10">
@@ -1254,9 +1262,9 @@ export function Pricing() {
       </Reveal>
 
       <Reveal delay={0.1} className="mx-auto mt-12 max-w-4xl">
-        <dl className="grid overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60 sm:grid-cols-2">
+        <dl className="grid overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60 sm:grid-cols-3">
           {DETAILS.map((detail) => (
-            <div key={detail.label} className="border-b border-slate-200 p-6 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0">
+            <div key={detail.label} className="border-b border-slate-200 p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
               <dt className={`${EYEBROW} text-slate-400`}>{detail.label}</dt>
               <dd className="mt-2 text-[15px] text-slate-950">{detail.value}</dd>
             </div>
@@ -1404,7 +1412,7 @@ export function WorkshopFooter() {
         <div className="mt-14 flex flex-col gap-4 border-t border-white/15 pt-8 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-semibold text-white">xintelligence.in</p>
           <div className="flex items-center gap-6">
-            <Link href="/admin/login" className="underline-offset-4 transition-colors hover:text-white hover:underline">
+            <Link href="/admin/login" className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-white hover:underline">
               Staff login
             </Link>
             <p>© 2026 X Intelligence</p>

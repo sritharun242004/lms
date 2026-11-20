@@ -48,7 +48,7 @@ describe("portal navigation safety", () => {
     expect(parseAuthPortal("super-admin")).toBe("super-admin");
     expect(parseAuthPortal("javascript:alert(1)")).toBe("participant");
     expect(parseAuthPortal("admin")).toBe("admin");
-    expect(canonicalLoginPath("participant")).toBe("/");
+    expect(canonicalLoginPath("participant")).toBe("/login");
     expect(canonicalLoginPath("coach")).toBe("/admin/login");
     expect(canonicalLoginPath("super-admin")).toBe("/admin/login");
     expect(canonicalLoginPath("admin")).toBe("/admin/login");
