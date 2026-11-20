@@ -13,6 +13,7 @@ const baseRegistration = {
   email: "asha@example.com",
   whatsappNumber: "+919876543210",
   designation: "Founder",
+  company: null as string | null,
   companyName: null,
   companyAddress: null,
   companyGstin: null,
@@ -129,5 +130,32 @@ describe("RegistrationsDashboard", () => {
     expect(screen.getByText(/internal reporting/i)).toBeTruthy();
     expect(screen.getByText(/acme invoicing pvt ltd/i)).toBeTruthy();
     expect(screen.getByText(/33aaaca1234a1z6/i)).toBeTruthy();
+  });
+
+  it("flags a Day 2 booking made without Day 1 and shows the individual's organisation", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [
+          { ...baseRegistration, workshopPackage: "DAY2" as const, previousDay1Attendance: false, company: "Acme Labs" },
+        ],
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+      })
+    );
+    expect(screen.getByText("No Day 1 yet")).toBeTruthy();
+    expect(screen.getByText(/Acme Labs/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
+    expect(screen.getAllByText("Acme Labs").length).toBeGreaterThan(0);
+    expect(screen.getByText("No")).toBeTruthy();
+  });
+
+  it("formats times in India time regardless of the viewer's locale", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration],
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+      })
+    );
+    // 2026-11-20T00:00:00Z is 5:30 am in Asia/Kolkata.
+    expect(screen.getByText(/20\/11\/2026, 5:30:00 am/)).toBeTruthy();
   });
 });

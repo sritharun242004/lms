@@ -4,19 +4,19 @@ import {
   WhyNow,
   About,
   Journey,
-  Outcomes,
   Curriculum,
-  DailySchedule,
-  DailyOutcomes,
+  Builds,
+  DaySchedule,
+  Audience,
   Trainers,
   Pricing,
-  Audience,
+  WhatToBring,
   Faq,
-  CityBand,
   WorkshopFooter,
 } from "@/components/workshop/landing/sections";
 import { RegistrationSection } from "@/components/workshop/registration-section";
 
+// Section order follows the XI brief (sections 0-14) exactly.
 export default function XiLandingPage() {
   return (
     <main>
@@ -25,15 +25,14 @@ export default function XiLandingPage() {
       <WhyNow />
       <About />
       <Journey />
-      <Outcomes />
       <Curriculum />
-      <DailySchedule />
-      <DailyOutcomes />
+      <Builds />
+      <DaySchedule />
+      <Audience />
       <Trainers />
       <Pricing />
-      <Audience />
+      <WhatToBring />
       <Faq />
-      <CityBand />
       <RegistrationSection />
       <WorkshopFooter />
     </main>

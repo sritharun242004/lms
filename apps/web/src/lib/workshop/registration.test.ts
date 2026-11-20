@@ -24,13 +24,13 @@ describe("registrationInputSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires previousDay1When when Day2-only and previousDay1Attendance is true", () => {
+  it("accepts Day2-only with attendance but no when value", () => {
     const result = registrationInputSchema.safeParse({
       ...base,
       workshopPackage: "DAY2",
       previousDay1Attendance: true,
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("accepts Day2-only with attendance and a when value", () => {
@@ -43,13 +43,18 @@ describe("registrationInputSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects Day2-only when the participant has not done Day 1", () => {
+  it("accepts Day2-only when the participant has not done Day 1 (warned, not blocked)", () => {
     const result = registrationInputSchema.safeParse({
       ...base,
       workshopPackage: "DAY2",
       previousDay1Attendance: false,
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts Day2-only when the Day 1 question is left unanswered", () => {
+    const result = registrationInputSchema.safeParse({ ...base, workshopPackage: "DAY2" });
+    expect(result.success).toBe(true);
   });
 
   it("defaults registrationKind to INDIVIDUAL and allows no company name", () => {

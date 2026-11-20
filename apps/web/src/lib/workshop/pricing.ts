@@ -13,6 +13,14 @@ export const WORKSHOP_PACKAGE_PRICING_USD = {
   BOTH: 495,
 } as const satisfies Record<"DAY1" | "DAY2" | "BOTH", number>;
 
+// Pre-GST base fees exactly as approved in the brief. Not derived from the
+// inclusive figures above: those were rounded to whole rupees after GST.
+export const WORKSHOP_PACKAGE_BASE_FEE_INR = {
+  DAY1: 23940,
+  DAY2: 26505,
+  BOTH: 47025,
+} as const satisfies Record<"DAY1" | "DAY2" | "BOTH", number>;
+
 export type WorkshopPackageKey = keyof typeof WORKSHOP_PACKAGE_PRICING_INR;
 
 export function getPackageAmountInr(pkg: WorkshopPackageKey): number {

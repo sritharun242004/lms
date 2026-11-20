@@ -22,6 +22,8 @@ export type RegistrationRow = {
   email: string;
   whatsappNumber: string;
   designation: string;
+  // Optional organisation an Individual registrant typed in.
+  company: string | null;
   companyName: string | null;
   companyAddress: string | null;
   companyGstin: string | null;
@@ -66,6 +68,19 @@ const PACKAGE_LABEL: Record<RegistrationRow["workshopPackage"], string> = {
   DAY2: "Day 2",
   BOTH: "Both days",
 };
+
+// A fixed locale and the workshop's time zone, so the server render and
+// the browser print the same text (a bare toLocaleString() hydrates with a
+// mismatch whenever the two disagree).
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+}
+
+// Day 2 alone is allowed without Day 1 (the form only warns), so the team
+// needs to see who booked it that way.
+function isDay2WithoutDay1(row: RegistrationRow) {
+  return row.workshopPackage === "DAY2" && row.previousDay1Attendance !== true;
+}
 
 export function RegistrationsDashboard({
   registrations,
@@ -178,12 +193,15 @@ export function RegistrationsDashboard({
                       <p className="truncate font-semibold">{row.fullName}</p>
                       <Badge variant={STATUS_VARIANT[row.status] ?? "secondary"}>{STATUS_LABEL[row.status] ?? row.status}</Badge>
                       <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
+                      {isDay2WithoutDay1(row) ? <Badge variant="destructive">No Day 1 yet</Badge> : null}
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
                       {row.registrationCode} · {PACKAGE_LABEL[row.workshopPackage]} · {row.email} · {row.whatsappNumber} · ₹{row.amountInInr.toLocaleString("en-IN")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {row.designation} · Registered {new Date(row.createdAt).toLocaleString()}
+                      {row.designation}
+                      {row.registrationKind === "INDIVIDUAL" && row.company ? ` · ${row.company}` : ""} · Registered{" "}
+                      {formatDateTime(row.createdAt)}
                     </p>
                     {row.registrationKind === "COMPANY" ? (
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -248,6 +266,7 @@ function RegistrationDetails({ row }: { row: RegistrationRow }) {
         <DetailField label="Email" value={row.email} />
         <DetailField label="WhatsApp number" value={row.whatsappNumber} />
         <DetailField label="Designation" value={row.designation} />
+        <DetailField label="Company / organisation" value={row.registrationKind === "INDIVIDUAL" ? row.company : null} />
         <DetailField label="AI experience level" value={row.aiExperienceLevel} />
         <DetailField label="AI use case" value={row.aiUseCase} />
         <DetailField label="Subscriptions" value={row.subscriptions.length > 0 ? row.subscriptions.join(", ") : null} />
@@ -260,9 +279,17 @@ function RegistrationDetails({ row }: { row: RegistrationRow }) {
         <DetailField label="Package" value={PACKAGE_LABEL[row.workshopPackage]} />
         <DetailField
           label="Prior Day 1 attendance"
-          value={row.previousDay1Attendance === null ? null : row.previousDay1Attendance ? `Yes — ${row.previousDay1When ?? ""}` : "No"}
+          value={
+            row.previousDay1Attendance === null
+              ? null
+              : row.previousDay1Attendance
+                ? row.previousDay1When
+                  ? `Yes, ${row.previousDay1When}`
+                  : "Yes"
+                : "No"
+          }
         />
-        <DetailField label="Registered" value={new Date(row.createdAt).toLocaleString()} />
+        <DetailField label="Registered" value={formatDateTime(row.createdAt)} />
         <DetailField label="Status" value={STATUS_LABEL[row.status] ?? row.status} />
       </DetailSection>
 
@@ -279,7 +306,7 @@ function RegistrationDetails({ row }: { row: RegistrationRow }) {
         <DetailField label="Payment Done clicked" value={row.paymentMarkedDoneAt ? "Yes" : "Not yet"} />
         <DetailField
           label="Payment confirmation timestamp"
-          value={row.paymentMarkedDoneAt ? new Date(row.paymentMarkedDoneAt).toLocaleString() : null}
+          value={row.paymentMarkedDoneAt ? formatDateTime(row.paymentMarkedDoneAt) : null}
         />
         <DetailField label="Needs GST invoice" value={row.needsGstInvoice ? "Yes" : null} />
         <DetailField label="GST invoice company" value={row.gstCompanyName} />
