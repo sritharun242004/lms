@@ -1,11 +1,7 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
-import { FeedbackDashboard } from "@/components/forms/feedback-dashboard";
 
-export default async function FeedbackPage() {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "MENTOR" && user.role !== "ADMIN")) {
-    redirect("/dashboard");
-  }
-  return <FeedbackDashboard />;
+// Feedback moved into the combined Forms & Feedback page/nav item.
+// This keeps any existing /feedback bookmark or link working.
+export default function FeedbackPage() {
+  redirect("/forms?tab=feedback");
 }

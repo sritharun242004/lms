@@ -53,9 +53,10 @@ const PUBLIC_API_ROUTES = [
 // PUBLIC_API_ROUTES' exact matches, these cover a family of routes with
 // dynamic segments (a registration code, etc).
 const PUBLIC_API_ROUTE_PREFIXES = [
-  // Registration creation/lookup, payment proof upload, and QR — all
-  // used by an anonymous visitor before any account exists. Does not
-  // cover /api/v1/admin/registrations, a different, protected prefix.
+  // Registration creation/lookup, the "Payment Done" self-report, and
+  // QR — all used by an anonymous visitor before any account exists.
+  // Does not cover /api/v1/admin/registrations, a different, protected
+  // prefix.
   "/api/v1/workshop/registrations",
 ];
 

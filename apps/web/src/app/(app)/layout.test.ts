@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getCurrentUser: vi.fn(), redirect: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getCurrentUser: vi.fn(), redirect: vi.fn(), DesktopNav: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/link", () => ({
@@ -13,6 +13,12 @@ vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/components/layout/theme-toggle", () => ({ ThemeToggle: () => createElement("span", null, "Theme") }));
 vi.mock("@/components/layout/user-menu", () => ({ UserMenu: () => createElement("span", null, "User menu") }));
 vi.mock("@/components/layout/mobile-nav", () => ({ MobileNav: () => createElement("span", null, "Mobile navigation") }));
+vi.mock("@/components/layout/desktop-nav", () => ({
+  DesktopNav: (props: { isMentee: boolean; isAdmin: boolean }) => {
+    mocks.DesktopNav(props);
+    return createElement("span", null, "Desktop navigation");
+  },
+}));
 vi.mock("@/components/layout/page-motion", () => ({ PageMotion: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/layout/app-frame", () => ({
   AppFrame: ({ header, children }: { header: ReactNode; children: ReactNode }) => createElement("div", null, header, children),
@@ -34,25 +40,19 @@ describe("desktop shared navigation", () => {
     expect(markup).not.toContain("Chats");
   });
 
-  it("labels the ADMIN coach route as Coach account management", async () => {
+  it("passes isAdmin=true only for an ADMIN, and isMentee correctly for a MENTEE", async () => {
     mocks.getCurrentUser.mockResolvedValue({ id: "admin-1", role: "ADMIN", name: "Admin" });
+    renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+    expect(mocks.DesktopNav).toHaveBeenCalledWith({ isMentee: false, isAdmin: true });
 
-    const tree = await AppLayout({ children: createElement("main", null, "Content") });
-    const markup = renderToStaticMarkup(tree);
-
-    expect(markup).toContain('href="/admin/coaches"');
-    expect(markup).toContain("Coach account management");
-    expect(markup).not.toContain("Participant onboarding");
+    mocks.getCurrentUser.mockResolvedValue({ id: "mentee-1", role: "MENTEE", name: "Participant" });
+    renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+    expect(mocks.DesktopNav).toHaveBeenCalledWith({ isMentee: true, isAdmin: false });
   });
 
-  it("renames only the repository navigation while preserving its compatible route", async () => {
+  it("passes isAdmin=false for a MENTOR (staff is not admin)", async () => {
     mocks.getCurrentUser.mockResolvedValue({ id: "coach-1", role: "MENTOR", name: "Coach" });
-
-    const tree = await AppLayout({ children: createElement("main", null, "Content") });
-    const markup = renderToStaticMarkup(tree);
-
-    expect(markup).toContain('href="/questions"');
-    expect(markup).toContain("Question repository");
-    expect(markup).not.toContain("Quiz repository");
+    renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+    expect(mocks.DesktopNav).toHaveBeenCalledWith({ isMentee: false, isAdmin: false });
   });
 });

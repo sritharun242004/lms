@@ -1,16 +1,12 @@
-// Single source of truth for workshop package pricing, all figures incl.
-// 18% GST per the approved brief. Day 2's base fee (₹26,505) times 1.18
-// is ₹31,275.90 — the brief flags this rounding as unconfirmed, so it is
-// kept here as a plain config value rather than computed, making the
-// eventual business decision a one-line change.
-export const WORKSHOP_PACKAGE_PRICING_INR = {
-  DAY1: 28250,
-  DAY2: 31275,
-  BOTH: 55490,
-} as const satisfies Record<"DAY1" | "DAY2" | "BOTH", number>;
+// Single source of truth for the workshop price. One flat amount for
+// every participant regardless of which package they select — the
+// previous per-package pricing tiers (Day 1 / Day 2 / Both days) were
+// removed per an explicit change request. ₹28,250 already includes
+// 18% GST on the approved ₹23,940 base fee.
+export const WORKSHOP_PRICE_INR = 28250;
 
-export type WorkshopPackageKey = keyof typeof WORKSHOP_PACKAGE_PRICING_INR;
+export type WorkshopPackageKey = "DAY1" | "DAY2" | "BOTH";
 
-export function getPackageAmountInr(pkg: WorkshopPackageKey): number {
-  return WORKSHOP_PACKAGE_PRICING_INR[pkg];
+export function getPackageAmountInr(): number {
+  return WORKSHOP_PRICE_INR;
 }

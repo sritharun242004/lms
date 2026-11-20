@@ -1,15 +1,11 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { getCurrentUser, findMany, groupBy, approveRegistration, rejectRegistration, requestResubmission } =
-  vi.hoisted(() => ({
-    getCurrentUser: vi.fn(),
-    findMany: vi.fn(),
-    groupBy: vi.fn(),
-    approveRegistration: vi.fn(),
-    rejectRegistration: vi.fn(),
-    requestResubmission: vi.fn(),
-  }));
+const { getCurrentUser, findMany, groupBy } = vi.hoisted(() => ({
+  getCurrentUser: vi.fn(),
+  findMany: vi.fn(),
+  groupBy: vi.fn(),
+}));
 
 vi.mock("@/lib/auth", () => ({ getCurrentUser }));
 
@@ -19,27 +15,12 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/workshop/verification", () => ({
-  approveRegistration,
-  rejectRegistration,
-  requestResubmission,
-  VerificationError: class VerificationError extends Error {
-    constructor(message: string, public code: string, public status: number) {
-      super(message);
-    }
-  },
-}));
-
 import { GET } from "./route";
-import { PATCH } from "./[id]/route";
 
 beforeEach(() => {
   getCurrentUser.mockReset();
   findMany.mockReset();
   groupBy.mockReset();
-  approveRegistration.mockReset();
-  rejectRegistration.mockReset();
-  requestResubmission.mockReset();
 });
 
 describe("GET /api/v1/admin/registrations", () => {
@@ -52,7 +33,7 @@ describe("GET /api/v1/admin/registrations", () => {
   it("returns 200 with registrations for ADMIN", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "ADMIN" });
     findMany.mockResolvedValue([{ id: "r1" }]);
-    groupBy.mockResolvedValue([{ status: "APPROVED", _count: 1, _sum: { amountInInr: 28250 } }]);
+    groupBy.mockResolvedValue([{ status: "PAYMENT_DONE", _count: 1, _sum: { amountInInr: 28250 } }]);
     const res = await GET(new NextRequest("http://localhost/api/v1/admin/registrations"));
     expect(res.status).toBe(200);
   });
@@ -61,37 +42,5 @@ describe("GET /api/v1/admin/registrations", () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTOR" });
     const res = await GET(new NextRequest("http://localhost/api/v1/admin/registrations"));
     expect(res.status).toBe(403);
-  });
-});
-
-describe("PATCH /api/v1/admin/registrations/[id]", () => {
-  it("calls approveRegistration with the note and selected WhatsApp group for action APPROVE", async () => {
-    getCurrentUser.mockResolvedValue({ id: "admin1", role: "ADMIN" });
-    approveRegistration.mockResolvedValue({ id: "r1", status: "APPROVED" });
-    const req = new NextRequest("http://localhost", {
-      method: "PATCH",
-      body: JSON.stringify({
-        action: "APPROVE",
-        note: "ok",
-        whatsappGroupId: "g1",
-      }),
-    });
-    const res = await PATCH(req, { params: Promise.resolve({ id: "r1" }) });
-    expect(approveRegistration).toHaveBeenCalledWith("admin1", "r1", {
-      note: "ok",
-      whatsappGroupId: "g1",
-      allowMissingWhatsappLink: false,
-    });
-    expect(res.status).toBe(200);
-  });
-
-  it("rejects an unknown action with 400", async () => {
-    getCurrentUser.mockResolvedValue({ id: "admin1", role: "ADMIN" });
-    const req = new NextRequest("http://localhost", {
-      method: "PATCH",
-      body: JSON.stringify({ action: "DO_SOMETHING_ELSE" }),
-    });
-    const res = await PATCH(req, { params: Promise.resolve({ id: "r1" }) });
-    expect(res.status).toBe(400);
   });
 });

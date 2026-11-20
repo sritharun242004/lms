@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { PaletteSwitcher } from "@/components/layout/palette-switcher";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { DesktopNav } from "@/components/layout/desktop-nav";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
 import { DEFAULT_PALETTE, isPaletteKey } from "@/lib/theme/palettes";
@@ -36,26 +37,7 @@ export default async function AppLayout({
               <span className="hidden sm:inline">AI Empowerment</span>
             </Link>
           </div>
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-xl bg-white/35 p-1 text-sm shadow-[inset_0_1px_rgba(255,255,255,.72)] md:flex dark:bg-white/5">
-            {!isMentee && <Link href="/questions" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Question repository</Link>}
-            {!isMentee && <Link href="/forms" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Forms</Link>}
-            {!isMentee && <Link href="/feedback" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Feedback</Link>}
-            {!isMentee && (
-              <Link href="/dashboard" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Dashboard
-              </Link>
-            )}
-            {user.role === "ADMIN" && (
-              <Link href="/admin/coaches" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Coach account management
-              </Link>
-            )}
-            {user.role === "ADMIN" && (
-              <Link href="/admin/registrations" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Workshop registrations
-              </Link>
-            )}
-          </nav>
+          <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
             <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />

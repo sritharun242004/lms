@@ -20,7 +20,6 @@ export async function GET(
       status: registration.status,
       workshopPackage: registration.workshopPackage,
       amountInInr: registration.amountInInr,
-      whatsappGroupInviteUrl: registration.whatsappGroupInviteUrl,
     },
   });
 }
