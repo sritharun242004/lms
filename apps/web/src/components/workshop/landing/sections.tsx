@@ -372,7 +372,6 @@ function HandUnderline() {
 }
 
 const HERO_FACTS = [
-  { label: "Dates", value: "Thu 26 & Fri 27 Nov" },
   { label: "Hours", value: "9:15 am - 5:30 pm" },
   { label: "Place", value: "Chennai (venue TBC)" },
   { label: "Credential", value: "Day 1 certification" },
@@ -402,7 +401,7 @@ export function Hero() {
             {...enter(0)}
             className={`${EYEBROW} inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-white/90 backdrop-blur-sm`}
           >
-            Friends &amp; Family Edition · 26-27 Nov 2026 · Chennai
+            Friends &amp; Family Edition · Chennai
           </motion.p>
           <motion.h1 {...enter(0.12)} className={`${HEADING} mt-8 text-[clamp(2.5rem,6.4vw,5.5rem)] text-white`}>
             AI that works for you.
@@ -434,7 +433,7 @@ export function Hero() {
           </motion.div>
         </motion.div>
 
-        <dl className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-3 text-left lg:grid-cols-4">
+        <dl className="mx-auto mt-20 grid max-w-4xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
           {HERO_FACTS.map((fact, index) => (
             <motion.div
               key={fact.label}
@@ -687,7 +686,7 @@ const JOURNEY = [
   },
 ] as const;
 
-const JOURNEY_NOTE = "Day 2 is open only to people who have done Day 1, either earlier or on 26 Nov.";
+const JOURNEY_NOTE = "Day 2 builds on Day 1, so you should already know the Day 1 material.";
 
 function JourneyProgress({ active }: { active: number }) {
   return (
@@ -805,7 +804,7 @@ export function Journey() {
 const CURRICULUM = [
   {
     tab: "Day 1",
-    when: "Day 1 · Thu 26 Nov",
+    when: "Day 1 · Track 1",
     title: "AI Empowerment for Professionals",
     sub: "From the fundamentals all the way up to agentic AI.",
     modules: [
@@ -817,7 +816,7 @@ const CURRICULUM = [
   },
   {
     tab: "Day 2",
-    when: "Day 2 · Fri 27 Nov",
+    when: "Day 2 · Track 2",
     title: "AI Empowerment for Business Leaders 2.0",
     sub: "For Day 1 graduates. More hands-on, more depth.",
     modules: [
@@ -1181,7 +1180,6 @@ function selectPackage(pkg: WorkshopPackageKey) {
 }
 
 const DETAILS = [
-  { label: "Dates", value: "Thu 26 Nov and Fri 27 Nov 2026" },
   { label: "Time", value: "9:15 am - 5:30 pm (reporting at 8:45 am)" },
   { label: "Venue", value: "to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)" },
   { label: "Seats", value: "limited, confirmed on a first-paid basis" },
@@ -1254,9 +1252,9 @@ export function Pricing() {
       </Reveal>
 
       <Reveal delay={0.1} className="mx-auto mt-12 max-w-4xl">
-        <dl className="grid overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60 sm:grid-cols-2">
+        <dl className="grid overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60 sm:grid-cols-3">
           {DETAILS.map((detail) => (
-            <div key={detail.label} className="border-b border-slate-200 p-6 last:border-b-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-last-child(-n+2)]:border-b-0">
+            <div key={detail.label} className="border-b border-slate-200 p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
               <dt className={`${EYEBROW} text-slate-400`}>{detail.label}</dt>
               <dd className="mt-2 text-[15px] text-slate-950">{detail.value}</dd>
             </div>
