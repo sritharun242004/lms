@@ -51,6 +51,29 @@ describe("registrationInputSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("defaults registrationKind to INDIVIDUAL and allows no company name", () => {
+    const { company, ...withoutCompany } = base;
+    const result = registrationInputSchema.safeParse(withoutCompany);
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.registrationKind).toBe("INDIVIDUAL");
+  });
+
+  it("requires company name, address, and GSTIN for a COMPANY registration", () => {
+    const result = registrationInputSchema.safeParse({ ...base, registrationKind: "COMPANY" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a COMPANY registration with company details supplied", () => {
+    const result = registrationInputSchema.safeParse({
+      ...base,
+      registrationKind: "COMPANY",
+      companyName: "Acme Co",
+      companyAddress: "123 Main St, Chennai",
+      companyGstin: "33AAACA1234A1Z5",
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("generateRegistrationCode", () => {

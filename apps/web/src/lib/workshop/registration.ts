@@ -12,10 +12,14 @@ export class RegistrationError extends Error {
 
 export const registrationInputSchema = z
   .object({
+    registrationKind: z.enum(["INDIVIDUAL", "COMPANY"]).default("INDIVIDUAL"),
     fullName: z.string().trim().min(2).max(120),
     email: z.string().trim().toLowerCase().email(),
     whatsappNumber: z.string().trim().min(8).max(20),
-    company: z.string().trim().min(1).max(160),
+    // Free-text organisation name — optional, individual registrations
+    // only. Company registrations carry their identity in
+    // companyName/companyAddress/companyGstin instead.
+    company: z.string().trim().max(160).optional(),
     designation: z.string().trim().min(1).max(120),
     workshopPackage: z.enum(["DAY1", "DAY2", "BOTH"]),
     previousDay1Attendance: z.boolean().optional(),
@@ -26,6 +30,9 @@ export const registrationInputSchema = z
     needsGstInvoice: z.boolean().default(false),
     gstCompanyName: z.string().trim().max(200).optional(),
     gstin: z.string().trim().max(20).optional(),
+    companyName: z.string().trim().max(200).optional(),
+    companyAddress: z.string().trim().max(500).optional(),
+    companyGstin: z.string().trim().max(20).optional(),
     referredBy: z.string().trim().max(160).optional(),
     ageConfirmed: z.literal(true),
   })
@@ -43,6 +50,17 @@ export const registrationInputSchema = z
           path: ["previousDay1When"],
           message: "Say when you completed Day 1",
         });
+      }
+    }
+    if (value.registrationKind === "COMPANY") {
+      if (!value.companyName) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyName"], message: "Company name is required" });
+      }
+      if (!value.companyAddress) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyAddress"], message: "Company address is required" });
+      }
+      if (!value.companyGstin) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["companyGstin"], message: "Company GSTIN is required" });
       }
     }
   });
@@ -83,6 +101,7 @@ export async function createRegistration(
       return await prisma.workshopRegistration.create({
         data: {
           registrationCode: generateRegistrationCode(year, sequence),
+          registrationKind: data.registrationKind,
           fullName: data.fullName,
           email: data.email,
           whatsappNumber: data.whatsappNumber,
@@ -97,6 +116,9 @@ export async function createRegistration(
           needsGstInvoice: data.needsGstInvoice,
           gstCompanyName: data.gstCompanyName,
           gstin: data.gstin,
+          companyName: data.companyName,
+          companyAddress: data.companyAddress,
+          companyGstin: data.companyGstin,
           referredBy: data.referredBy,
           ageConfirmed: data.ageConfirmed,
           amountInInr,
