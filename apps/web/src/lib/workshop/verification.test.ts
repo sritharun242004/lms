@@ -1,43 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const {
-  registrationFindUnique,
-  registrationUpdate,
-  userFindFirst,
-  userCreate,
-  groupFindMany,
-  groupMemberCreate,
-  verificationLogCreate,
-} = vi.hoisted(() => ({
+const { registrationFindUnique, registrationUpdate, verificationLogCreate } = vi.hoisted(() => ({
   registrationFindUnique: vi.fn(),
   registrationUpdate: vi.fn(),
-  userFindFirst: vi.fn(),
-  userCreate: vi.fn(),
-  groupFindMany: vi.fn(),
-  groupMemberCreate: vi.fn(),
   verificationLogCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     workshopRegistration: { findUnique: registrationFindUnique, update: registrationUpdate },
-    user: { findFirst: userFindFirst, create: userCreate },
-    group: { findMany: groupFindMany },
-    groupMember: { create: groupMemberCreate },
     paymentVerificationLog: { create: verificationLogCreate },
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         workshopRegistration: { update: registrationUpdate },
-        user: { findFirst: userFindFirst, create: userCreate },
-        group: { findMany: groupFindMany },
-        groupMember: { create: groupMemberCreate },
         paymentVerificationLog: { create: verificationLogCreate },
       }),
   },
-}));
-
-vi.mock("@/lib/auth", () => ({
-  hashPassword: vi.fn().mockResolvedValue("hashed"),
 }));
 
 import { approveRegistration, rejectRegistration } from "./verification";
@@ -45,10 +23,6 @@ import { approveRegistration, rejectRegistration } from "./verification";
 beforeEach(() => {
   registrationFindUnique.mockReset();
   registrationUpdate.mockReset();
-  userFindFirst.mockReset();
-  userCreate.mockReset();
-  groupFindMany.mockReset();
-  groupMemberCreate.mockReset();
   verificationLogCreate.mockReset();
 });
 
@@ -57,31 +31,47 @@ describe("approveRegistration", () => {
     registrationFindUnique.mockResolvedValue({
       id: "r1",
       status: "PENDING_PAYMENT",
-      email: "a@b.com",
-      fullName: "A",
-      workshopPackage: "DAY1",
+      whatsappGroupInviteUrl: null,
     });
     await expect(approveRegistration("admin1", "r1")).rejects.toThrow(/proof/i);
   });
 
-  it("creates a new participant user and group membership on approval", async () => {
-    registrationFindUnique.mockResolvedValue({
-      id: "r1",
-      status: "PROOF_SUBMITTED",
-      email: "a@b.com",
-      fullName: "A",
-      workshopPackage: "DAY1",
+  it("rejects approving without a WhatsApp link and without the explicit exception", async () => {
+    registrationFindUnique.mockResolvedValue({ id: "r1", status: "PROOF_SUBMITTED", whatsappGroupInviteUrl: null });
+    await expect(approveRegistration("admin1", "r1")).rejects.toThrow(/whatsapp group invitation link/i);
+    expect(registrationUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows approving without a link when allowMissingWhatsappLink is set", async () => {
+    registrationFindUnique.mockResolvedValue({ id: "r1", status: "PROOF_SUBMITTED", whatsappGroupInviteUrl: null });
+    registrationUpdate.mockResolvedValue({ id: "r1", status: "APPROVED" });
+    const result = await approveRegistration("admin1", "r1", { allowMissingWhatsappLink: true });
+    expect(result.status).toBe("APPROVED");
+    expect(registrationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.not.objectContaining({ whatsappGroupInviteUrl: expect.anything() }) })
+    );
+  });
+
+  it("rejects an invalid WhatsApp URL", async () => {
+    registrationFindUnique.mockResolvedValue({ id: "r1", status: "PROOF_SUBMITTED", whatsappGroupInviteUrl: null });
+    await expect(
+      approveRegistration("admin1", "r1", { whatsappGroupInviteUrl: "https://example.com/group" })
+    ).rejects.toThrow(/whatsapp invite link/i);
+  });
+
+  it("approves and saves a valid WhatsApp link, never touching user or group tables", async () => {
+    registrationFindUnique.mockResolvedValue({ id: "r1", status: "PROOF_SUBMITTED", whatsappGroupInviteUrl: null });
+    registrationUpdate.mockResolvedValue({ id: "r1", status: "APPROVED", whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123" });
+
+    const result = await approveRegistration("admin1", "r1", {
+      whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
+      note: "looks good",
     });
-    userFindFirst.mockResolvedValue(null);
-    userCreate.mockResolvedValue({ id: "u1", email: "a@b.com" });
-    groupFindMany.mockResolvedValue([{ id: "g1", name: "XI Workshop · Day 1" }]);
-    registrationUpdate.mockResolvedValue({ id: "r1", status: "APPROVED", onboardedUserId: "u1" });
 
-    const result = await approveRegistration("admin1", "r1", "looks good");
-
-    expect(userCreate).toHaveBeenCalled();
-    expect(groupMemberCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: "u1", groupId: "g1" }) })
+    expect(registrationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "APPROVED", whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123" }),
+      })
     );
     expect(verificationLogCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "APPROVED", adminId: "admin1" }) })
@@ -89,23 +79,18 @@ describe("approveRegistration", () => {
     expect(result.status).toBe("APPROVED");
   });
 
-  it("reuses an existing user by email instead of creating a duplicate", async () => {
+  it("reuses an already-saved WhatsApp link when none is passed this time", async () => {
     registrationFindUnique.mockResolvedValue({
       id: "r1",
-      status: "PROOF_SUBMITTED",
-      email: "existing@b.com",
-      fullName: "A",
-      workshopPackage: "DAY1",
+      status: "UNDER_VERIFICATION",
+      whatsappGroupInviteUrl: "https://wa.me/919876543210",
     });
-    userFindFirst.mockResolvedValue({ id: "u-existing", email: "existing@b.com" });
-    groupFindMany.mockResolvedValue([{ id: "g1", name: "XI Workshop · Day 1" }]);
     registrationUpdate.mockResolvedValue({ id: "r1", status: "APPROVED" });
 
     await approveRegistration("admin1", "r1");
 
-    expect(userCreate).not.toHaveBeenCalled();
-    expect(groupMemberCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: "u-existing" }) })
+    expect(registrationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ whatsappGroupInviteUrl: "https://wa.me/919876543210" }) })
     );
   });
 });
@@ -115,8 +100,6 @@ describe("rejectRegistration", () => {
     registrationFindUnique.mockResolvedValue({ id: "r1", status: "PROOF_SUBMITTED" });
     registrationUpdate.mockResolvedValue({ id: "r1", status: "REJECTED" });
     await rejectRegistration("admin1", "r1", "screenshot unreadable");
-    expect(userCreate).not.toHaveBeenCalled();
-    expect(groupMemberCreate).not.toHaveBeenCalled();
     expect(verificationLogCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: "REJECTED" }) })
     );

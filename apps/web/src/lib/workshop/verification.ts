@@ -1,7 +1,6 @@
-import crypto from "crypto";
 import { prisma } from "@/lib/db/prisma";
-import { hashPassword } from "@/lib/auth";
 import { consoleNotificationService, type NotificationService } from "./notifications";
+import { isValidWhatsAppInviteUrl } from "./whatsapp";
 import type { WorkshopRegistration } from "@prisma/client";
 
 export class VerificationError extends Error {
@@ -10,12 +9,6 @@ export class VerificationError extends Error {
     this.name = "VerificationError";
   }
 }
-
-const GROUP_NAME_BY_PACKAGE: Record<string, string[]> = {
-  DAY1: ["XI Workshop · Day 1"],
-  DAY2: ["XI Workshop · Day 2"],
-  BOTH: ["XI Workshop · Day 1", "XI Workshop · Day 2"],
-};
 
 async function requireProofSubmitted(registrationId: string) {
   const registration = await prisma.workshopRegistration.findUnique({
@@ -37,49 +30,57 @@ async function requireProofSubmitted(registrationId: string) {
   return registration;
 }
 
+export type ApproveRegistrationInput = {
+  note?: string;
+  // The group link an admin pastes in during approval. Optional only
+  // when the registration already has one saved from a prior approval
+  // attempt, or when `allowMissingWhatsappLink` is explicitly set — the
+  // workshop's own explicit exception path, never a silent default.
+  whatsappGroupInviteUrl?: string;
+  allowMissingWhatsappLink?: boolean;
+};
+
+// This workshop site owns its own registration/payment data end to end.
+// Approval never touches the CMS's User or GroupMember tables — no
+// account is created, no group membership is assigned. The only
+// "membership" a participant gets is the WhatsApp group link saved here
+// and handed back to them on their payment status page.
 export async function approveRegistration(
   adminId: string,
   registrationId: string,
-  note?: string,
+  input: ApproveRegistrationInput = {},
   notifications: NotificationService = consoleNotificationService
 ): Promise<WorkshopRegistration> {
   const registration = await requireProofSubmitted(registrationId);
 
+  const whatsappGroupInviteUrl = input.whatsappGroupInviteUrl?.trim() || registration.whatsappGroupInviteUrl;
+
+  if (!whatsappGroupInviteUrl && !input.allowMissingWhatsappLink) {
+    throw new VerificationError(
+      "Add the WhatsApp group invitation link before approving, or explicitly allow approving without one",
+      "WHATSAPP_LINK_REQUIRED",
+      400
+    );
+  }
+  if (whatsappGroupInviteUrl && !isValidWhatsAppInviteUrl(whatsappGroupInviteUrl)) {
+    throw new VerificationError(
+      "That doesn't look like a WhatsApp invite link (expected a wa.me or chat.whatsapp.com URL)",
+      "INVALID_WHATSAPP_URL",
+      400
+    );
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
-    let user = await tx.user.findFirst({ where: { email: registration.email } });
-    if (!user) {
-      user = await tx.user.create({
-        data: {
-          name: registration.fullName,
-          email: registration.email,
-          password: await hashPassword(crypto.randomBytes(24).toString("hex")),
-          role: "MENTEE",
-          emailVerified: true,
-        },
-      });
-    }
-
-    const groupNames = GROUP_NAME_BY_PACKAGE[registration.workshopPackage] ?? [];
-    const groups = await tx.group.findMany({ where: { name: { in: groupNames } } });
-    for (const group of groups) {
-      try {
-        await tx.groupMember.create({
-          data: { userId: user.id, groupId: group.id, role: "MENTEE" },
-        });
-      } catch (error: unknown) {
-        const isDuplicate =
-          typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
-        if (!isDuplicate) throw error;
-      }
-    }
-
     const result = await tx.workshopRegistration.update({
       where: { id: registration.id },
-      data: { status: "APPROVED", onboardedUserId: user.id },
+      data: {
+        status: "APPROVED",
+        ...(whatsappGroupInviteUrl ? { whatsappGroupInviteUrl } : {}),
+      },
     });
 
     await tx.paymentVerificationLog.create({
-      data: { registrationId: registration.id, action: "APPROVED", note, adminId },
+      data: { registrationId: registration.id, action: "APPROVED", note: input.note, adminId },
     });
 
     return result;
