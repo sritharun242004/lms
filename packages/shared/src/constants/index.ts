@@ -23,6 +23,7 @@ export enum MessageType {
   OPEN_QUESTION = "OPEN_QUESTION",
   WORD_CLOUD = "WORD_CLOUD",
   SCALE = "SCALE",
+  FORM = "FORM",
 }
 
 export enum PollChartType {

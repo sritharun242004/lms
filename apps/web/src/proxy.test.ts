@@ -135,4 +135,22 @@ describe("portal-aware proxy redirects", () => {
       "http://localhost/admin/login?redirect=%2Fmentor%2Fdashboard"
     );
   });
+
+  it.each([
+    "/workshop/x-intelligence",
+    "/api/v1/workshop/registrations",
+    "/api/v1/workshop/registrations/XI-2026-0001",
+    "/api/v1/workshop/registrations/XI-2026-0001/payment-proof",
+    "/api/v1/workshop/registrations/XI-2026-0001/qr",
+    "/api/v1/workshop/config",
+  ])("never redirects an unauthenticated visitor away from the public workshop route %s", async (path) => {
+    const response = await proxy(request(path));
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.status).not.toBe(401);
+  });
+
+  it("still protects the admin registrations prefix despite the similarly-named public one", async () => {
+    const response = await proxy(request("/api/v1/admin/registrations"));
+    expect(response.status).toBe(401);
+  });
 });

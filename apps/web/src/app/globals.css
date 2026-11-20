@@ -283,6 +283,137 @@
 }
 
 /* ============================================================
+   COLOUR THEMES (palettes) — Module L
+   Four selectable palettes, switched via [data-palette] on <html>,
+   independent of and layered on top of the existing light/dark (.dark)
+   toggle above. "xi-blue" is the default and intentionally matches the
+   :root/.dark values above exactly — it needs no override block.
+   ============================================================ */
+
+[data-palette="slate"] {
+  --primary: #334155;
+  --primary-foreground: #ffffff;
+  --accent: #f1f5f9;
+  --accent-foreground: #1e293b;
+  --ring: #334155;
+  --sidebar-ring: #334155;
+  --sidebar-primary: #334155;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #334155;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="slate"] {
+  --primary: #94a3b8;
+  --primary-foreground: #0f172a;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --ring: #94a3b8;
+  --sidebar-ring: #94a3b8;
+  --sidebar-primary: #94a3b8;
+  --sidebar-primary-foreground: #0f172a;
+  --chart-1: #cbd5e1;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+[data-palette="emerald"] {
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --accent: #ecfdf5;
+  --accent-foreground: #065f46;
+  --ring: #059669;
+  --sidebar-ring: #059669;
+  --sidebar-primary: #059669;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #059669;
+  --chart-2: #2563eb;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="emerald"] {
+  --primary: #34d399;
+  --primary-foreground: #052e1f;
+  --accent: #064e3b;
+  --accent-foreground: #d1fae5;
+  --ring: #34d399;
+  --sidebar-ring: #34d399;
+  --sidebar-primary: #34d399;
+  --sidebar-primary-foreground: #052e1f;
+  --chart-1: #34d399;
+  --chart-2: #3b82f6;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+[data-palette="violet"] {
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --accent: #f5f3ff;
+  --accent-foreground: #4c1d95;
+  --ring: #7c3aed;
+  --sidebar-ring: #7c3aed;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #7c3aed;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #2563eb;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="violet"] {
+  --primary: #a78bfa;
+  --primary-foreground: #1e1033;
+  --accent: #2e1065;
+  --accent-foreground: #ede9fe;
+  --ring: #a78bfa;
+  --sidebar-ring: #a78bfa;
+  --sidebar-primary: #a78bfa;
+  --sidebar-primary-foreground: #1e1033;
+  --chart-1: #c4b5fd;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #3b82f6;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+/* ============================================================
    BASE STYLES
    ============================================================ */
 

@@ -34,14 +34,14 @@ describe("participant terminology", () => {
 });
 
 describe("chat uploads", () => {
-  it("accepts a non-empty ZIP archive within the 50 MB limit", () => {
-    expect(isSupportedChatFile({ name: "resources.zip", size: 35 * 1024 * 1024 })).toEqual({ ok: true });
+  it("accepts a non-empty ZIP archive within the 150 MB limit", () => {
+    expect(isSupportedChatFile({ name: "resources.zip", size: 100 * 1024 * 1024 })).toEqual({ ok: true });
   });
 
   it("returns a clear size error before attempting an oversized upload", () => {
-    expect(isSupportedChatFile({ name: "resources.zip", size: 51 * 1024 * 1024 })).toEqual({
+    expect(isSupportedChatFile({ name: "resources.zip", size: 151 * 1024 * 1024 })).toEqual({
       ok: false,
-      message: "resources.zip is too large. The maximum file size is 50 MB.",
+      message: "resources.zip is too large. The maximum file size is 150 MB.",
     });
   });
 

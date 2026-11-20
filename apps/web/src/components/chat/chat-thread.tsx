@@ -11,6 +11,7 @@ import {
   BarChart3,
   Cloud,
   Copy,
+  FileText,
   Loader2,
   Lock,
   MessageSquareText,
@@ -59,6 +60,8 @@ import { WordCloudFormDialog } from "@/components/chat/word-cloud-form-dialog";
 import { WordCloudMessage } from "@/components/chat/word-cloud-message";
 import { ScaleFormDialog } from "@/components/chat/scale-form-dialog";
 import { ScaleMessage } from "@/components/chat/scale-message";
+import { SendFormDialog } from "@/components/chat/send-form-dialog";
+import { FormInvitationMessage } from "@/components/chat/form-invitation-message";
 import { applyMemberCount, friendlyUploadError, isSupportedChatFile, removeUploadByKey } from "@/lib/cms/task-requirements";
 
 type UploadRow = { key: string; name: string; loaded: number; total: number; status: "uploading" | "completed" | "failed"; error?: string };
@@ -549,6 +552,11 @@ export function ChatThread({
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, scale } : m)));
   }
 
+  function handleFormSent(message: ChatMessage) {
+    setMessages((prev) => upsert(prev, message));
+    requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ block: "end" }));
+  }
+
   function handleCopyGroupCode() {
     if (!groupCode) return;
     void copyGroupCode(groupCode, window.navigator.clipboard, toast);
@@ -732,6 +740,8 @@ export function ChatThread({
                     onResponded={(scale) => handleScaleChanged(message.id, scale)}
                     onDelete={handleDelete}
                   />
+                ) : message.type === MessageType.FORM && message.formInvitation ? (
+                  <FormInvitationMessage message={message} formInvitation={message.formInvitation} />
                 ) : (
                   <MessageBubble
                     message={message}
@@ -815,6 +825,16 @@ export function ChatThread({
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <SlidersHorizontal />
                     Scale
+                  </DropdownMenuItem>
+                }
+              />
+              <SendFormDialog
+                groupId={groupId}
+                onSent={handleFormSent}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <FileText />
+                    Send a form
                   </DropdownMenuItem>
                 }
               />

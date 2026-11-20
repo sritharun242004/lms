@@ -1,0 +1,49 @@
+import { NextRequest } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { getFormWithStructure, updateFormMeta, FormError } from "@/lib/forms/form-service";
+import { errorResponse, successResponse } from "@/lib/api/response";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user) return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+
+  const { id } = await params;
+  try {
+    const form = await getFormWithStructure(id);
+    return successResponse({ form });
+  } catch (error) {
+    if (error instanceof FormError) return errorResponse(error.message, error.code, error.status);
+    throw error;
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user) return errorResponse("Authentication required", "UNAUTHORIZED", 401);
+
+  const { id } = await params;
+  try {
+    const body = await req.json();
+    const form = await updateFormMeta(user, id, {
+      title: body.title,
+      description: body.description,
+      headerImageUrl: body.headerImageUrl,
+      themeColor: body.themeColor,
+      opensAt: body.opensAt ? new Date(body.opensAt) : body.opensAt,
+      closesAt: body.closesAt ? new Date(body.closesAt) : body.closesAt,
+      allowMultipleSubmissions: body.allowMultipleSubmissions,
+      feedbackTargetType: body.feedbackTargetType,
+      feedbackTargetLabel: body.feedbackTargetLabel,
+    });
+    return successResponse({ form });
+  } catch (error) {
+    if (error instanceof FormError) return errorResponse(error.message, error.code, error.status);
+    throw error;
+  }
+}
