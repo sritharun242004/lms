@@ -65,15 +65,23 @@ describe("GET /api/v1/admin/registrations", () => {
 });
 
 describe("PATCH /api/v1/admin/registrations/[id]", () => {
-  it("calls approveRegistration for action APPROVE", async () => {
+  it("calls approveRegistration with the note and WhatsApp link for action APPROVE", async () => {
     getCurrentUser.mockResolvedValue({ id: "admin1", role: "ADMIN" });
     approveRegistration.mockResolvedValue({ id: "r1", status: "APPROVED" });
     const req = new NextRequest("http://localhost", {
       method: "PATCH",
-      body: JSON.stringify({ action: "APPROVE", note: "ok" }),
+      body: JSON.stringify({
+        action: "APPROVE",
+        note: "ok",
+        whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
+      }),
     });
     const res = await PATCH(req, { params: Promise.resolve({ id: "r1" }) });
-    expect(approveRegistration).toHaveBeenCalledWith("admin1", "r1", "ok");
+    expect(approveRegistration).toHaveBeenCalledWith("admin1", "r1", {
+      note: "ok",
+      whatsappGroupInviteUrl: "https://chat.whatsapp.com/ABC123",
+      allowMissingWhatsappLink: false,
+    });
     expect(res.status).toBe(200);
   });
 

@@ -23,7 +23,11 @@ export async function PATCH(
 
   try {
     if (body.action === "APPROVE") {
-      const registration = await approveRegistration(user.id, id, note);
+      const registration = await approveRegistration(user.id, id, {
+        note,
+        whatsappGroupInviteUrl: typeof body.whatsappGroupInviteUrl === "string" ? body.whatsappGroupInviteUrl : undefined,
+        allowMissingWhatsappLink: body.allowMissingWhatsappLink === true,
+      });
       return successResponse({ registration });
     }
     if (body.action === "REJECT") {
