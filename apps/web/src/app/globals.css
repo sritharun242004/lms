@@ -556,7 +556,9 @@ body {
 .dark [data-slot="tabs-list"] { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
 .dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(59,130,246,.12); color: #3b82f6; }
 
-.dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(226,232,240,0.12); }
+/* Unlayered, so it beats per-field utility colours: the text colour must
+   travel with the dark background or forced-black fields go unreadable. */
+.dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(226,232,240,0.12); color: var(--foreground); }
 .dark input:focus, .dark textarea:focus { box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
 
 /* ============================================================
