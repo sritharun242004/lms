@@ -60,6 +60,13 @@ describe("XI workshop landing page", () => {
     expect(container.textContent).not.toMatch(/vjal/i);
   });
 
+  it("answers the after-payment FAQ with the cancellation and refund policy", () => {
+    const { container } = render(createElement(XiLandingPage));
+    expect(container.textContent).toContain("full refund, less 3% towards bank and admin charges");
+    expect(container.textContent).toContain("7 to 14 days before: 50% refund");
+    expect(container.textContent).toContain("You can send someone in your place at no extra cost");
+  });
+
   it("follows the brief's no-dash copy rule", () => {
     const { container } = render(createElement(XiLandingPage));
     expect(container.textContent).not.toMatch(/[\u2013\u2014]/);

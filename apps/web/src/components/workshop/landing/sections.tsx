@@ -1357,7 +1357,33 @@ export function WhatToBring() {
 // ─── 12. FAQ ───────────────────────────────────────────────────────────
 
 // `null` marks an answer the brief still lists as to be confirmed.
-const FAQS: { q: string; a: string | null }[] = [
+const CANCELLATION_POLICY = (
+  <div className="flex flex-col gap-4">
+    <div>
+      <p className="font-semibold text-slate-950">Cancellations</p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>15 days or more before the workshop: full refund, less 3% towards bank and admin charges.</li>
+        <li>7 to 14 days before: 50% refund, less charges.</li>
+        <li>Less than 7 days before, or no-show: no refund.</li>
+      </ul>
+    </div>
+    <p>
+      <span className="font-semibold text-slate-950">Packages.</span> If you cancel one day of a multi-day package, the
+      day you keep is charged at its single-day fee. The balance is refunded under the timelines above.
+    </p>
+    <p>
+      <span className="font-semibold text-slate-950">Substitution.</span> You can send someone in your place at no extra
+      cost if you tell us at least 1 day before. They must meet the workshop criteria.
+    </p>
+    <p>
+      <span className="font-semibold text-slate-950">Changes by us.</span> If we cancel or reschedule, you can choose a
+      full refund or a seat on the new date.
+    </p>
+    <p>To cancel or substitute, please reach out to the organiser.</p>
+  </div>
+);
+
+const FAQS: { q: string; a: React.ReactNode | null }[] = [
   { q: "I'm new to AI. Is Day 1 too advanced?", a: "No. Day 1 starts from the fundamentals and builds up step by step." },
   { q: "Can I attend only Day 2?", a: "Only if you have done our Day 1 before. If you haven't, take both days." },
   { q: "Do I get a certificate?", a: "Yes. Day 1 is a certification program." },
@@ -1367,7 +1393,7 @@ const FAQS: { q: string; a: string | null }[] = [
   },
   { q: "Is food included?", a: "Yes, lunch and refreshments on both days." },
   { q: "Can I bring my spouse or a colleague?", a: "Yes. Each person registers separately. Minimum age is 16." },
-  { q: "What if I can't make it after paying?", a: null },
+  { q: "What if I can't make it after paying?", a: CANCELLATION_POLICY },
   { q: "Will I get a GST invoice?", a: "Yes. Add your company and GSTIN details in the form." },
 ];
 
@@ -1391,9 +1417,10 @@ export function Faq() {
                   className="relative flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-primary before:absolute before:h-px before:w-3 before:bg-current after:absolute after:h-3 after:w-px after:bg-current after:transition-transform after:duration-300 group-open:after:scale-y-0"
                 />
               </summary>
-              <p className="max-w-2xl pb-6 text-[15px] leading-relaxed text-slate-600">
+              {/* A div, not a p: some answers hold lists and paragraphs of their own. */}
+              <div className="max-w-2xl pb-6 text-[15px] leading-relaxed text-slate-600">
                 {item.a ?? <span className="italic text-slate-400">To be confirmed.</span>}
-              </p>
+              </div>
             </details>
           ))}
         </Reveal>
