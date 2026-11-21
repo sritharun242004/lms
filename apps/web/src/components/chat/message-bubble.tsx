@@ -290,7 +290,7 @@ export function MessageBubble({
             {!isEditing && (
               <span
                 className={cn(
-                  "mt-1 flex items-center gap-1 text-[11px] opacity-70",
+                  "mt-1 flex items-center gap-1 text-[11px] opacity-90",
                   isOwn ? "justify-end" : "justify-start"
                 )}
               >

@@ -13,13 +13,13 @@ function PasswordInput({
 
   return (
     <div className="relative">
-      <Input type={visible ? "text" : "password"} className={cn("pr-10", className)} {...props} />
+      <Input type={visible ? "text" : "password"} className={cn("pr-12", className)} {...props} />
       <button
         type="button"
         tabIndex={-1}
         aria-label={visible ? "Hide password" : "Show password"}
         onClick={() => setVisible((v) => !v)}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>

@@ -426,14 +426,18 @@ function QuestionEditor({
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-      <div className="flex items-center gap-2">
+      {/* On phones the title takes a full row of its own; sharing one with the
+          chip and three icon buttons left it a few characters wide. */}
+      <div className="flex flex-wrap items-center gap-2">
         <span className="rounded bg-muted px-2 py-1 text-xs font-medium">{TYPE_LABEL[question.type]}</span>
         <Input
           value={question.title}
           onChange={(e) => onChange({ title: e.target.value })}
           disabled={disabled}
-          className="flex-1"
+          aria-label="Question title"
+          className="order-last basis-full sm:order-none sm:basis-0 sm:flex-1"
         />
+        <span aria-hidden="true" className="flex-1 sm:hidden" />
         <Button variant="ghost" size="icon" disabled={disabled || !canMoveUp} onClick={() => onMove(-1)} aria-label="Move up">
           <ArrowUp className="size-4" />
         </Button>

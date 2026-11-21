@@ -23,7 +23,7 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Open navigation">
+        <Button variant="ghost" size="icon" className="xl:hidden" aria-label="Open navigation">
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>

@@ -22,6 +22,22 @@ beforeEach(() => {
 });
 
 describe("QuestionRenderer", () => {
+  it("labels star ratings by count and marks the chosen one", () => {
+    const onChange = vi.fn();
+    render(
+      createElement(QuestionRenderer, {
+        question: { id: "q1", type: "STAR_RATING", title: "Rate it", required: true, config: {} },
+        value: 4,
+        onChange,
+      })
+    );
+    const four = screen.getByRole("button", { name: "4 stars" });
+    expect(four.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "1 star" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "5 stars" }));
+    expect(onChange).toHaveBeenCalledWith(5);
+  });
+
   it("renders a short-answer input and reports changes", () => {
     const onChange = vi.fn();
     render(

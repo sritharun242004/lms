@@ -277,6 +277,35 @@ export async function revokeRefreshToken(token: string): Promise<void> {
   });
 }
 
+// Tabs waking up fire several requests at once, all carrying the same
+// expired access token and the same refresh token. Only one of them may
+// rotate; the rest ride the old token for this window instead of being
+// treated as replayed (which used to clear cookies and log the user out).
+export const REFRESH_ROTATION_GRACE_MS = 30_000;
+
+export type RefreshClaim = "rotate" | "grace" | "invalid";
+
+/**
+ * Atomically decides what this request may do with a refresh token:
+ * "rotate" (sole winner: mint a new pair), "grace" (lost a concurrent race:
+ * mint an access token only, keep the refresh cookie the winner is setting),
+ * or "invalid". The winner shortens the old row to the grace window rather
+ * than deleting it, which is what lets the losers in.
+ */
+export async function claimRefreshToken(token: string): Promise<RefreshClaim> {
+  const now = Date.now();
+  const graceEnd = new Date(now + REFRESH_ROTATION_GRACE_MS);
+
+  const { count } = await prisma.refreshToken.updateMany({
+    where: { token, expiresAt: { gt: graceEnd } },
+    data: { expiresAt: graceEnd },
+  });
+  if (count === 1) return "rotate";
+
+  const stored = await prisma.refreshToken.findUnique({ where: { token }, select: { expiresAt: true } });
+  return stored && stored.expiresAt.getTime() > now ? "grace" : "invalid";
+}
+
 export async function revokeAllUserRefreshTokens(
   userId: string
 ): Promise<void> {
@@ -290,21 +319,6 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
     where: { userId, isActive: true },
     data: { isActive: false },
   });
-}
-
-export async function isRefreshTokenValid(token: string): Promise<boolean> {
-  const stored = await prisma.refreshToken.findUnique({
-    where: { token },
-  });
-
-  if (!stored) return false;
-  if (stored.expiresAt < new Date()) {
-    // Clean up expired token
-    await prisma.refreshToken.delete({ where: { id: stored.id } });
-    return false;
-  }
-
-  return true;
 }
 
 // ============================================================

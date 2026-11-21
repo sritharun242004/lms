@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
+  getRefreshTokenFromCookies: vi.fn(),
+  revokeRefreshToken: vi.fn(),
   findInvite: vi.fn(), transaction: vi.fn(), findExistingMember: vi.fn(), createUser: vi.fn(), createMember: vi.fn(),
   updateInvite: vi.fn(), createAuditLog: vi.fn(), createSession: vi.fn(), countMembers: vi.fn(),
   generateAccessToken: vi.fn(), generateRefreshToken: vi.fn(), storeRefreshToken: vi.fn(), setAuthCookies: vi.fn(), broadcastToGroup: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: { inviteCode: { findUnique: mocks.findInvite, update: mocks.updateInvite }, $transaction: mocks.transaction, session: { create: mocks.createSession }, groupMember: { count: mocks.countMembers }, auditLog: { create: mocks.createAuditLog } } }));
-vi.mock("@/lib/auth", () => ({ generateAccessToken: mocks.generateAccessToken, generateRefreshToken: mocks.generateRefreshToken, storeRefreshToken: mocks.storeRefreshToken, setAuthCookies: mocks.setAuthCookies }));
+vi.mock("@/lib/auth", () => ({ getRefreshTokenFromCookies: mocks.getRefreshTokenFromCookies, revokeRefreshToken: mocks.revokeRefreshToken, generateAccessToken: mocks.generateAccessToken, generateRefreshToken: mocks.generateRefreshToken, storeRefreshToken: mocks.storeRefreshToken, setAuthCookies: mocks.setAuthCookies }));
 vi.mock("@/lib/realtime/broadcast", () => ({ broadcastToGroup: mocks.broadcastToGroup }));
 
 import { POST } from "./route";
@@ -22,7 +24,7 @@ beforeEach(() => {
   mocks.findInvite.mockResolvedValue({ id: "invite-1", groupId: "group-1", isActive: true, expiresAt: null, maxUsage: null, usageCount: 1, group: { id: "group-1", name: "AI Empowerment" } });
   mocks.createUser.mockResolvedValue({ id: "guest-2", name: "Second participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false, authVersion: 0 });
   mocks.createMember.mockResolvedValue({}); mocks.updateInvite.mockResolvedValue({}); mocks.createAuditLog.mockResolvedValue({}); mocks.createSession.mockResolvedValue({}); mocks.countMembers.mockResolvedValue(30);
-  mocks.generateAccessToken.mockReturnValue("access-token"); mocks.generateRefreshToken.mockReturnValue("refresh-token"); mocks.storeRefreshToken.mockResolvedValue(undefined); mocks.setAuthCookies.mockResolvedValue(undefined);
+  mocks.generateAccessToken.mockReturnValue("access-token"); mocks.generateRefreshToken.mockReturnValue("refresh-token"); mocks.storeRefreshToken.mockResolvedValue(undefined); mocks.setAuthCookies.mockResolvedValue(undefined); mocks.getRefreshTokenFromCookies.mockResolvedValue(null); mocks.revokeRefreshToken.mockResolvedValue(undefined);
   mocks.transaction.mockImplementation((work) => work({ user: { create: mocks.createUser }, groupMember: { findFirst: mocks.findExistingMember, create: mocks.createMember }, inviteCode: { update: mocks.updateInvite }, auditLog: { create: mocks.createAuditLog } }));
   mocks.findExistingMember.mockResolvedValue({ user: { id: "guest-1", name: "First participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false, authVersion: 0 } });
 });
@@ -34,5 +36,18 @@ describe("guest join identity", () => {
     expect(response.status).toBe(201);
     expect(body.data.user.name).toBe("Second participant");
     expect(mocks.createUser).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ name: "Second participant" }) }));
+  });
+
+  it("issues a long-lived session consistently across token, stored row and cookie", async () => {
+    await POST(request("Second participant"));
+    expect(mocks.generateRefreshToken).toHaveBeenCalledWith(expect.anything(), true);
+    expect(mocks.storeRefreshToken).toHaveBeenCalledWith("guest-2", "refresh-token", true);
+    expect(mocks.setAuthCookies).toHaveBeenCalledWith("access-token", "refresh-token", true);
+  });
+
+  it("revokes the session this browser already had instead of orphaning it", async () => {
+    mocks.getRefreshTokenFromCookies.mockResolvedValue("staff-refresh");
+    await POST(request("Second participant"));
+    expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("staff-refresh");
   });
 });

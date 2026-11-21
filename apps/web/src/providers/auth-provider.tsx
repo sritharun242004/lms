@@ -9,6 +9,7 @@ import type {
   MenteeJoinInput,
 } from "@cms/shared";
 import { authService } from "@/lib/api/services/auth-service";
+import { disconnectSocket } from "@/lib/socket/client";
 import type { AuthPortal } from "@/lib/auth/portal-navigation";
 
 const AUTH_QUERY_KEY = ["auth", "me"] as const;
@@ -84,6 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = React.useCallback(async () => {
     await authService.logout();
+    // The socket singleton outlives the session otherwise: it stays in its
+    // group rooms receiving messages as the signed-out user.
+    disconnectSocket();
     queryClient.setQueryData(AUTH_QUERY_KEY, null);
     queryClient.clear();
   }, [queryClient]);
