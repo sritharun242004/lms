@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   clearAuthCookies: vi.fn(),
   storeRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
-  isRefreshTokenValid: vi.fn(),
+  claimRefreshToken: vi.fn(),
   getRefreshTokenFromCookies: vi.fn(),
 }));
 
@@ -26,7 +26,7 @@ vi.mock("@/lib/auth", () => ({
   clearAuthCookies: mocks.clearAuthCookies,
   storeRefreshToken: mocks.storeRefreshToken,
   revokeRefreshToken: mocks.revokeRefreshToken,
-  isRefreshTokenValid: mocks.isRefreshTokenValid,
+  claimRefreshToken: mocks.claimRefreshToken,
   getRefreshTokenFromCookies: mocks.getRefreshTokenFromCookies,
 }));
 
@@ -35,7 +35,7 @@ import { POST } from "./route";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR", authVersion: 0 });
-  mocks.isRefreshTokenValid.mockResolvedValue(true);
+  mocks.claimRefreshToken.mockResolvedValue("rotate");
   mocks.revokeRefreshToken.mockResolvedValue(undefined);
   mocks.clearAuthCookies.mockResolvedValue(undefined);
 });
@@ -109,7 +109,7 @@ describe("refresh active-account enforcement", () => {
 
     vi.clearAllMocks();
     mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR" });
-    mocks.isRefreshTokenValid.mockResolvedValue(true);
+    mocks.claimRefreshToken.mockResolvedValue("rotate");
     mocks.findUser.mockResolvedValue({ ...user, authVersion: 1 });
     const rejected = await POST(new NextRequest("http://localhost/api/v1/auth/refresh", {
       method: "POST", headers: { "content-type": "application/json" },

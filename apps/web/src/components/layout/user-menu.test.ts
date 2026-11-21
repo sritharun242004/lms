@@ -7,9 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthUser, UserRole } from "@cms/shared";
 import { UserMenu } from "./user-menu";
 
-const mocks = vi.hoisted(() => ({ push: vi.fn(), logout: vi.fn() }));
+const mocks = vi.hoisted(() => ({ push: vi.fn(), logout: vi.fn(), leaveToLogin: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
+vi.mock("@/lib/auth/portal-navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/portal-navigation")>()),
+  leaveToLogin: mocks.leaveToLogin,
+}));
 vi.mock("@/providers/auth-provider", () => ({ useAuth: () => ({ logout: mocks.logout }) }));
 vi.mock("@/components/ui/dropdown-menu", async () => {
   const { createElement } = await vi.importActual<typeof import("react")>("react");
@@ -49,7 +53,7 @@ describe("role-aware logout", () => {
 
     await waitFor(() => {
       expect(mocks.logout).toHaveBeenCalledTimes(1);
-      expect(mocks.push).toHaveBeenCalledWith("/login");
+      expect(mocks.leaveToLogin).toHaveBeenCalledWith("/login");
     });
   });
 
@@ -64,7 +68,7 @@ describe("role-aware logout", () => {
     await user.click(screen.getByRole("button", { name: /sign out/i }));
     await user.click(screen.getByRole("button", { name: /^log out$/i }));
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith(expected));
+    await waitFor(() => expect(mocks.leaveToLogin).toHaveBeenCalledWith(expected));
   });
 
   it.each([

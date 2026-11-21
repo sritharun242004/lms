@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   verifyRefreshToken: vi.fn(),
   generateAccessToken: vi.fn(),
   generateRefreshToken: vi.fn(),
-  isRefreshTokenValid: vi.fn(),
+  claimRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
   storeRefreshToken: vi.fn(),
   findUser: vi.fn(),
@@ -71,7 +71,7 @@ describe("portal-aware proxy redirects", () => {
     const req = request("/admin/coaches");
     req.cookies.set("refresh_token", "stored-refresh-token");
     mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR", authVersion: 0 });
-    mocks.isRefreshTokenValid.mockResolvedValue(true);
+    mocks.claimRefreshToken.mockResolvedValue("rotate");
     mocks.findUser.mockResolvedValue({
       id: "coach-1",
       name: "Coach One",
@@ -89,6 +89,49 @@ describe("portal-aware proxy redirects", () => {
     expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("stored-refresh-token");
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
     expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it.each(["/reset-password", "/verify-email", "/forgot-password"])(
+    "lets a signed-in browser open %s from an emailed link",
+    async (path) => {
+      const response = await proxy(request(`${path}?token=abc`, "MENTEE"));
+      expect(response.headers.get("location")).toBeNull();
+    }
+  );
+
+  it("rotates both cookies for the request that wins the refresh claim", async () => {
+    const req = request("/coach/dashboard");
+    req.cookies.set("refresh_token", "old-refresh");
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "u1", role: "MENTOR", authVersion: 0 });
+    mocks.claimRefreshToken.mockResolvedValue("rotate");
+    mocks.generateAccessToken.mockReturnValue("new-access");
+    mocks.generateRefreshToken.mockReturnValue("new-refresh");
+    mocks.verifyAccessToken.mockImplementation((t: string) => (t === "new-access" ? { sub: "u1", role: "MENTOR", authVersion: 0 } : null));
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("access_token")?.value).toBe("new-access");
+    expect(response.cookies.get("refresh_token")?.value).toBe("new-refresh");
+    expect(mocks.storeRefreshToken).toHaveBeenCalledWith("u1", "new-refresh", false);
+  });
+
+  it("keeps a request that lost a concurrent refresh signed in without forking the refresh token", async () => {
+    const req = request("/coach/dashboard");
+    req.cookies.set("refresh_token", "old-refresh");
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "u1", role: "MENTOR", authVersion: 0 });
+    mocks.claimRefreshToken.mockResolvedValue("grace");
+    mocks.generateAccessToken.mockReturnValue("new-access");
+    mocks.verifyAccessToken.mockImplementation((t: string) => (t === "new-access" ? { sub: "u1", role: "MENTOR", authVersion: 0 } : null));
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("access_token")?.value).toBe("new-access");
+    // No Set-Cookie for refresh_token: the winner's response owns it.
+    expect(response.cookies.get("refresh_token")).toBeUndefined();
+    expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+    expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
   });
 
   it("rejects an otherwise valid unexpired access JWT when its auth version is stale", async () => {

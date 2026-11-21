@@ -14,10 +14,14 @@ import {
 // ============================================================
 
 export const loginSchema = z.object({
+  // Accounts are stored lowercased (coach creation, forgot-password), so
+  // login must normalise the same way or a capitalised email never matches.
   email: z
     .string()
+    .trim()
     .min(1, "Email is required")
-    .email("Invalid email address"),
+    .email("Invalid email address")
+    .toLowerCase(),
   password: z
     .string()
     .min(1, "Password is required")
@@ -35,7 +39,7 @@ export const securePasswordSchema = z
   .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character");
 
 export const coachAccountCreateSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(100).trim(),
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100),
   email: z.string().trim().min(1, "Email is required").email("Invalid email address").toLowerCase(),
   password: securePasswordSchema,
 });
@@ -46,15 +50,15 @@ export const coachAccountCreateSchema = z.object({
 export const menteeJoinSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, "Name is required")
     .min(2, "Name must be at least 2 characters")
-    .max(100, "Name must be at most 100 characters")
-    .trim(),
+    .max(100, "Name must be at most 100 characters"),
   inviteCode: z
     .string()
+    .trim()
     .min(1, "Invite code is required")
     .max(20, "Invalid invite code")
-    .trim()
     .toUpperCase(),
 });
 
@@ -102,9 +106,9 @@ export const claimAccountSchema = z
 export const updateProfileSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name must be at most 100 characters")
-    .trim()
     .optional(),
   bio: z
     .string()
@@ -123,10 +127,10 @@ export const updateProfileSchema = z.object({
 export const createMentorSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, "Name is required")
     .min(2, "Name must be at least 2 characters")
-    .max(100, "Name must be at most 100 characters")
-    .trim(),
+    .max(100, "Name must be at most 100 characters"),
   email: z
     .string()
     .min(1, "Email is required")
@@ -145,10 +149,10 @@ export const createMentorSchema = z.object({
 export const createGroupSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, "Group name is required")
     .min(2, "Group name must be at least 2 characters")
-    .max(100, "Group name must be at most 100 characters")
-    .trim(),
+    .max(100, "Group name must be at most 100 characters"),
   description: z
     .string()
     .max(1000, "Description must be at most 1000 characters")
@@ -159,9 +163,9 @@ export const createGroupSchema = z.object({
 export const updateGroupSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(2, "Group name must be at least 2 characters")
     .max(100, "Group name must be at most 100 characters")
-    .trim()
     .optional(),
   description: z
     .string()
@@ -173,9 +177,9 @@ export const updateGroupSchema = z.object({
 export const joinGroupSchema = z.object({
   inviteCode: z
     .string()
+    .trim()
     .min(1, "Invite code is required")
     .max(20, "Invalid invite code")
-    .trim()
     .toUpperCase(),
 });
 
@@ -207,16 +211,16 @@ export const editMessageSchema = z.object({
 export const createPollSchema = z.object({
   question: z
     .string()
+    .trim()
     .min(1, "Question is required")
-    .max(300, "Question must be at most 300 characters")
-    .trim(),
+    .max(300, "Question must be at most 300 characters"),
   options: z
     .array(
       z
         .string()
+        .trim()
         .min(1, "Option cannot be empty")
         .max(100, "Option must be at most 100 characters")
-        .trim()
     )
     .min(2, "At least 2 options are required")
     .max(10, "At most 10 options are allowed"),
@@ -234,17 +238,17 @@ export const castVoteSchema = z.object({
 export const createOpenQuestionSchema = z.object({
   question: z
     .string()
+    .trim()
     .min(1, "Question is required")
-    .max(300, "Question must be at most 300 characters")
-    .trim(),
+    .max(300, "Question must be at most 300 characters"),
 });
 
 export const submitAnswerSchema = z.object({
   text: z
     .string()
+    .trim()
     .min(1, "Answer cannot be empty")
-    .max(280, "Answer must be at most 280 characters")
-    .trim(),
+    .max(280, "Answer must be at most 280 characters"),
 });
 
 // ============================================================
@@ -254,9 +258,9 @@ export const submitAnswerSchema = z.object({
 export const createWordCloudSchema = z.object({
   question: z
     .string()
+    .trim()
     .min(1, "Question is required")
-    .max(300, "Question must be at most 300 characters")
-    .trim(),
+    .max(300, "Question must be at most 300 characters"),
   maxWordsPerParticipant: z.coerce.number().int().min(1).max(50).optional().default(1),
   allowMultipleSubmissions: z.boolean().optional().default(false),
   profanityFilter: z.boolean().optional().default(true),
@@ -316,9 +320,9 @@ export const submitScaleSchema = z.object({
 export const searchSchema = z.object({
   query: z
     .string()
+    .trim()
     .min(1, "Search query is required")
-    .max(200, "Search query too long")
-    .trim(),
+    .max(200, "Search query too long"),
   type: z
     .enum(["all", "groups", "messages", "users"])
     .optional()

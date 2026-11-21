@@ -2,18 +2,39 @@ import type { Server, Socket } from "socket.io";
 import { UserRole } from "@cms/shared";
 
 import type { GroupPresenceTracker } from '../lib/group-presence';
+import { canViewGroup as defaultCanViewGroup, type CanViewGroup } from "../lib/group-access";
 
 /**
  * Register chat-related socket event handlers.
  * Handles group room management and message broadcasting.
  */
-export function registerChatHandlers(io: Server, socket: Socket, groupPresence: GroupPresenceTracker) {
+export function registerChatHandlers(
+  io: Server,
+  socket: Socket,
+  groupPresence: GroupPresenceTracker,
+  canViewGroup: CanViewGroup = defaultCanViewGroup
+) {
   const userId = socket.data.userId;
   const userRole = socket.data.role;
 
   // ── Join a group room ──────────────────────────────────────
-  socket.on("group:join", (groupId: string) => {
+  socket.on("group:join", async (groupId: string) => {
     if (!groupId || typeof groupId !== "string") return;
+
+    // A room carries every message posted to the group, so joining it is
+    // the same privilege as opening the chat page.
+    let allowed: boolean;
+    try {
+      allowed = await canViewGroup(userId, userRole, groupId);
+    } catch (error) {
+      console.error(`  ✗ group:join access check failed for ${socket.data.userName}:`, error);
+      return;
+    }
+    if (!allowed) {
+      console.warn(`  ✗ ${socket.data.userName} refused group:${groupId} (not a member)`);
+      return;
+    }
+    if (!socket.connected) return;
 
     const room = `group:${groupId}`;
     const alreadyInRoom = socket.rooms.has(room);
@@ -51,8 +72,10 @@ export function registerChatHandlers(io: Server, socket: Socket, groupPresence: 
     (data: { groupId: string; userId: string }) => {
       if (!data?.groupId) return;
 
-      // Only mentors/admins can type (mentees are read-only)
+      // Only mentors/admins can type (mentees are read-only), and only into
+      // a room they were let into by group:join.
       if (userRole === UserRole.MENTEE) return;
+      if (!socket.rooms.has(`group:${data.groupId}`)) return;
 
       socket.to(`group:${data.groupId}`).emit("user:typing", {
         groupId: data.groupId,

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import {
   verifyRefreshToken,
@@ -7,7 +8,8 @@ import {
   setAuthCookies,
   storeRefreshToken,
   revokeRefreshToken,
-  isRefreshTokenValid,
+  claimRefreshToken,
+  getAccessCookieOptions,
   getRefreshTokenFromCookies,
   clearAuthCookies,
 } from "@/lib/auth";
@@ -48,9 +50,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if token exists in database (not revoked)
-    const isValid = await isRefreshTokenValid(token);
-    if (!isValid) {
+    // Check the token exists in the database (not revoked) and claim it, so
+    // concurrent refreshes cannot each mint their own successor.
+    const claim = await claimRefreshToken(token);
+    if (claim === "invalid") {
       return errorResponse(
         "Refresh token has been revoked",
         "REVOKED_REFRESH_TOKEN",
@@ -93,13 +96,18 @@ export async function POST(req: NextRequest) {
     // "remember me" choice forward so the new refresh token doesn't
     // silently downgrade to the short-lived expiry.
     const rememberMe = Boolean(payload.rememberMe);
-    await revokeRefreshToken(token);
-
     const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateNewRefreshToken(user, rememberMe);
+    let newRefreshToken = token;
 
-    await storeRefreshToken(user.id, newRefreshToken, rememberMe);
-    await setAuthCookies(newAccessToken, newRefreshToken, rememberMe);
+    if (claim === "rotate") {
+      newRefreshToken = generateNewRefreshToken(user, rememberMe);
+      await storeRefreshToken(user.id, newRefreshToken, rememberMe);
+      await setAuthCookies(newAccessToken, newRefreshToken, rememberMe);
+    } else {
+      // Lost a concurrent rotation: the winner is setting the new refresh
+      // cookie, so only the access token is refreshed here.
+      (await cookies()).set("access_token", newAccessToken, getAccessCookieOptions());
+    }
 
     const publicUser = {
       id: user.id, name: user.name, email: user.email, role: user.role,

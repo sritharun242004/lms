@@ -13,6 +13,11 @@ import {
   parseBody,
 } from "@/lib/api/response";
 import { loginSchema, AuditAction } from "@cms/shared";
+import { clearRateLimit, clientIp, hitRateLimit, RATE_LIMITS, tooManyAttempts } from "@/lib/api/rate-limit";
+
+// A bcrypt hash at the same cost as real ones (SALT_ROUNDS = 12) of a value no
+// one can submit as a match; it exists only to be compared against.
+const TIMING_EQUALISER_HASH = "$2b$12$xHTeOmyPTio2AdRRuOz7WucS3Sl8JJJOo56/UNoRZzn.z5i1PPMle";
 
 type LoginRole = "MENTEE" | "MENTOR" | "ADMIN";
 
@@ -28,6 +33,12 @@ export async function loginForRoles(req: NextRequest, allowedRoles: readonly Log
   if (parsed.error) return parsed.error;
 
   const { email, password, rememberMe } = parsed.data;
+
+  const accountKey = `login:account:${email}`;
+  const retryAfter =
+    hitRateLimit(`login:ip:${clientIp(req)}`, RATE_LIMITS.loginPerIp) ??
+    hitRateLimit(accountKey, RATE_LIMITS.loginPerAccount);
+  if (retryAfter !== null) return tooManyAttempts(retryAfter);
 
   try {
     // Find user by email
@@ -49,7 +60,9 @@ export async function loginForRoles(req: NextRequest, allowedRoles: readonly Log
 
     if (!user || !user.password) {
       // No password hash means this is a guest mentee account (joined via
-      // name + invite code) — it has no password to check against.
+      // name + invite code) — it has no password to check against. Still
+      // pay the bcrypt cost, or the fast reply reveals the email is unknown.
+      await verifyPassword(password, TIMING_EQUALISER_HASH);
       return errorResponse("Invalid email or password", "INVALID_CREDENTIALS", 401);
     }
 
@@ -67,6 +80,8 @@ export async function loginForRoles(req: NextRequest, allowedRoles: readonly Log
     if (!allowedRoles.includes(user.role)) {
       return errorResponse("These credentials do not belong to a staff account", "WRONG_PORTAL", 403);
     }
+
+    clearRateLimit(accountKey);
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
