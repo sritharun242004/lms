@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-const authInputClass = "h-12 sm:h-13 text-base sm:text-lg bg-white text-black placeholder:text-slate-500 dark:bg-white dark:text-black dark:placeholder:text-slate-500 rounded-2xl px-4.5";
+const authInputClass = "h-12 sm:h-13 text-base sm:text-lg bg-white text-black placeholder:text-slate-500 rounded-2xl px-4.5";
 
 export function StaffLoginForm() {
   const router = useRouter();
