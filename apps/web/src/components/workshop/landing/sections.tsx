@@ -375,7 +375,7 @@ function HandUnderline() {
 
 const HERO_FACTS = [
   { label: "Hours", value: "9:15 am - 5:30 pm" },
-  { label: "Place", value: "Chennai (venue TBC)" },
+  { label: "Place", value: "Four Points by Sheraton, Chennai" },
   { label: "Credential", value: "Day 1 certification" },
 ];
 
@@ -1119,7 +1119,7 @@ const TRAINERS = [
     name: "Philip Moses",
     photo: "/workshop/trainers/philip-moses.jpg",
     role: "Trainer",
-    line: "Founder & CEO, Belsterns Technologies.",
+    line: "Founder & CEO, Belsterns Technologies, a certified OpenAI & Claude Partner.",
     bio: "Leads the hands-on sessions on analytics, workflows and building with AI.",
   },
   {
@@ -1191,7 +1191,7 @@ function selectPackage(pkg: WorkshopPackageKey) {
 
 const DETAILS = [
   { label: "Time", value: "9:15 am - 5:30 pm (reporting at 8:45 am)" },
-  { label: "Venue", value: "to be confirmed (likely Four Points by Sheraton, Velachery, Chennai)" },
+  { label: "Venue", value: "Four Points by Sheraton, Velachery, Chennai" },
   { label: "Seats", value: "limited, confirmed on a first-paid basis" },
 ];
 
@@ -1410,13 +1410,8 @@ export function WorkshopFooter() {
       <div className="mx-auto max-w-6xl">
         <p className={`${HEADING} text-[clamp(2.75rem,8vw,6rem)] text-white`}>X Intelligence</p>
         <div className="mt-14 flex flex-col gap-4 border-t border-white/15 pt-8 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-semibold text-white">xintelligence.in</p>
-          <div className="flex items-center gap-6">
-            <Link href="/admin/login" className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-white hover:underline">
-              Staff login
-            </Link>
-            <p>© 2026 X Intelligence</p>
-          </div>
+          <p className="font-semibold text-white">thexintelligence.ai</p>
+          <p>© 2026 X Intelligence</p>
         </div>
       </div>
     </BlueBand>

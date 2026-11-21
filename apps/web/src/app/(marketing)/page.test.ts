@@ -45,9 +45,12 @@ describe("XI workshop landing page", () => {
     expect(getAllByText(/Reserve my seat/i).length).toBeGreaterThan(0);
   });
 
-  it("flags unconfirmed items as TBC rather than inventing them", () => {
+  it("names the confirmed venue and drops the staff login link", () => {
     const { container } = render(createElement(XiLandingPage));
-    expect(container.textContent).toMatch(/venue.*(to be confirmed|TBC)/i);
+    expect(container.textContent).toMatch(/Venue\s*Four Points by Sheraton, Velachery, Chennai/);
+    expect(container.textContent).toContain("certified OpenAI & Claude Partner");
+    expect(container.textContent).toContain("thexintelligence.ai");
+    expect(container.textContent).not.toMatch(/staff login/i);
   });
 
   it("shows no workshop dates and no Vjal Institute mention", () => {
