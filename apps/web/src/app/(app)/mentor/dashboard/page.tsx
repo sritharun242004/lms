@@ -20,7 +20,7 @@ export default async function MentorDashboardPage() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
-        <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Participant workspace</p>
+        <p className="mb-2 text-xs font-semibold tracking-[.14em] text-primary uppercase">Coach workspace</p>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Welcome back, {user.name.split(" ")[0]}
         </h1>

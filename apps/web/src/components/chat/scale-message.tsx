@@ -72,7 +72,7 @@ export function ScaleMessage({
       <header className="bg-primary px-4 py-4 text-primary-foreground sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-primary-foreground/80">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-primary-foreground/90">
               <SlidersHorizontal className="size-4" aria-hidden="true" />
               <span>Scale</span>
               <span aria-hidden="true">·</span>
@@ -96,7 +96,7 @@ export function ScaleMessage({
             </Button>
           )}
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-primary-foreground/75">
+        <div className="mt-3 flex items-center gap-2 text-xs text-primary-foreground/90">
           <Avatar className="size-6 border border-primary-foreground/25">
             {message.sender.avatarUrl && <AvatarImage src={message.sender.avatarUrl} alt="" />}
             <AvatarFallback className="bg-primary-foreground/15 text-[10px] text-primary-foreground">

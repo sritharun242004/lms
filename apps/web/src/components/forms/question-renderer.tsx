@@ -168,11 +168,15 @@ function QuestionInput({
               type="button"
               disabled={disabled}
               onClick={() => onChange(n)}
-              className={`size-9 rounded-full border text-sm font-medium ${
+              aria-pressed={value === n}
+              aria-label={question.type === "STAR_RATING" ? `${n} ${n === 1 ? "star" : "stars"}` : String(n)}
+              className={`inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border px-3 text-sm font-medium ${
                 value === n ? "border-primary bg-primary text-primary-foreground" : "border-border"
               }`}
             >
-              {question.type === "STAR_RATING" ? "★".repeat(n) || n : n}
+              {/* "★★★★★" outgrew a fixed circle; a number and one star always fits. */}
+              {n}
+              {question.type === "STAR_RATING" ? <span aria-hidden="true">★</span> : null}
             </button>
           ))}
         </div>

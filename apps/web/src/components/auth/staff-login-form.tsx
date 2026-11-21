@@ -63,7 +63,7 @@ export function StaffLoginForm() {
             <FormItem>
               <div className="flex items-center justify-between">
                 <FormLabel className="text-base font-semibold">Password</FormLabel>
-                <Link href="/forgot-password?portal=admin" className="text-sm sm:text-base font-medium text-muted-foreground hover:text-foreground">Forgot password?</Link>
+                <Link href="/forgot-password?portal=admin" className="inline-flex min-h-11 items-center text-sm sm:text-base font-medium text-muted-foreground hover:text-foreground">Forgot password?</Link>
               </div>
               <FormControl><PasswordInput className={authInputClass} placeholder="••••••••" autoComplete="current-password" {...field} /></FormControl>
               <FormMessage />
