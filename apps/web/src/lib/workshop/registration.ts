@@ -58,11 +58,26 @@ export function generateRegistrationCode(year: number, sequence: number): string
   return `XI-${year}-${String(sequence).padStart(4, "0")}`;
 }
 
+// Numbered from the highest code issued, never from a row count: admins can
+// delete registrations, and a count would then hand out a code that is
+// still in use (12 rows left but codes up to 0018 gives 0013 — taken).
+export function nextSequenceFromCodes(year: number, codes: string[]): number {
+  const prefix = `XI-${year}-`;
+  let highest = 0;
+  for (const code of codes) {
+    if (!code.startsWith(prefix)) continue;
+    const sequence = Number.parseInt(code.slice(prefix.length), 10);
+    if (Number.isFinite(sequence) && sequence > highest) highest = sequence;
+  }
+  return highest + 1;
+}
+
 async function nextSequenceForYear(year: number): Promise<number> {
-  const count = await prisma.workshopRegistration.count({
+  const rows = await prisma.workshopRegistration.findMany({
     where: { registrationCode: { startsWith: `XI-${year}-` } },
+    select: { registrationCode: true },
   });
-  return count + 1;
+  return nextSequenceFromCodes(year, rows.map((row) => row.registrationCode));
 }
 
 export async function createRegistration(
