@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registrationInputSchema, generateRegistrationCode } from "./registration";
+import { registrationInputSchema, generateRegistrationCode, nextSequenceFromCodes } from "./registration";
 
 describe("registrationInputSchema", () => {
   const base = {
@@ -83,5 +83,28 @@ describe("registrationInputSchema", () => {
 describe("generateRegistrationCode", () => {
   it("produces an XI-prefixed code with a 4+ digit sequence", () => {
     expect(generateRegistrationCode(2026, 7)).toBe("XI-2026-0007");
+  });
+});
+
+describe("nextSequenceFromCodes", () => {
+  it("starts at 1 when the year has no registrations", () => {
+    expect(nextSequenceFromCodes(2026, [])).toBe(1);
+  });
+
+  it("continues after the highest code even when earlier rows were deleted", () => {
+    // 12 rows left after deletions, highest code 0018: a row count would
+    // hand out 0013, which is still taken.
+    const codes = ["0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017", "0018"].map(
+      (n) => `XI-2026-${n}`
+    );
+    expect(nextSequenceFromCodes(2026, codes)).toBe(19);
+  });
+
+  it("ignores other years and malformed codes", () => {
+    expect(nextSequenceFromCodes(2026, ["XI-2025-0040", "XI-2026-0003", "XI-2026-abc"])).toBe(4);
+  });
+
+  it("orders numerically past four digits", () => {
+    expect(nextSequenceFromCodes(2026, ["XI-2026-9999", "XI-2026-10000"])).toBe(10001);
   });
 });
