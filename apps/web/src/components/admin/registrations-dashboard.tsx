@@ -283,7 +283,7 @@ export function RegistrationsDashboard({
                           disabled={paymentPendingId === row.id}
                           onCheckedChange={(checked) => void setPaid(row, checked)}
                           aria-label={`Mark ${row.fullName} as paid`}
-                          className="data-[state=checked]:bg-success data-[state=unchecked]:bg-muted-foreground/35"
+                          className="data-[state=checked]:bg-success data-[state=unchecked]:bg-muted-foreground/35 dark:data-[state=unchecked]:bg-white/25 dark:[&_[data-slot=switch-thumb]]:bg-white"
                         />
                         {isPaid ? "Paid" : "Unpaid"}
                       </label>
