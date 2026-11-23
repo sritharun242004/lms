@@ -69,6 +69,9 @@ describe("RegistrationsDashboard", () => {
       })
     );
     expect(screen.getByText(/acme co/i)).toBeTruthy();
+    // Address and GSTIN live in the details view, not the list row.
+    expect(screen.queryByText(/33aaaca1234a1z5/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
     expect(screen.getByText(/33aaaca1234a1z5/i)).toBeTruthy();
   });
 

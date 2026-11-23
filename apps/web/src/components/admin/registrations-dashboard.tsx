@@ -63,11 +63,6 @@ export type RegistrationSummary = {
   paymentDoneRevenueInInr: number;
 };
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success"> = {
-  PENDING_PAYMENT: "secondary",
-  PAYMENT_DONE: "success",
-};
-
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: "Registered — Payment Pending",
   PAYMENT_DONE: "Payment Marked Done",
@@ -235,8 +230,8 @@ export function RegistrationsDashboard({
         <CardHeader>
           <CardTitle>Registrations</CardTitle>
           <CardDescription>
-            Participants mark their own payment as done. There is no payment verification step —
-            follow up with them directly.
+            Participants mark their own payment as done. Switch Paid on or off once you have
+            checked the money arrived.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -244,48 +239,68 @@ export function RegistrationsDashboard({
             <p className="px-6 pb-6 text-sm text-muted-foreground">No registrations match.</p>
           ) : (
             <div className="divide-y divide-border">
-              {filtered.map((row) => (
-                <div key={row.id} className="flex flex-col gap-3 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-semibold">{row.fullName}</p>
-                      <Badge variant={STATUS_VARIANT[row.status] ?? "secondary"}>{STATUS_LABEL[row.status] ?? row.status}</Badge>
-                      <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
-                      {isDay2WithoutDay1(row) ? <Badge variant="destructive">No Day 1 yet</Badge> : null}
-                    </div>
-                    <p className="text-sm break-words text-muted-foreground sm:truncate">
-                      {row.registrationCode} · {PACKAGE_LABEL[row.workshopPackage]} · {row.email} · {row.whatsappNumber} · ₹{row.amountInInr.toLocaleString("en-IN")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {row.designation}
-                      {row.registrationKind === "INDIVIDUAL" && row.company ? ` · ${row.company}` : ""} · Registered{" "}
-                      {formatDateTime(row.createdAt)}
-                    </p>
-                    {row.registrationKind === "COMPANY" ? (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {row.companyName} · {row.companyAddress} · GSTIN {row.companyGstin}
+              {filtered.map((row) => {
+                const isPaid = row.status === "PAYMENT_DONE";
+                const organisation = row.registrationKind === "COMPANY" ? row.companyName : row.company;
+                return (
+                  <div
+                    key={row.id}
+                    className="grid gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-8"
+                  >
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-semibold">{row.fullName}</p>
+                        <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
+                        {isDay2WithoutDay1(row) ? <Badge variant="destructive">No Day 1 yet</Badge> : null}
+                      </div>
+                      <p className="flex flex-wrap items-baseline gap-x-3 text-sm text-muted-foreground">
+                        <span className="font-mono text-xs tabular-nums">{row.registrationCode}</span>
+                        <span>{PACKAGE_LABEL[row.workshopPackage]}</span>
+                        <span className="font-semibold text-foreground tabular-nums">
+                          ₹{row.amountInInr.toLocaleString("en-IN")}
+                        </span>
                       </p>
-                    ) : null}
+                      <p className="text-sm break-words text-muted-foreground sm:truncate">
+                        {row.email} · {row.whatsappNumber}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.designation}
+                        {organisation ? ` · ${organisation}` : ""} · Registered {formatDateTime(row.createdAt)}
+                      </p>
+                    </div>
+                    {/* One row of fixed-shape controls so every registration's
+                        actions line up in the same column; Delete is quiet
+                        because it is the rarest action on the page. */}
+                    <div className="flex items-center gap-2 lg:justify-end">
+                      <label
+                        className={`flex h-10 w-28 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors duration-200 sm:h-8 ${
+                          isPaid ? "border-success/30 bg-success/10 text-success" : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        <Switch
+                          checked={isPaid}
+                          disabled={paymentPendingId === row.id}
+                          onCheckedChange={(checked) => void setPaid(row, checked)}
+                          aria-label={`Mark ${row.fullName} as paid`}
+                          className="data-[state=checked]:bg-success data-[state=unchecked]:bg-muted-foreground/35"
+                        />
+                        {isPaid ? "Paid" : "Unpaid"}
+                      </label>
+                      <Button size="sm" variant="outline" onClick={() => setDetailsTarget(row)}>
+                        View details
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteTarget(row)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold sm:h-8">
-                      <Switch
-                        checked={row.status === "PAYMENT_DONE"}
-                        disabled={paymentPendingId === row.id}
-                        onCheckedChange={(checked) => void setPaid(row, checked)}
-                        aria-label={`Mark ${row.fullName} as paid`}
-                      />
-                      Paid
-                    </label>
-                    <Button size="sm" variant="outline" onClick={() => setDetailsTarget(row)}>
-                      View details
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(row)}>
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
