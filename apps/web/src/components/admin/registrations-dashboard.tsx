@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 export type RegistrationRow = {
   id: string;
@@ -107,7 +108,29 @@ export function RegistrationsDashboard({
   const [detailsTarget, setDetailsTarget] = React.useState<RegistrationRow | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<RegistrationRow | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [paymentPendingId, setPaymentPendingId] = React.useState<string | null>(null);
   const router = useRouter();
+
+  async function setPaid(row: RegistrationRow, paid: boolean) {
+    setPaymentPendingId(row.id);
+    try {
+      const response = await fetch(`/api/v1/admin/registrations/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paid }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || "The payment status could not be updated");
+      }
+      toast.success(paid ? `${row.fullName} marked as paid` : `${row.fullName} marked as payment pending`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The payment status could not be updated");
+    } finally {
+      setPaymentPendingId(null);
+    }
+  }
 
   async function deleteRegistration() {
     if (!deleteTarget) return;
@@ -244,7 +267,16 @@ export function RegistrationsDashboard({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold sm:h-8">
+                      <Switch
+                        checked={row.status === "PAYMENT_DONE"}
+                        disabled={paymentPendingId === row.id}
+                        onCheckedChange={(checked) => void setPaid(row, checked)}
+                        aria-label={`Mark ${row.fullName} as paid`}
+                      />
+                      Paid
+                    </label>
                     <Button size="sm" variant="outline" onClick={() => setDetailsTarget(row)}>
                       View details
                     </Button>

@@ -202,4 +202,42 @@ describe("RegistrationsDashboard", () => {
     expect(mocks.refresh).not.toHaveBeenCalled();
     expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
   });
+
+  it("marks a registration as paid from the row switch, then refreshes the list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration],
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+      })
+    );
+
+    const toggle = screen.getByRole("switch", { name: "Mark Asha Rao as paid" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/registrations/r1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid: true }),
+    });
+  });
+
+  it("shows the switch on for a paid registration and turning it off sends paid: false", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [{ ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T00:00:00Z" }],
+        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, paymentDoneRevenueInInr: 28250 },
+      })
+    );
+
+    const toggle = screen.getByRole("switch", { name: "Mark Asha Rao as paid" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ paid: false });
+  });
 });
