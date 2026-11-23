@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import type { RegistrationSummary } from "@/lib/workshop/registration-summary";
 
 export type RegistrationRow = {
   id: string;
@@ -54,15 +55,11 @@ export type RegistrationRow = {
   amountInInr: number;
   status: string;
   paymentMarkedDoneAt: string | null;
+  paymentVerifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type RegistrationSummary = {
-  total: number;
-  byStatus: Record<string, number>;
-  paymentDoneRevenueInInr: number;
-};
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: "Registered — Payment Pending",
@@ -119,7 +116,7 @@ export function RegistrationsDashboard({
       if (!response.ok || !result.success) {
         throw new Error(result.error?.message || "The payment status could not be updated");
       }
-      toast.success(paid ? `${row.fullName} marked as paid` : `${row.fullName} marked as payment pending`);
+      toast.success(paid ? `${row.fullName} verified as paid` : `${row.fullName} set back to unpaid`);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The payment status could not be updated");
@@ -177,9 +174,9 @@ export function RegistrationsDashboard({
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <SummaryCard label="Total" value={summary.total} />
-        <SummaryCard label="Payment pending" value={summary.byStatus.PENDING_PAYMENT ?? 0} />
-        <SummaryCard label="Payment marked done" value={summary.byStatus.PAYMENT_DONE ?? 0} />
-        <SummaryCard label="Revenue (marked done)" value={`₹${summary.paymentDoneRevenueInInr.toLocaleString("en-IN")}`} />
+        <SummaryCard label="Participant marked paid" value={summary.participantMarkedPaid} />
+        <SummaryCard label="Verified paid" value={summary.verifiedPaid} />
+        <SummaryCard label="Revenue (verified)" value={`₹${summary.verifiedRevenueInInr.toLocaleString("en-IN")}`} />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -231,8 +228,8 @@ export function RegistrationsDashboard({
         <CardHeader>
           <CardTitle>Registrations</CardTitle>
           <CardDescription>
-            Participants mark their own payment as done. Switch Paid on or off once you have
-            checked the money arrived.
+            Every registration starts Unpaid. Switch it to Paid only after you have checked the
+            money arrived — &ldquo;Says paid&rdquo; means the participant clicked Payment Done.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -241,7 +238,7 @@ export function RegistrationsDashboard({
           ) : (
             <div className="divide-y divide-border">
               {filtered.map((row) => {
-                const isPaid = row.status === "PAYMENT_DONE";
+                const isPaid = row.paymentVerifiedAt !== null;
                 const organisation = row.registrationKind === "COMPANY" ? row.companyName : row.company;
                 return (
                   <div
@@ -253,6 +250,9 @@ export function RegistrationsDashboard({
                         <p className="truncate font-semibold">{row.fullName}</p>
                         <Badge variant="outline">{row.registrationKind === "COMPANY" ? "Company" : "Individual"}</Badge>
                         {isDay2WithoutDay1(row) ? <Badge variant="destructive">No Day 1 yet</Badge> : null}
+                        {row.status === "PAYMENT_DONE" && !isPaid ? (
+                          <Badge variant="secondary">Says paid · check</Badge>
+                        ) : null}
                       </div>
                       <p className="flex flex-wrap items-baseline gap-x-3 text-sm text-muted-foreground">
                         <span className="font-mono text-xs tabular-nums">{row.registrationCode}</span>
@@ -421,6 +421,10 @@ function RegistrationDetails({ row }: { row: RegistrationRow }) {
         <DetailField
           label="Payment confirmation timestamp"
           value={row.paymentMarkedDoneAt ? formatDateTime(row.paymentMarkedDoneAt) : null}
+        />
+        <DetailField
+          label="Verified paid by admin"
+          value={row.paymentVerifiedAt ? formatDateTime(row.paymentVerifiedAt) : "Not yet"}
         />
         <DetailField label="Needs GST invoice" value={row.needsGstInvoice ? "Yes" : null} />
         <DetailField label="GST invoice company" value={row.gstCompanyName} />

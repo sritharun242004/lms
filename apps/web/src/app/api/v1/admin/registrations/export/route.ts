@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
     "Amount (INR)": r.amountInInr,
     Status: STATUS_LABEL[r.status] ?? r.status,
     "Payment Marked Done At": r.paymentMarkedDoneAt ? r.paymentMarkedDoneAt.toISOString() : "",
+    "Verified Paid At": r.paymentVerifiedAt ? r.paymentVerifiedAt.toISOString() : "",
     "Registered At": r.createdAt.toISOString(),
   }));
 

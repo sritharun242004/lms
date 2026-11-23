@@ -34,6 +34,7 @@ const baseRegistration = {
   amountInInr: 28250,
   status: "PENDING_PAYMENT",
   paymentMarkedDoneAt: null as string | null,
+  paymentVerifiedAt: null as string | null,
   createdAt: "2026-11-20T00:00:00Z",
   updatedAt: "2026-11-20T00:00:00Z",
 };
@@ -49,7 +50,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     expect(screen.getByText(/asha rao/i)).toBeTruthy();
@@ -65,7 +66,7 @@ describe("RegistrationsDashboard", () => {
         registrations: [
           { ...baseRegistration, registrationKind: "COMPANY" as const, companyName: "Acme Co", companyAddress: "Chennai", companyGstin: "33AAACA1234A1Z5" },
         ],
-        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     expect(screen.getByText(/acme co/i)).toBeTruthy();
@@ -79,7 +80,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [{ ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T10:30:00Z" }],
-        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, paymentDoneRevenueInInr: 28250 },
+        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, participantMarkedPaid: 1, verifiedPaid: 0, verifiedRevenueInInr: 28250 },
       })
     );
     expect(screen.getAllByText(/payment marked done/i).length).toBeGreaterThan(0);
@@ -95,7 +96,7 @@ describe("RegistrationsDashboard", () => {
           baseRegistration,
           { ...baseRegistration, id: "r2", fullName: "Ravi Kumar", status: "PAYMENT_DONE", workshopPackage: "BOTH" as const },
         ],
-        summary: { total: 2, byStatus: {}, paymentDoneRevenueInInr: 0 },
+        summary: { total: 2, byStatus: {}, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "PAYMENT_DONE" } });
@@ -112,7 +113,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "PENDING_PAYMENT" } });
@@ -132,7 +133,7 @@ describe("RegistrationsDashboard", () => {
             gstin: "33AAACA1234A1Z6",
           },
         ],
-        summary: { total: 1, byStatus: {}, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: {}, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     fireEvent.click(screen.getByRole("button", { name: /view details/i }));
@@ -147,7 +148,7 @@ describe("RegistrationsDashboard", () => {
         registrations: [
           { ...baseRegistration, workshopPackage: "DAY2" as const, previousDay1Attendance: false, company: "Acme Labs" },
         ],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     expect(screen.getByText("No Day 1 yet")).toBeTruthy();
@@ -161,7 +162,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
     // 2026-11-20T00:00:00Z is 5:30 am in Asia/Kolkata.
@@ -174,7 +175,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
 
@@ -195,7 +196,7 @@ describe("RegistrationsDashboard", () => {
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
 
@@ -206,19 +207,30 @@ describe("RegistrationsDashboard", () => {
     expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
   });
 
-  it("marks a registration as paid from the row switch, then refreshes the list", async () => {
+  it("starts Unpaid even when the participant clicked Payment Done, and flags them for checking", () => {
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [{ ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T00:00:00Z" }],
+        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, participantMarkedPaid: 1, verifiedPaid: 0, verifiedRevenueInInr: 0 },
+      })
+    );
+    const toggle = screen.getByRole("switch", { name: "Mark Asha Rao as paid" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText("Unpaid")).toBeTruthy();
+    expect(screen.getByText("Says paid · check")).toBeTruthy();
+  });
+
+  it("verifies a registration as paid from the row switch, then refreshes the list", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) });
     vi.stubGlobal("fetch", fetchMock);
     render(
       createElement(RegistrationsDashboard, {
         registrations: [baseRegistration],
-        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, participantMarkedPaid: 0, verifiedPaid: 0, verifiedRevenueInInr: 0 },
       })
     );
 
-    const toggle = screen.getByRole("switch", { name: "Mark Asha Rao as paid" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("switch", { name: "Mark Asha Rao as paid" }));
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/registrations/r1", {
       method: "PATCH",
@@ -227,18 +239,21 @@ describe("RegistrationsDashboard", () => {
     });
   });
 
-  it("shows the switch on for a paid registration and turning it off sends paid: false", async () => {
+  it("shows Paid for an admin-verified registration and turning it off sends paid: false", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: {} }) });
     vi.stubGlobal("fetch", fetchMock);
     render(
       createElement(RegistrationsDashboard, {
-        registrations: [{ ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T00:00:00Z" }],
-        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, paymentDoneRevenueInInr: 28250 },
+        registrations: [
+          { ...baseRegistration, status: "PAYMENT_DONE", paymentMarkedDoneAt: "2026-11-20T00:00:00Z", paymentVerifiedAt: "2026-11-21T00:00:00Z" },
+        ],
+        summary: { total: 1, byStatus: { PAYMENT_DONE: 1 }, participantMarkedPaid: 1, verifiedPaid: 1, verifiedRevenueInInr: 28250 },
       })
     );
 
     const toggle = screen.getByRole("switch", { name: "Mark Asha Rao as paid" });
     expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByText("Says paid · check")).toBeNull();
     fireEvent.click(toggle);
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ paid: false });

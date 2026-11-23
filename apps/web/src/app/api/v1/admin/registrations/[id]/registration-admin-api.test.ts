@@ -113,37 +113,37 @@ describe("PATCH /api/v1/admin/registrations/[id]", () => {
     expect(updateRegistration).not.toHaveBeenCalled();
   });
 
-  it("marks a pending registration paid with a fresh timestamp and audits it", async () => {
+  it("verifies a registration without touching the participant's own status", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "ADMIN" });
-    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PENDING_PAYMENT", paymentMarkedDoneAt: null });
-    updateRegistration.mockResolvedValue({ id: "r1", status: "PAYMENT_DONE" });
+    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PENDING_PAYMENT", paymentVerifiedAt: null });
+    updateRegistration.mockResolvedValue({ id: "r1", paymentVerifiedAt: new Date() });
     const res = await PATCH(patchRequest({ paid: true }), context);
     expect(res.status).toBe(200);
     const { data } = updateRegistration.mock.calls[0][0];
-    expect(data.status).toBe("PAYMENT_DONE");
-    expect(data.paymentMarkedDoneAt).toBeInstanceOf(Date);
+    expect(Object.keys(data)).toEqual(["paymentVerifiedAt"]);
+    expect(data.paymentVerifiedAt).toBeInstanceOf(Date);
     expect(createAuditLog.mock.calls[0][0].data).toMatchObject({
       action: "WORKSHOP_REGISTRATION_PAYMENT_UPDATED",
       entityId: "r1",
-      metadata: { fromStatus: "PENDING_PAYMENT", toStatus: "PAYMENT_DONE" },
+      metadata: { wasVerified: false, verified: true },
     });
   });
 
-  it("keeps the participant's own Payment Done timestamp when marking paid", async () => {
+  it("keeps the original verification time when verifying again", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "ADMIN" });
-    const clickedAt = new Date("2026-11-20T10:00:00Z");
-    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PAYMENT_DONE", paymentMarkedDoneAt: clickedAt });
-    updateRegistration.mockResolvedValue({ id: "r1", status: "PAYMENT_DONE" });
+    const verifiedAt = new Date("2026-11-21T10:00:00Z");
+    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PAYMENT_DONE", paymentVerifiedAt: verifiedAt });
+    updateRegistration.mockResolvedValue({ id: "r1", paymentVerifiedAt: verifiedAt });
     await PATCH(patchRequest({ paid: true }), context);
-    expect(updateRegistration.mock.calls[0][0].data.paymentMarkedDoneAt).toBe(clickedAt);
+    expect(updateRegistration.mock.calls[0][0].data.paymentVerifiedAt).toBe(verifiedAt);
   });
 
-  it("marks a paid registration back to pending and clears the timestamp", async () => {
+  it("sets a verified registration back to unverified", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "ADMIN" });
-    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PAYMENT_DONE", paymentMarkedDoneAt: new Date() });
-    updateRegistration.mockResolvedValue({ id: "r1", status: "PENDING_PAYMENT" });
+    findUnique.mockResolvedValue({ id: "r1", registrationCode: "XI-TEST", status: "PAYMENT_DONE", paymentVerifiedAt: new Date() });
+    updateRegistration.mockResolvedValue({ id: "r1", paymentVerifiedAt: null });
     const res = await PATCH(patchRequest({ paid: false }), context);
     expect(res.status).toBe(200);
-    expect(updateRegistration.mock.calls[0][0].data).toEqual({ status: "PENDING_PAYMENT", paymentMarkedDoneAt: null });
+    expect(updateRegistration.mock.calls[0][0].data).toEqual({ paymentVerifiedAt: null });
   });
 });

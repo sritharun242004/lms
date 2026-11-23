@@ -742,6 +742,10 @@ model WorkshopRegistration {
   // timestamp plus `status` is the entire payment record; an admin
   // follows up with the participant outside the application.
   paymentMarkedDoneAt    DateTime?          @map("payment_marked_done_at")
+  // Set by an admin after checking the money actually arrived; separate
+  // from the participant's own claim above. Null means not yet verified,
+  // which is how every registration starts.
+  paymentVerifiedAt      DateTime?          @map("payment_verified_at")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 

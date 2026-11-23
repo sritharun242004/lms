@@ -9,10 +9,9 @@ type RegistrationRouteContext = { params: Promise<{ id: string }> };
 
 const paymentUpdateSchema = z.object({ paid: z.boolean() });
 
-// The admin's override of the participant's own "Payment Done" click, used
-// once the team has confirmed (or failed to confirm) the money arrived.
-// Marking paid keeps an existing participant timestamp; marking unpaid
-// clears it so the row reads exactly like a fresh pending registration.
+// The admin's own check that the money arrived. It never touches the
+// participant's "Payment Done" claim (status / paymentMarkedDoneAt): the two
+// are separate facts, and the list shows both.
 export async function PATCH(req: NextRequest, context: RegistrationRouteContext) {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") {
@@ -29,9 +28,7 @@ export async function PATCH(req: NextRequest, context: RegistrationRouteContext)
     if (!registration) return null;
     const next = await tx.workshopRegistration.update({
       where: { id },
-      data: paid
-        ? { status: "PAYMENT_DONE", paymentMarkedDoneAt: registration.paymentMarkedDoneAt ?? new Date() }
-        : { status: "PENDING_PAYMENT", paymentMarkedDoneAt: null },
+      data: { paymentVerifiedAt: paid ? (registration.paymentVerifiedAt ?? new Date()) : null },
     });
     await tx.auditLog.create({
       data: {
@@ -41,8 +38,8 @@ export async function PATCH(req: NextRequest, context: RegistrationRouteContext)
         entityId: id,
         metadata: {
           registrationCode: registration.registrationCode,
-          fromStatus: registration.status,
-          toStatus: next.status,
+          wasVerified: registration.paymentVerifiedAt !== null,
+          verified: next.paymentVerifiedAt !== null,
         },
       },
     });
