@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -269,8 +270,8 @@ export function RegistrationsDashboard({
                       </p>
                     </div>
                     {/* One row of fixed-shape controls so every registration's
-                        actions line up in the same column; Delete is quiet
-                        because it is the rarest action on the page. */}
+                        actions line up in the same column; Delete is a quiet
+                        icon because it is the rarest action on the page. */}
                     <div className="flex items-center gap-2 lg:justify-end">
                       <label
                         className={`flex h-10 w-28 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors duration-200 sm:h-8 ${
@@ -290,12 +291,14 @@ export function RegistrationsDashboard({
                         View details
                       </Button>
                       <Button
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive sm:size-8"
                         onClick={() => setDeleteTarget(row)}
+                        aria-label={`Delete ${row.fullName}`}
+                        title="Delete registration"
                       >
-                        Delete
+                        <Trash2 />
                       </Button>
                     </div>
                   </div>

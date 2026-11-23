@@ -178,7 +178,7 @@ describe("RegistrationsDashboard", () => {
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Asha Rao" }));
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
 
@@ -199,7 +199,7 @@ describe("RegistrationsDashboard", () => {
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Asha Rao" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete registration" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete registration" })).toBeTruthy());
     expect(mocks.refresh).not.toHaveBeenCalled();
