@@ -69,6 +69,9 @@ describe("RegistrationsDashboard", () => {
       })
     );
     expect(screen.getByText(/acme co/i)).toBeTruthy();
+    // Address and GSTIN live in the details view, not the list row.
+    expect(screen.queryByText(/33aaaca1234a1z5/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /view details/i }));
     expect(screen.getByText(/33aaaca1234a1z5/i)).toBeTruthy();
   });
 
@@ -175,7 +178,7 @@ describe("RegistrationsDashboard", () => {
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Asha Rao" }));
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
 
@@ -196,7 +199,7 @@ describe("RegistrationsDashboard", () => {
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Asha Rao" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete registration" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Delete registration" })).toBeTruthy());
     expect(mocks.refresh).not.toHaveBeenCalled();
