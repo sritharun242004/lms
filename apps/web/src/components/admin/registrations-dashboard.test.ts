@@ -1,8 +1,12 @@
 /** @vitest-environment jsdom */
 
 import { createElement } from "react";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
+
 import { RegistrationsDashboard } from "./registrations-dashboard";
 
 const baseRegistration = {
@@ -36,6 +40,8 @@ const baseRegistration = {
 
 afterEach(() => {
   cleanup();
+  mocks.refresh.mockReset();
+  vi.unstubAllGlobals();
 });
 
 describe("RegistrationsDashboard", () => {
@@ -157,5 +163,43 @@ describe("RegistrationsDashboard", () => {
     );
     // 2026-11-20T00:00:00Z is 5:30 am in Asia/Kolkata.
     expect(screen.getByText(/20\/11\/2026, 5:30:00 am/)).toBeTruthy();
+  });
+
+  it("deletes a registration only after confirmation, then refreshes the list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { id: "r1" } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration],
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete registration" }));
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/registrations/r1", { method: "DELETE" });
+  });
+
+  it("keeps the dialog open and does not refresh when the delete fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({ success: false, error: { message: "Registration not found" } }) })
+    );
+    render(
+      createElement(RegistrationsDashboard, {
+        registrations: [baseRegistration],
+        summary: { total: 1, byStatus: { PENDING_PAYMENT: 1 }, paymentDoneRevenueInInr: 0 },
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete registration" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete registration" })).toBeTruthy());
+    expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(screen.getByText("Delete Asha Rao's registration?")).toBeTruthy();
   });
 });

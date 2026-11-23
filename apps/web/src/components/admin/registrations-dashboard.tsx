@@ -1,6 +1,18 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,6 +105,29 @@ export function RegistrationsDashboard({
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [packageFilter, setPackageFilter] = React.useState("ALL");
   const [detailsTarget, setDetailsTarget] = React.useState<RegistrationRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<RegistrationRow | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const router = useRouter();
+
+  async function deleteRegistration() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/v1/admin/registrations/${deleteTarget.id}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error?.message || "The registration could not be deleted");
+      }
+      toast.success(`Deleted ${deleteTarget.fullName}'s registration`);
+      setDeleteTarget(null);
+      // The list and the summary totals both come from the server render.
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The registration could not be deleted");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   const filtered = registrations.filter((row) => {
     if (statusFilter !== "ALL" && row.status !== statusFilter) return false;
@@ -213,6 +248,9 @@ export function RegistrationsDashboard({
                     <Button size="sm" variant="outline" onClick={() => setDetailsTarget(row)}>
                       View details
                     </Button>
+                    <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(row)}>
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -235,6 +273,32 @@ export function RegistrationsDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && !isDeleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.fullName}&apos;s registration?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.registrationCode} · {deleteTarget?.email}
+              {deleteTarget?.status === "PAYMENT_DONE" ? " · This person has marked their payment as done." : ""} This
+              permanently removes the registration and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteRegistration();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete registration"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
