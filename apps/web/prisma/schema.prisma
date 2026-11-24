@@ -112,6 +112,9 @@ model User {
   claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
   savedQuestions      QuestionLibraryItem[]
   profilePhoto       UserProfilePhoto?
+  promptMatrices     PromptMatrix[]     @relation("PromptMatrixCreator")
+  promptBotSessions  PromptBotSession[] @relation("PromptBotSessionOwner")
+  aiUsage            AiUsageDaily[]     @relation("AiUsageOwner")
 
   @@map("users")
 }
@@ -663,4 +666,110 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// Prompt Bot
+// ============================================================================
+
+enum PromptMatrixKind {
+  CORE
+  TASK
+  SKILL
+}
+
+model PromptMatrix {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  name        String
+  description String?
+  kind        PromptMatrixKind
+  isBuiltIn   Boolean          @default(false) @map("is_built_in")
+  isActive    Boolean          @default(true) @map("is_active")
+  createdById String?          @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdBy   User?            @relation("PromptMatrixCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  questions   PromptMatrixQuestion[]
+  sessions    PromptBotSession[]
+  @@index([kind, isActive])
+  @@map("prompt_matrices")
+}
+
+model PromptMatrixQuestion {
+  id       String          @id @default(cuid())
+  matrixId String          @map("matrix_id")
+  order    Int
+  text     String
+  guidance String
+  element  String?
+  isActive Boolean         @default(true) @map("is_active")
+  matrix   PromptMatrix    @relation(fields: [matrixId], references: [id], onDelete: Cascade)
+  answers  PromptBotAnswer[]
+  @@index([matrixId, order])
+  @@map("prompt_matrix_questions")
+}
+
+model PromptBotSession {
+  id            String        @id @default(cuid())
+  userId        String        @map("user_id")
+  title         String        @default("Untitled prompt")
+  basePrompt    String        @map("base_prompt")
+  taskMatrixId  String?       @map("task_matrix_id")
+  taskDetected  Boolean       @default(true) @map("task_detected")
+  scoreRevision Int           @default(0) @map("score_revision")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  user          User          @relation("PromptBotSessionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  taskMatrix    PromptMatrix? @relation(fields: [taskMatrixId], references: [id], onDelete: SetNull)
+  answers       PromptBotAnswer[]
+  enhancements  PromptBotEnhancement[]
+  @@index([userId, updatedAt])
+  @@map("prompt_bot_sessions")
+}
+
+model PromptBotAnswer {
+  id          String               @id @default(cuid())
+  sessionId   String               @map("session_id")
+  questionId  String               @map("question_id")
+  answer      String               @default("")
+  score       Int                  @default(0)
+  reason      String?
+  notRelevant Boolean              @default(false) @map("not_relevant")
+  scoredAt    DateTime?            @map("scored_at")
+  session     PromptBotSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@unique([sessionId, questionId])
+  @@map("prompt_bot_answers")
+}
+
+model PromptBotEnhancement {
+  id                    String           @id @default(cuid())
+  sessionId             String           @map("session_id")
+  version               Int
+  content               String
+  unansweredQuestionIds String[]         @default([]) @map("unanswered_question_ids")
+  model                 String
+  instructionsVersion   String           @map("instructions_version")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  session               PromptBotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@unique([sessionId, version])
+  @@map("prompt_bot_enhancements")
+}
+
+model AiUsageDaily {
+  userId  String @map("user_id")
+  day     String
+  feature String
+  count   Int    @default(0)
+  user    User   @relation("AiUsageOwner", fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, day, feature])
+  @@map("ai_usage_daily")
+}
+
+model AiSettings {
+  id        String   @id @default("singleton")
+  limits    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("ai_settings")
 }
