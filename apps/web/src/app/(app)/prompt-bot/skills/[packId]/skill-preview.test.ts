@@ -46,6 +46,7 @@ const propsFor = (it: SkillItemView, extra: Record<string, unknown> = {}) => ({
   packId: "p1",
   item: it,
   readyCount: 1,
+  aiConfigured: true,
   onItemChange: vi.fn(),
   onRefine: vi.fn(),
   onDirtyChange: vi.fn(),

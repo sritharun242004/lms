@@ -46,7 +46,7 @@ const tick = (ms: number) =>
     await vi.advanceTimersByTimeAsync(ms);
   });
 const steps = () => within(screen.getByRole("navigation", { name: "Steps" }));
-const mount = (initial: SkillPackView = PACK) => render(createElement(PackView, { initial }));
+const mount = (initial: SkillPackView = PACK, aiConfigured = true) => render(createElement(PackView, { initial, aiConfigured, isAdmin: false }));
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -154,6 +154,32 @@ describe("PackView", () => {
     expect((steps().getByRole("button", { name: "Refine" }) as HTMLButtonElement).disabled).toBe(true);
     expect((steps().getByRole("button", { name: "Preview and download" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/No custom skills yet/)).toBeTruthy();
+  });
+});
+
+describe("PackView without the AI configured (M8)", () => {
+  const ready = custom({ status: "READY", files: [{ path: "SKILL.md", bytes: 1 }] });
+  const pack: SkillPackView = { ...PACK, items: [ready, catalogItem] };
+
+  it("still lists skills, but Refine says the AI is not configured and never scores", async () => {
+    mount(pack, false);
+    expect(screen.getByText("board-update")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Refine board-update" }));
+    expect(screen.getByText("Prompt Bot isn't configured yet")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Generate/ })).toBeNull();
+    await tick(5000);
+    expect(calls.some((c) => c.url.endsWith("/score"))).toBe(false);
+  });
+
+  it("keeps the preview and downloads, and blocks Retry generation", async () => {
+    route = (call) =>
+      call.url.endsWith("/items/i1") ? ok({ ...custom({ status: "FAILED" }), files: [{ path: "SKILL.md", content: "x" }] }) : ok({});
+    mount({ ...pack, items: [custom({ status: "FAILED", files: [{ path: "SKILL.md", bytes: 1 }] }), ready] }, false);
+    fireEvent.click(steps().getByRole("button", { name: "Preview and download" }));
+    await tick(0);
+    expect((screen.getByRole("button", { name: /Download pack/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: /Retry generation/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/AI isn't configured/)).toBeTruthy();
   });
 });
 

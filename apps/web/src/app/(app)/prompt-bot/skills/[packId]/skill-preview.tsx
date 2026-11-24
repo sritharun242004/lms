@@ -16,6 +16,8 @@ type Props = {
   packId: string;
   item: SkillItemView;
   readyCount: number;
+  /** Without the AI only generation is unavailable; viewing, editing and downloads still work. */
+  aiConfigured: boolean;
   onItemChange(item: SkillItemView): void;
   onRefine(): void;
   onDirtyChange(dirty: boolean): void;
@@ -28,7 +30,7 @@ const firstFile = (files: SkillFile[]) => files.find((f) => f.path === "SKILL.md
  * is being written and hands the finished item back as a new `item` prop. The pack view carries file
  * paths and sizes only, so the contents load here, per item, whenever a new `item` arrives.
  */
-export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine, onDirtyChange }: Props) {
+export function SkillPreview({ packId, item, readyCount, aiConfigured, onItemChange, onRefine, onDirtyChange }: Props) {
   const [saved, setSaved] = React.useState<SkillFile[]>([]);
   const [files, setFiles] = React.useState<SkillFile[]>([]);
   const [contents, setContents] = React.useState<"loading" | "loaded" | "failed">(item.files ? "loading" : "loaded");
@@ -193,11 +195,12 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
               ))}
             </ul>
           )}
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => void retry()} disabled={busy !== null || dirty}>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => void retry()} disabled={busy !== null || dirty || !aiConfigured}>
             {busy === "retry" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <RotateCcw className="size-4" aria-hidden />}
             Retry generation
           </Button>
-          {dirty && <p className="mt-2 text-xs">Save or undo your edits first. Retrying would replace them.</p>}
+          {!aiConfigured && <p className="mt-2 text-xs">The AI isn&apos;t configured, so skills can&apos;t be generated right now.</p>}
+          {aiConfigured && dirty && <p className="mt-2 text-xs">Save or undo your edits first. Retrying would replace them.</p>}
         </div>
       )}
       {saveErrors.length > 0 && (

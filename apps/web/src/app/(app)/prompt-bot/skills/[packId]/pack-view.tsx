@@ -4,6 +4,7 @@ import { ChevronDown, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NotConfigured } from "@/components/prompt-bot/not-configured";
 import { getPack, patchPack } from "@/lib/skills/client";
 import { GENERATION_STALE_MS } from "@/lib/skills/limits";
 import type { SkillItemView, SkillPackView } from "@/lib/skills/types";
@@ -24,7 +25,7 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "preview", label: "Preview and download" },
 ];
 
-export function PackView({ initial }: { initial: SkillPackView }) {
+export function PackView({ initial, aiConfigured, isAdmin }: { initial: SkillPackView; aiConfigured: boolean; isAdmin: boolean }) {
   const [pack, setPack] = React.useState(initial);
   const [step, setStep] = React.useState<Step>("skills");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -183,23 +184,26 @@ export function PackView({ initial }: { initial: SkillPackView }) {
         />
       )}
 
-      {custom
-        .filter((i) => opened.includes(i.id))
-        .map((i) => (
-          <div key={i.id} hidden={!(step === "refine" && i.id === selected?.id)}>
-            <SkillRefine
-              packId={pack.id}
-              item={i}
-              matrix={pack.matrix}
-              onItemChange={replaceItem}
-              onGenerated={(next) => {
-                replaceItem(next);
-                setSelectedId(next.id);
-                setStep("preview");
-              }}
-            />
-          </div>
-        ))}
+      {step === "refine" && !aiConfigured && <NotConfigured isAdmin={isAdmin} />}
+
+      {aiConfigured &&
+        custom
+          .filter((i) => opened.includes(i.id))
+          .map((i) => (
+            <div key={i.id} hidden={!(step === "refine" && i.id === selected?.id)}>
+              <SkillRefine
+                packId={pack.id}
+                item={i}
+                matrix={pack.matrix}
+                onItemChange={replaceItem}
+                onGenerated={(next) => {
+                  replaceItem(next);
+                  setSelectedId(next.id);
+                  setStep("preview");
+                }}
+              />
+            </div>
+          ))}
 
       {step === "preview" && selected && (
         <SkillPreview
@@ -207,6 +211,7 @@ export function PackView({ initial }: { initial: SkillPackView }) {
           packId={pack.id}
           item={selected}
           readyCount={readyCount}
+          aiConfigured={aiConfigured}
           onItemChange={replaceItem}
           onRefine={() => go("refine")}
           onDirtyChange={onDirtyChange}
