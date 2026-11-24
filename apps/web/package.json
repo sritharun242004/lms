@@ -17,6 +17,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.13.0",
     "@cms/shared": "*",
     "@cp949/react-wordcloud": "1.0.1",
     "@hookform/resolvers": "^5.0.0",
