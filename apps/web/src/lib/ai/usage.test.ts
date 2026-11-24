@@ -22,6 +22,11 @@ describe("usage limits", () => {
     expect(utcDay(NOW)).toBe("2026-11-24");
   });
 
+  it("meters file analysis with its own daily default", () => {
+    expect(DEFAULT_LIMITS.skill_analyze).toBe(40);
+    expect(normalizeLimits({ skill_analyze: 5 }).skill_analyze).toBe(5);
+  });
+
   it("merges stored limits over defaults and rejects junk", () => {
     expect(normalizeLimits({ enhance: 5, score: -3, bogus: 1 })).toEqual({ ...DEFAULT_LIMITS, enhance: 5 });
     expect(normalizeLimits(null)).toEqual(DEFAULT_LIMITS);

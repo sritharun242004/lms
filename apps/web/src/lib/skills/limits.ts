@@ -28,3 +28,34 @@ export const GENERATION_TIMEOUT_MS = 240_000;
  * Two bounded attempts (2 x 240 s) plus database writes fit inside it.
  */
 export const GENERATION_STALE_MS = 10 * 60_000;
+
+/** Jobs redesign (spec 2026-11-25, Limits). Pure constants: safe for client components. */
+export const JOB_LIMITS = {
+  titleChars: 120,
+  descriptionChars: 20_000,
+  filesPerJob: 10,
+  fileBytes: 20 * 1024 * 1024,
+  assetBytes: 10 * 1024 * 1024,
+  skillAssetBytes: 25 * 1024 * 1024,
+  skillsPerJob: 5,
+  fileIdsPerSkill: 10,
+  analysisChars: 12_000,
+  analysisExcerptChars: 1_500,
+  scoringBaseChars: 12_000,
+  factsBytes: 64 * 1024,
+  ooxmlPartBytes: 16 * 1024 * 1024,
+  ooxmlTotalBytes: 64 * 1024 * 1024,
+  ooxmlPartsParsed: 300,
+  slidesDetailed: 60,
+  pdfPagesForAnalysis: 100,
+  imageEdgePx: 1568,
+  versionsKept: 20,
+  packZipBytes: 100 * 1024 * 1024,
+} as const;
+
+/** One file analysis call (run in after()); the SDK retries it once. */
+export const ANALYSIS_TIMEOUT_MS = 90_000;
+/** A PENDING analysis older than this was interrupted and may be started again: 2 x 90 s plus writes fit inside it. */
+export const ANALYSIS_STALE_MS = 5 * 60_000;
+/** Suggest runs inside the request (App Runner cuts requests at 120 s): one attempt. */
+export const SUGGEST_TIMEOUT_MS = 100_000;
