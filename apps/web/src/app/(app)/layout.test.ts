@@ -43,7 +43,7 @@ describe("desktop shared navigation", () => {
     expect(markup).not.toContain("Chats");
   });
 
-  it.each(["ADMIN", "MENTOR", "MENTEE"])("renders the Prompt Bot header button for %s before the theme and user controls", async (role) => {
+  it.each(["ADMIN", "MENTOR"])("renders the Prompt Bot header button for %s before the theme and user controls", async (role) => {
     mocks.getCurrentUser.mockResolvedValue({ id: "user-1", role, name: "Portal User" });
 
     const markup = renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
@@ -52,6 +52,15 @@ describe("desktop shared navigation", () => {
     expect(markup.indexOf("Prompt Bot")).toBeGreaterThan(-1);
     expect(markup.indexOf("Prompt Bot")).toBeLessThan(markup.indexOf("Theme"));
     expect(markup.indexOf("Theme")).toBeLessThan(markup.indexOf("User menu"));
+  });
+
+  it("hides the Prompt Bot header button from participants for now", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "mentee-1", role: "MENTEE", name: "Participant" });
+
+    const markup = renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+
+    expect(markup).not.toContain("Prompt Bot");
+    expect(markup).toContain("Theme");
   });
 
   it("passes isAdmin=true only for an ADMIN, and isMentee correctly for a MENTEE", async () => {
