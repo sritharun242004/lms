@@ -115,6 +115,8 @@ model User {
   promptMatrices     PromptMatrix[]     @relation("PromptMatrixCreator")
   promptBotSessions  PromptBotSession[] @relation("PromptBotSessionOwner")
   aiUsage            AiUsageDaily[]     @relation("AiUsageOwner")
+  skillPacks         SkillPack[]         @relation("SkillPackOwner")
+  skillCatalogEntries SkillCatalogEntry[] @relation("SkillCatalogCreator")
 
   @@map("users")
 }
@@ -706,6 +708,7 @@ model PromptMatrixQuestion {
   isActive Boolean         @default(true) @map("is_active")
   matrix   PromptMatrix    @relation(fields: [matrixId], references: [id], onDelete: Cascade)
   answers  PromptBotAnswer[]
+  skillAnswers SkillItemAnswer[]
   @@index([matrixId, order])
   @@map("prompt_matrix_questions")
 }
@@ -772,4 +775,90 @@ model AiSettings {
   limits    Json
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("ai_settings")
+}
+
+// ============================================================================
+// Prompt Bot — Skills Builder
+// ============================================================================
+
+enum SkillItemKind {
+  CUSTOM
+  CATALOG
+}
+
+enum SkillItemStatus {
+  DRAFT
+  GENERATING
+  READY
+  FAILED
+}
+
+model SkillPack {
+  id          String          @id @default(cuid())
+  userId      String          @map("user_id")
+  title       String          @default("My skills")
+  description String
+  role        String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  user        User            @relation("SkillPackOwner", fields: [userId], references: [id], onDelete: Cascade)
+  items       SkillPackItem[]
+  @@index([userId, updatedAt])
+  @@map("skill_packs")
+}
+
+model SkillPackItem {
+  id                  String             @id @default(cuid())
+  packId              String             @map("pack_id")
+  order               Int
+  kind                SkillItemKind
+  catalogEntryId      String?            @map("catalog_entry_id")
+  name                String
+  purpose             String
+  status              SkillItemStatus    @default(DRAFT)
+  files               Json?
+  validationErrors    String[]           @default([]) @map("validation_errors")
+  scoreRevision       Int                @default(0) @map("score_revision")
+  generationStartedAt DateTime?          @map("generation_started_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  pack                SkillPack          @relation(fields: [packId], references: [id], onDelete: Cascade)
+  catalogEntry        SkillCatalogEntry? @relation(fields: [catalogEntryId], references: [id], onDelete: SetNull)
+  answers             SkillItemAnswer[]
+  @@index([packId, order])
+  @@map("skill_pack_items")
+}
+
+model SkillItemAnswer {
+  id          String               @id @default(cuid())
+  itemId      String               @map("item_id")
+  questionId  String               @map("question_id")
+  answer      String               @default("")
+  score       Int                  @default(0)
+  reason      String?
+  notRelevant Boolean              @default(false) @map("not_relevant")
+  scoredAt    DateTime?            @map("scored_at")
+  item        SkillPackItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@unique([itemId, questionId])
+  @@map("skill_item_answers")
+}
+
+model SkillCatalogEntry {
+  id           String          @id @default(cuid())
+  slug         String          @unique
+  name         String
+  description  String
+  sourceUrl    String          @map("source_url")
+  license      String
+  bundlable    Boolean         @default(false)
+  installNotes String          @map("install_notes")
+  tags         String[]        @default([])
+  isActive     Boolean         @default(true) @map("is_active")
+  createdById  String?         @map("created_by_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  createdBy    User?           @relation("SkillCatalogCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items        SkillPackItem[]
+  @@map("skill_catalog_entries")
 }
