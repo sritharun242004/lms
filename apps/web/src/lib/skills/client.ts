@@ -1,5 +1,5 @@
 import { call, type ScoreReply } from "@/lib/prompt-bot/client";
-import type { SkillFile, SkillItemView, SkillPackView } from "./types";
+import type { SkillFile, SkillItemDetail, SkillItemView, SkillPackView } from "./types";
 
 export const skillPackUrl = (packId: string) => `/api/v1/prompt-bot/skill-packs/${packId}`;
 const itemUrl = (packId: string, itemId: string) => `${skillPackUrl(packId)}/items/${itemId}`;
@@ -11,7 +11,7 @@ export const getPack = (packId: string) => call<SkillPackView>(skillPackUrl(pack
 export const patchPack = (packId: string, patch: { title: string }) => call<SkillPackView>(skillPackUrl(packId), send("PATCH", patch));
 export const addItem = (packId: string, input: { name: string; purpose: string }) =>
   call<SkillItemView>(`${skillPackUrl(packId)}/items`, send("POST", input));
-export const getItem = (packId: string, itemId: string) => call<SkillItemView>(itemUrl(packId, itemId));
+export const getItem = (packId: string, itemId: string) => call<SkillItemDetail>(itemUrl(packId, itemId));
 export const patchItem = (packId: string, itemId: string, patch: { name?: string; purpose?: string; order?: number }) =>
   call<SkillItemView>(itemUrl(packId, itemId), send("PATCH", patch));
 export const deleteItem = (packId: string, itemId: string) => call<{ deleted: true }>(itemUrl(packId, itemId), send("DELETE"));

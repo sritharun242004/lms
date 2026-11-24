@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
   packFindFirst: vi.fn(),
   packCreate: vi.fn(),
   itemFindFirst: vi.fn(),
+  itemFindMany: vi.fn(),
   itemUpdate: vi.fn(),
+  queryRaw: vi.fn(),
   answerCreateMany: vi.fn(),
   answerUpdate: vi.fn(),
   matrixFindFirst: vi.fn(),
@@ -15,16 +17,27 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     skillPack: { findFirst: mocks.packFindFirst, create: mocks.packCreate },
-    skillPackItem: { findFirst: mocks.itemFindFirst, update: mocks.itemUpdate },
+    skillPackItem: { findFirst: mocks.itemFindFirst, findMany: mocks.itemFindMany, update: mocks.itemUpdate },
     skillItemAnswer: { createMany: mocks.answerCreateMany, update: mocks.answerUpdate },
     promptMatrix: { findFirst: mocks.matrixFindFirst },
     $transaction: mocks.transaction,
+    $queryRaw: mocks.queryRaw,
   },
 }));
 vi.mock("@/lib/ai/claude", () => ({ scoreQuestions: mocks.scoreQuestions }));
 vi.mock("@/lib/ai/usage", () => ({ consumeAiUsage: mocks.consumeAiUsage }));
 
-import { createPackFromSplit, INTERRUPTED_MESSAGE, loadPackView, runItemScoring, toItemView, UNREADABLE_FILES_MESSAGE } from "./packs";
+import { PACK_LIMITS } from "./limits";
+import {
+  createPackFromSplit,
+  INTERRUPTED_MESSAGE,
+  loadItemDetail,
+  loadPackView,
+  loadReadySkillFiles,
+  runItemScoring,
+  toItemView,
+  UNREADABLE_FILES_MESSAGE,
+} from "./packs";
 
 const NOW = new Date("2026-11-24T12:00:00Z");
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000);
@@ -82,29 +95,37 @@ describe("loadPackView", () => {
     expect(mocks.packFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "p1", userId: "u2" } }));
   });
 
-  it("maps items with files, active answers only and catalog cards", async () => {
-    const files = [{ path: "SKILL.md", content: "x" }];
+  it("maps items with file paths and sizes (never contents), active answers only and catalog cards", async () => {
+    const index = [{ path: "SKILL.md", bytes: 1 }];
     mocks.packFindFirst.mockResolvedValue({
       id: "p1",
       title: "My week",
       description: "d",
       role: "CTO",
       items: [
-        row({ status: "READY", files, answers: [answer("pbq_skill_1", { answer: "Monthly", score: 2 }), answer("retired_question")] }),
+        row({ status: "READY", files: undefined, answers: [answer("pbq_skill_1", { answer: "Monthly", score: 2 }), answer("retired_question")] }),
         row({
           id: "i2",
           order: 1,
           kind: "CATALOG",
           name: "pptx",
           purpose: "Decks.",
+          files: undefined,
           catalogEntry: { id: "scat_pptx", slug: "pptx", name: "PowerPoint", sourceUrl: "https://github.com/x", license: "source-available", bundlable: false, installNotes: "n" },
         }),
       ],
     });
+    mocks.queryRaw.mockResolvedValue([
+      { id: "i1", file_index: index },
+      { id: "i2", file_index: null },
+    ]);
     const view = (await loadPackView("p1", "u1", NOW))!;
+    expect(mocks.packFindFirst.mock.calls[0][0].include.items.omit).toEqual({ files: true });
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(1);
     expect(view.matrix.questions.map((q) => q.id)).toEqual(["pbq_skill_1", "pbq_skill_2"]);
-    expect(view.items[0]).toMatchObject({ status: "READY", files, answers: [{ questionId: "pbq_skill_1", answer: "Monthly", score: 2 }] });
+    expect(view.items[0]).toMatchObject({ status: "READY", files: index, answers: [{ questionId: "pbq_skill_1", answer: "Monthly", score: 2 }] });
     expect(view.items[0].answers).toHaveLength(1);
+    expect(view.items[1].files).toBeNull();
     expect(view.items[1].catalog).toEqual({
       id: "scat_pptx",
       slug: "pptx",
@@ -117,26 +138,59 @@ describe("loadPackView", () => {
   });
 });
 
+describe("loadItemDetail", () => {
+  it("returns one owned item with its file contents", async () => {
+    const files = [{ path: "SKILL.md", content: "x" }];
+    mocks.itemFindFirst.mockResolvedValue(row({ status: "READY", files }));
+    const detail = (await loadItemDetail("p1", "i1", "u1"))!;
+    expect(mocks.itemFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "i1", packId: "p1", pack: { userId: "u1" } } }));
+    expect(detail).toMatchObject({ id: "i1", status: "READY", files });
+  });
+
+  it("returns null for someone else's item", async () => {
+    mocks.itemFindFirst.mockResolvedValue(null);
+    expect(await loadItemDetail("p1", "i1", "u2")).toBeNull();
+  });
+});
+
+describe("loadReadySkillFiles", () => {
+  it("loads contents only for the owner's ready custom skills, skipping unreadable files", async () => {
+    const files = [{ path: "SKILL.md", content: "x" }];
+    mocks.itemFindMany.mockResolvedValue([
+      { name: "board-update", purpose: "Writes it.", files },
+      { name: "broken", purpose: "Broken.", files: { not: "an array" } },
+    ]);
+    expect(await loadReadySkillFiles("p1", "u1")).toEqual([{ name: "board-update", purpose: "Writes it.", files }]);
+    expect(mocks.itemFindMany).toHaveBeenCalledWith({
+      where: { packId: "p1", pack: { userId: "u1" }, kind: "CUSTOM", status: "READY" },
+      orderBy: { order: "asc" },
+      select: { name: true, purpose: true, files: true },
+    });
+  });
+});
+
 describe("toItemView", () => {
   it("reports an interrupted generation as FAILED after 10 minutes, and a recent one as GENERATING", () => {
-    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(11) }) as never, ACTIVE, NOW)).toMatchObject({
+    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(11) }) as never, null, ACTIVE, NOW)).toMatchObject({
       status: "FAILED",
       validationErrors: [INTERRUPTED_MESSAGE],
     });
-    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(5) }) as never, ACTIVE, NOW).status).toBe("GENERATING");
+    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(5) }) as never, null, ACTIVE, NOW).status).toBe("GENERATING");
   });
 
   it("judges staleness by generationStartedAt, never updatedAt (scoring bumps updatedAt)", () => {
-    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(16), updatedAt: NOW }) as never, ACTIVE, NOW).status).toBe("FAILED");
-    expect(toItemView(row({ status: "GENERATING", generationStartedAt: null, updatedAt: NOW }) as never, ACTIVE, NOW).status).toBe("FAILED");
+    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(16), updatedAt: NOW }) as never, null, ACTIVE, NOW).status).toBe("FAILED");
+    expect(toItemView(row({ status: "GENERATING", generationStartedAt: null, updatedAt: NOW }) as never, null, ACTIVE, NOW).status).toBe("FAILED");
   });
 
-  it("reports stored files it cannot read as FAILED", () => {
-    expect(toItemView(row({ status: "READY", files: { not: "an array" } }) as never, ACTIVE, NOW)).toMatchObject({
-      status: "FAILED",
-      files: null,
-      validationErrors: [UNREADABLE_FILES_MESSAGE],
-    });
+  it("reports stored files it cannot read as FAILED (the database reports a non-array as false)", () => {
+    for (const index of [false, [{ path: null, bytes: null }]]) {
+      expect(toItemView(row({ status: "READY" }) as never, index, ACTIVE, NOW)).toMatchObject({
+        status: "FAILED",
+        files: null,
+        validationErrors: [UNREADABLE_FILES_MESSAGE],
+      });
+    }
   });
 });
 
@@ -183,6 +237,13 @@ describe("runItemScoring", () => {
 });
 
 describe("createPackFromSplit", () => {
+  it("never creates more items than a pack may hold", async () => {
+    mocks.packCreate.mockResolvedValue({ id: "p1" });
+    const customSkills = Array.from({ length: PACK_LIMITS.items + 5 }, (_, i) => ({ name: `skill-${i}`, purpose: "p" }));
+    await createPackFromSplit({ userId: "u1", title: "t", description: "d", role: null, split: { customSkills, catalogMatches: [] }, catalog: [] });
+    expect(mocks.packCreate.mock.calls[0][0].data.items.create).toHaveLength(PACK_LIMITS.items);
+  });
+
   it("creates custom items first, then catalog items linked by slug", async () => {
     mocks.packCreate.mockResolvedValue({ id: "p1" });
     const id = await createPackFromSplit({

@@ -6,6 +6,14 @@ import type { SkillFile } from "./types";
 
 export type ZipSkill = { name: string; purpose: string; files: SkillFile[] };
 
+/** Two skills would share one folder (and one upload zip); merging them would silently lose one. */
+export class DuplicateSkillNameError extends Error {
+  constructor(public skillName: string) {
+    super(`Two skills are named "${skillName}"`);
+    this.name = "DuplicateSkillNameError";
+  }
+}
+
 /** Every entry path is built here from a validated name and a re-checked path; nothing raw reaches the archive. */
 function skillEntries(prefix: string, skill: ZipSkill): Zippable {
   if (!isValidSkillName(skill.name)) throw new Error("unsafe skill name");
@@ -36,7 +44,10 @@ export function buildPackZip(input: {
     [`${root}README.md`]: strToU8(renderReadme({ ...input, skills: input.skills.map((s) => ({ name: s.name, purpose: s.purpose })) })),
     [`${root}recommended-skills.md`]: strToU8(renderRecommended(input.recommendations)),
   };
+  const names = new Set<string>();
   for (const skill of input.skills) {
+    if (names.has(skill.name)) throw new DuplicateSkillNameError(skill.name);
+    names.add(skill.name);
     entries[`${root}upload-to-claude/${skill.name}.zip`] = [buildSkillZip(skill), { level: 0 }];
     Object.assign(entries, skillEntries(`${root}skills/`, skill));
   }

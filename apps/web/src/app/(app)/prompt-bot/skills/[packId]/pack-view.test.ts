@@ -113,7 +113,7 @@ describe("PackView", () => {
   });
 
   it("confirms before Generate again replaces a skill's files, and does nothing on cancel", async () => {
-    const ready = custom({ status: "READY", files: [{ path: "SKILL.md", content: "x" }] });
+    const ready = custom({ status: "READY", files: [{ path: "SKILL.md", bytes: 1 }] });
     mount({ ...PACK, items: [ready, catalogItem] });
     fireEvent.click(screen.getByRole("button", { name: "Refine board-update" }));
     const generateAgain = () =>
@@ -188,7 +188,7 @@ describe("PackView polling (C8)", () => {
 
   it("polls the pack while a skill is being written, on any step, and updates the badge", async () => {
     route = (call) =>
-      call.url === "/api/v1/prompt-bot/skill-packs/p1" ? ok({ ...PACK, items: [custom({ status: "READY", files: [{ path: "SKILL.md", content: "x" }] }), catalogItem] }) : ok({});
+      call.url === "/api/v1/prompt-bot/skill-packs/p1" ? ok({ ...PACK, items: [custom({ status: "READY", files: [{ path: "SKILL.md", bytes: 1 }] }), catalogItem] }) : ok({});
     mount(generating);
     expect(screen.getByText("Writing…")).toBeTruthy();
     await tick(3000);

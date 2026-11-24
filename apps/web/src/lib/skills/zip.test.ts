@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { buildPackZip, buildSkillZip, zipResponse } from "./zip";
+import { buildPackZip, buildSkillZip, DuplicateSkillNameError, zipResponse } from "./zip";
 
 const SKILL = {
   name: "board-update",
@@ -42,6 +42,15 @@ describe("buildPackZip", () => {
   it("includes one upload-ready zip per skill with the folder at its root", () => {
     const inner = unzipSync(entries["my-week/upload-to-claude/board-update.zip"]);
     expect(Object.keys(inner).sort()).toEqual(["board-update/SKILL.md", "board-update/references/context.md"]);
+  });
+});
+
+describe("buildPackZip with clashing names", () => {
+  it("refuses two skills with the same folder name instead of merging them", () => {
+    const build = () =>
+      buildPackZip({ slug: "my-week", title: "t", description: "d", role: null, skills: [SKILL, { ...SKILL, purpose: "Other" }], recommendations: [] });
+    expect(build).toThrow(DuplicateSkillNameError);
+    expect(build).toThrow(/board-update/);
   });
 });
 

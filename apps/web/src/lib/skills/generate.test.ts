@@ -19,6 +19,7 @@ vi.mock("./packs", async (orig) => ({
   loadItemView: mocks.loadItemView,
 }));
 
+import { Prisma } from "@prisma/client";
 import { LimitReachedError } from "@/lib/ai/usage";
 import { AlreadyGeneratingError, GENERATION_FAILED_MESSAGE, runGeneration, SkillNotFoundError, startGeneration } from "./generate";
 import { GENERATION_STALE_MS, GENERATION_TIMEOUT_MS } from "./limits";
@@ -182,6 +183,16 @@ describe("runGeneration", () => {
     const { data } = mocks.update.mock.calls[0][0];
     expect(data.status).toBe("FAILED");
     expect(data.files[0].content).toContain("Use <this>");
+  });
+
+  it("never stores a draft over the storage limits, even as a FAILED draft", async () => {
+    const huge = { ...GOOD, references: [{ path: "big.md", content: "x".repeat(200 * 1024 + 1) }] };
+    mocks.generateSkillDraft.mockResolvedValue(huge);
+    await runGeneration("p1", "i1", "u1");
+    const { data } = mocks.update.mock.calls[0][0];
+    expect(data.status).toBe("FAILED");
+    expect(data.validationErrors).toEqual([expect.stringContaining("200 KB")]);
+    expect(data.files).toBe(Prisma.DbNull);
   });
 
   it("turns an AI failure into FAILED with a readable message, without throwing", async () => {

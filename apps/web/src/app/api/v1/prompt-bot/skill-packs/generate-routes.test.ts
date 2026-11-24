@@ -28,6 +28,7 @@ vi.mock("@/lib/skills/generate", async (orig) => ({
 }));
 
 import { AlreadyGeneratingError, SkillNotFoundError } from "@/lib/skills/generate";
+import { FILES_REQUEST_BYTES } from "@/lib/skills/limits";
 import * as generate from "./[id]/items/[itemId]/generate/route";
 import * as files from "./[id]/items/[itemId]/files/route";
 
@@ -40,7 +41,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTEE" });
   mocks.isAiConfigured.mockReturnValue(true);
-  mocks.findOwnedCustomItem.mockResolvedValue({ id: "i1", name: "board-update", status: "READY", generationStartedAt: null });
+  mocks.findOwnedCustomItem.mockResolvedValue({
+    id: "i1",
+    name: "board-update",
+    status: "READY",
+    generationStartedAt: null,
+    files: [{ path: "SKILL.md", content: SKILL_MD }],
+  });
   mocks.loadItemView.mockResolvedValue({ id: "i1", status: "READY" });
 });
 
@@ -109,6 +116,30 @@ describe("files route", () => {
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(body.error.details.files).toEqual([expect.stringContaining("SKILL.md")]);
+  });
+
+  it("refuses to save files for a skill that was never generated, so PATCH cannot mint a READY skill", async () => {
+    mocks.findOwnedCustomItem.mockResolvedValueOnce({ id: "i1", name: "board-update", status: "DRAFT", generationStartedAt: null, files: null });
+    const res = await files.PATCH(req("PATCH", { files: [{ path: "SKILL.md", content: SKILL_MD }] }), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("NOT_GENERATED");
+    expect(mocks.itemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a body over the request limit before parsing it, with or without a content-length", async () => {
+    const body = JSON.stringify({ files: [{ path: "references/a.md", content: "x".repeat(FILES_REQUEST_BYTES) }] });
+    const declared = new NextRequest("http://localhost/x", { method: "PATCH", headers: { "content-type": "application/json", "content-length": String(body.length) }, body });
+    const streamed = new NextRequest("http://localhost/x", { method: "PATCH", headers: { "content-type": "application/json" }, body });
+    for (const request of [declared, streamed]) {
+      const res = await files.PATCH(request, ctx);
+      expect(res.status).toBe(413);
+      const json = await res.json();
+      expect(json.error.code).toBe("PAYLOAD_TOO_LARGE");
+      expect(json.error.details.limit).toEqual([String(FILES_REQUEST_BYTES)]);
+      expect(json.error.details.files).toEqual([expect.stringContaining("2 MB")]);
+    }
+    expect(mocks.findOwnedCustomItem).not.toHaveBeenCalled();
+    expect(mocks.itemUpdate).not.toHaveBeenCalled();
   });
 
   it("returns 404 for someone else's skill and 409 while it is being written", async () => {

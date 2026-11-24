@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { validateSkillFiles } from "@/lib/skills/format";
+import { PACK_LIMITS } from "@/lib/skills/limits";
 
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   itemDelete: vi.fn(),
   loadPackView: vi.fn(),
   loadItemView: vi.fn(),
+  loadItemDetail: vi.fn(),
   createPackFromSplit: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
@@ -33,6 +35,7 @@ vi.mock("@/lib/skills/packs", async (orig) => ({
   ...(await orig<typeof import("@/lib/skills/packs")>()),
   loadPackView: mocks.loadPackView,
   loadItemView: mocks.loadItemView,
+  loadItemDetail: mocks.loadItemDetail,
   createPackFromSplit: mocks.createPackFromSplit,
 }));
 
@@ -147,21 +150,40 @@ describe("/skill-packs/:id", () => {
 });
 
 describe("POST /skill-packs/:id/items", () => {
-  it("adds a custom skill with a name unique among the pack's custom skills", async () => {
-    mocks.packFindFirst.mockResolvedValue({
-      id: "p1",
-      items: [
-        { name: "board-update", kind: "CUSTOM", order: 0 },
-        { name: "pptx", kind: "CATALOG", order: 1 },
-      ],
-    });
+  const packWith = (names: string[]) => ({
+    id: "p1",
+    items: [...names.map((name, order) => ({ name, kind: "CUSTOM", order })), { name: "pptx", kind: "CATALOG", order: names.length }],
+  });
+
+  it("adds a custom skill under its normalised name after the last item", async () => {
+    mocks.packFindFirst.mockResolvedValue(packWith(["board-update"]));
     mocks.itemCreate.mockResolvedValue({ id: "i2" });
-    const res = await items.POST(json("POST", { name: "Board Update", purpose: "Writes the\nupdate." }), packCtx);
+    const res = await items.POST(json("POST", { name: "Weekly Plan", purpose: "Plans the\nweek." }), packCtx);
     expect(res.status).toBe(201);
     expect(mocks.itemCreate).toHaveBeenCalledWith({
-      data: { packId: "p1", kind: "CUSTOM", order: 2, name: "board-update-2", purpose: "Writes the update." },
+      data: { packId: "p1", kind: "CUSTOM", order: 2, name: "weekly-plan", purpose: "Plans the week." },
       select: { id: true },
     });
+  });
+
+  it("rejects a name another custom skill in the pack already has", async () => {
+    mocks.packFindFirst.mockResolvedValue(packWith(["board-update"]));
+    const res = await items.POST(json("POST", { name: "Board Update", purpose: "Writes it." }), packCtx);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("DUPLICATE_NAME");
+    expect(body.error.message).toContain('"board-update"');
+    expect(mocks.itemCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to add past the pack's item limit and reports the limit", async () => {
+    mocks.packFindFirst.mockResolvedValue(packWith(Array.from({ length: PACK_LIMITS.items - 1 }, (_, i) => `skill-${i}`)));
+    const res = await items.POST(json("POST", { name: "One more", purpose: "x" }), packCtx);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("PACK_FULL");
+    expect(body.error.details).toEqual({ items: [String(PACK_LIMITS.items)] });
+    expect(mocks.itemCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -176,12 +198,20 @@ describe("PATCH /skill-packs/:id/items/:itemId", () => {
     expect(validateSkillFiles(data.files, "weekly-report")).toEqual([]);
   });
 
-  it("suffixes a rename that matches a sibling's name", async () => {
+  it("rejects a rename to a sibling's name", async () => {
     mocks.itemFindFirst.mockResolvedValue(
       ownedItem({ pack: { items: [{ id: "i1", name: "board-update", kind: "CUSTOM" }, { id: "i2", name: "weekly-report", kind: "CUSTOM" }] } }),
     );
-    await item.PATCH(json("PATCH", { name: "Weekly report" }), itemCtx);
-    expect(mocks.itemUpdate.mock.calls[0][0].data.name).toBe("weekly-report-2");
+    const res = await item.PATCH(json("PATCH", { name: "Weekly report" }), itemCtx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("DUPLICATE_NAME");
+    expect(mocks.itemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a rename that normalises to the skill's own name", async () => {
+    mocks.itemFindFirst.mockResolvedValue(ownedItem());
+    expect((await item.PATCH(json("PATCH", { name: "Board Update" }), itemCtx)).status).toBe(200);
+    expect(mocks.itemUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses to rename while the skill is being written", async () => {
@@ -195,6 +225,16 @@ describe("PATCH /skill-packs/:id/items/:itemId", () => {
   it("refuses to rename a catalog recommendation", async () => {
     mocks.itemFindFirst.mockResolvedValue(ownedItem({ kind: "CATALOG", files: null }));
     expect((await item.PATCH(json("PATCH", { name: "Other" }), itemCtx)).status).toBe(400);
+  });
+
+  it("GET returns the item with its file contents (the preview loads them per item)", async () => {
+    mocks.loadItemDetail.mockResolvedValue({ id: "i1", files: [{ path: "SKILL.md", content: SKILL_MD }] });
+    const res = await item.GET(json("GET"), itemCtx);
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.files[0].content).toBe(SKILL_MD);
+    expect(mocks.loadItemDetail).toHaveBeenCalledWith("p1", "i1", "u1");
+    mocks.loadItemDetail.mockResolvedValue(null);
+    expect((await item.GET(json("GET"), itemCtx)).status).toBe(404);
   });
 
   it("returns 404 for someone else's item, for PATCH and DELETE", async () => {

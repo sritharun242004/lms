@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSkillPath, validateSkillFiles, validateSkillMd, withSkillName } from "./format";
+import { checkSkillPath, validateSkillFiles, validateSkillMd, withinStorageLimits, withSkillName } from "./format";
 
 const NAME = "board-update";
 const VALID = `name: ${NAME}\ndescription: "Writes the monthly board update. Use when asked for a board update."`;
@@ -104,9 +104,17 @@ describe("validateSkillFiles", () => {
     expect(validateSkillFiles([skillMd, { path: "references/a.md", content: "é".repeat(102401) }], NAME)).toEqual([expect.stringMatching(/200 KB/)]);
   });
 
-  it("enforces 1 MB per skill", () => {
-    const big = Array.from({ length: 6 }, (_, i) => ({ path: `references/part-${i}.md`, content: "x".repeat(180 * 1024) }));
-    expect(validateSkillFiles([skillMd, ...big], NAME)).toEqual([expect.stringMatching(/1 MB/)]);
+  it("enforces 512 KB per skill", () => {
+    const part = (i: number) => ({ path: `references/part-${i}.md`, content: "x".repeat(180 * 1024) });
+    expect(validateSkillFiles([skillMd, part(0), part(1)], NAME)).toEqual([]);
+    expect(validateSkillFiles([skillMd, part(0), part(1), part(2)], NAME)).toEqual([expect.stringMatching(/512 KB limit/)]);
+  });
+
+  it("knows when a draft is too big to store at all (count, per-file or per-skill bytes)", () => {
+    expect(withinStorageLimits([skillMd])).toBe(true);
+    expect(withinStorageLimits([skillMd, { path: "references/a.md", content: "x".repeat(200 * 1024 + 1) }])).toBe(false);
+    expect(withinStorageLimits(Array.from({ length: 3 }, (_, i) => ({ path: `references/${i}.md`, content: "x".repeat(180 * 1024) })))).toBe(false);
+    expect(withinStorageLimits(Array.from({ length: 101 }, (_, i) => ({ path: `references/${i}.md`, content: "" })))).toBe(false);
   });
 
   it("allows at most 100 files", () => {

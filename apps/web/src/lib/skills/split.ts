@@ -1,7 +1,6 @@
+import { MAX_CATALOG_MATCHES, MAX_CUSTOM_SKILLS } from "./limits";
 import { oneLine, uniqueSkillName } from "./names";
 
-export const MAX_CUSTOM_SKILLS = 8;
-export const MAX_CATALOG_MATCHES = 6;
 export const PURPOSE_MAX = 300;
 
 export type RawSplit = { customSkills: { name: string; purpose: string }[]; catalogMatches: { slug: string; why: string }[] };

@@ -1,17 +1,8 @@
 import { isMap, parse, parseDocument } from "yaml";
 import { splitFrontmatter } from "./frontmatter";
+import { SKILL_LIMITS } from "./limits";
 import type { SkillFile } from "./types";
 
-/** Agent Skills rules (Anthropic skill-creator validator, verified 2026-11-24) and the spec's size limits. */
-export const SKILL_LIMITS = {
-  fileBytes: 200 * 1024,
-  skillBytes: 1024 * 1024,
-  files: 100,
-  pathChars: 200,
-  nameChars: 64,
-  descriptionChars: 1024,
-  compatibilityChars: 500,
-} as const;
 export const SKILL_FOLDERS = ["references", "scripts", "assets"] as const;
 
 const ALLOWED_KEYS = ["allowed-tools", "compatibility", "description", "license", "metadata", "name"];
@@ -114,13 +105,25 @@ export function validateSkillFiles(files: SkillFile[], expectedName: string): st
     seen.add(key);
     const bytes = utf8Bytes(file.content);
     total += bytes;
-    if (bytes > SKILL_LIMITS.fileBytes) errors.push(`${show(file.path)}: ${kb(bytes)} is over the 200 KB file limit`);
+    if (bytes > SKILL_LIMITS.fileBytes) errors.push(`${show(file.path)}: ${kb(bytes)} is over the ${kb(SKILL_LIMITS.fileBytes)} file limit`);
   }
-  if (total > SKILL_LIMITS.skillBytes) errors.push(`The skill is ${kb(total)}, over the 1 MB limit`);
+  if (total > SKILL_LIMITS.skillBytes) errors.push(`The skill is ${kb(total)}, over the ${kb(SKILL_LIMITS.skillBytes)} limit`);
   const skillMd = files.find((f) => f.path === "SKILL.md");
   if (!skillMd) errors.push("SKILL.md is missing");
   else errors.push(...validateSkillMd(skillMd.content, expectedName));
   return errors;
+}
+
+/** The size and count limits alone: a draft outside them is never stored, not even as a FAILED draft to fix. */
+export function withinStorageLimits(files: SkillFile[]): boolean {
+  if (files.length > SKILL_LIMITS.files) return false;
+  let total = 0;
+  for (const file of files) {
+    const bytes = utf8Bytes(file.content);
+    if (bytes > SKILL_LIMITS.fileBytes) return false;
+    total += bytes;
+  }
+  return total <= SKILL_LIMITS.skillBytes;
 }
 
 /** Sets the frontmatter `name` (the item name owns it); leaves unparseable content unchanged for the validator to report. */

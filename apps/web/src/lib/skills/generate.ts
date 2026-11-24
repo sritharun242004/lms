@@ -1,8 +1,9 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { generateSkillDraft } from "@/lib/ai/claude";
 import { consumeAiUsage } from "@/lib/ai/usage";
 import { assembleSkillFiles } from "./assemble";
-import { validateSkillFiles } from "./format";
+import { validateSkillFiles, withinStorageLimits } from "./format";
 import { buildGenerateMessage, buildRetryMessage } from "./instructions";
 import {
   findOwnedCustomItem,
@@ -100,7 +101,8 @@ export async function runGeneration(packId: string, itemId: string, userId: stri
         ? { status: "READY" as const, files: toStoredFiles(files), validationErrors: [] }
         : keepPrevious
           ? { status: "READY" as const, validationErrors: errors }
-          : { status: "FAILED" as const, files: toStoredFiles(files), validationErrors: errors };
+          : // A draft too big to store is dropped; its errors still say why.
+            { status: "FAILED" as const, files: withinStorageLimits(files) ? toStoredFiles(files) : Prisma.DbNull, validationErrors: errors };
     await prisma.skillPackItem.update({ where: { id: itemId }, data });
   } catch (error) {
     console.error("[skills-builder] generation failed:", error instanceof Error ? error.name : "unknown");

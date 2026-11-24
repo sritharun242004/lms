@@ -2,13 +2,20 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SkillItemView } from "@/lib/skills/types";
+import type { SkillFile, SkillItemView } from "@/lib/skills/types";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { SkillPreview } from "./skill-preview";
 
 const SKILL_MD = '---\nname: board-update\ndescription: "Writes the board update."\n---\n\n# Board update\n\nRead the notes first.\n';
+const CONTENTS: SkillFile[] = [
+  { path: "SKILL.md", content: SKILL_MD },
+  { path: "references/context.md", content: "Context" },
+  { path: "scripts/count.py", content: "print(1)" },
+];
+const ITEM_URL = "/api/v1/prompt-bot/skill-packs/p1/items/i1";
+/** The pack view carries paths and sizes only; the preview loads contents with GET /items/:itemId. */
 const item = (over: Partial<SkillItemView> = {}): SkillItemView => ({
   id: "i1",
   order: 0,
@@ -16,11 +23,7 @@ const item = (over: Partial<SkillItemView> = {}): SkillItemView => ({
   name: "board-update",
   purpose: "Writes the board update.",
   status: "READY",
-  files: [
-    { path: "SKILL.md", content: SKILL_MD },
-    { path: "references/context.md", content: "Context" },
-    { path: "scripts/count.py", content: "print(1)" },
-  ],
+  files: CONTENTS.map((f) => ({ path: f.path, bytes: f.content.length })),
   validationErrors: [],
   scoreRevision: 0,
   answers: [],
@@ -31,6 +34,7 @@ const item = (over: Partial<SkillItemView> = {}): SkillItemView => ({
 type Call = { url: string; method: string; body: string | null };
 let calls: Call[];
 let route: (call: Call) => Response;
+let detail: (call: Call) => Response | null;
 const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ success: true, data }), { status, headers: { "content-type": "application/json" } });
 const failFiles = () =>
   new Response(
@@ -47,9 +51,14 @@ const propsFor = (it: SkillItemView, extra: Record<string, unknown> = {}) => ({
   onDirtyChange: vi.fn(),
   ...extra,
 });
-const mount = (it: SkillItemView = item(), extra: Record<string, unknown> = {}) => {
+const settle = () =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+const mount = async (it: SkillItemView = item(), extra: Record<string, unknown> = {}) => {
   const props = propsFor(it, extra);
   const view = render(createElement(SkillPreview, props));
+  await settle();
   return { props, ...view };
 };
 const save = () =>
@@ -62,12 +71,13 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   calls = [];
   route = () => ok({});
+  detail = (call) => (call.url === ITEM_URL && call.method === "GET" ? ok({ ...item(), files: CONTENTS }) : null);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const call = { url, method: init?.method ?? "GET", body: (init?.body as string) ?? null };
       calls.push(call);
-      return route(call);
+      return detail(call) ?? route(call);
     }),
   );
 });
@@ -78,16 +88,42 @@ afterEach(() => {
 });
 
 describe("SkillPreview", () => {
-  it("renders SKILL.md first and lets the user switch to editing it", () => {
-    mount();
+  it("loads the opened item's file contents, showing a loading state until they arrive", async () => {
+    render(createElement(SkillPreview, propsFor(item())));
+    expect(screen.getByRole("status").textContent).toMatch(/Loading the files/);
+    await settle();
+    expect(calls).toEqual([{ url: ITEM_URL, method: "GET", body: null }]);
+    expect(screen.getByRole("heading", { name: "Board update" })).toBeTruthy();
+  });
+
+  it("says so when the contents could not be loaded, and loads again on request", async () => {
+    let fail = true;
+    detail = (call) =>
+      call.url === ITEM_URL
+        ? fail
+          ? new Response(JSON.stringify({ success: false, error: { code: "INTERNAL_ERROR", message: "Server error" } }), { status: 500 })
+          : ok({ ...item(), files: CONTENTS })
+        : null;
+    await mount();
+    expect(screen.getByRole("alert").textContent).toMatch(/couldn.t load the files/i);
+    fail = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Load again/ }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByRole("heading", { name: "Board update" })).toBeTruthy();
+  });
+
+  it("renders SKILL.md first and lets the user switch to editing it", async () => {
+    await mount();
     expect(screen.getByRole("heading", { name: "Board update" })).toBeTruthy();
     expect(screen.getByLabelText("Frontmatter").textContent).toContain("name: board-update");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect((screen.getByRole("textbox", { name: "Contents of SKILL.md" }) as HTMLTextAreaElement).value).toBe(SKILL_MD);
   });
 
-  it("shows the script notice only for files in scripts/", () => {
-    mount();
+  it("shows the script notice only for files in scripts/", async () => {
+    await mount();
     expect(screen.queryByText(/Review scripts before running them/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "count.py" }));
     expect(screen.getByRole("note").textContent).toMatch(/Review scripts before running them/);
@@ -95,9 +131,21 @@ describe("SkillPreview", () => {
     expect(screen.queryByText(/Review scripts before running them/)).toBeNull();
   });
 
+  it("keeps the saved edits on screen after a successful save, without loading them again", async () => {
+    route = (call) => (call.url.endsWith("/files") ? ok(item()) : ok({}));
+    const { props } = await mount();
+    fireEvent.click(screen.getByRole("button", { name: "context.md" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Contents of references/context.md" }), { target: { value: "Edited" } });
+    await save();
+    expect(props.onDirtyChange).toHaveBeenLastCalledWith(false);
+    expect(props.onItemChange).toHaveBeenCalledWith(expect.objectContaining({ id: "i1", status: "READY" }));
+    expect(calls.filter((c) => c.method === "GET")).toHaveLength(1);
+    expect((screen.getByRole("textbox", { name: "Contents of references/context.md" }) as HTMLTextAreaElement).value).toBe("Edited");
+  });
+
   it("saves every file, shows the server's per-file errors, and never offers Retry for a failed save", async () => {
     route = (call) => (call.url.endsWith("/files") ? failFiles() : ok({}));
-    const { props } = mount();
+    const { props } = await mount();
     fireEvent.click(screen.getByRole("button", { name: "context.md" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Contents of references/context.md" }), { target: { value: "Edited" } });
     expect(props.onDirtyChange).toHaveBeenLastCalledWith(true);
@@ -117,7 +165,7 @@ describe("SkillPreview", () => {
   it("offers Retry generation only when generation failed, and not over unsaved edits", async () => {
     route = (call) => (call.url.endsWith("/generate") ? ok(item({ status: "GENERATING", files: null }), 202) : ok({}));
     const failed = item({ status: "FAILED", validationErrors: ["description is too long"] });
-    const { props } = mount(failed);
+    const { props } = await mount(failed);
     expect(screen.getByRole("alert").textContent).toContain("description is too long");
     fireEvent.click(screen.getByRole("button", { name: "context.md" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Contents of references/context.md" }), { target: { value: "Edited" } });
@@ -140,7 +188,7 @@ describe("SkillPreview", () => {
 
   it("retries a failed skill without files straight away (nothing to replace)", async () => {
     route = (call) => (call.url.endsWith("/generate") ? ok(item({ status: "GENERATING", files: null }), 202) : ok({}));
-    mount(item({ status: "FAILED", files: null, validationErrors: ["The AI couldn't finish writing this skill. Try again."] }));
+    await mount(item({ status: "FAILED", files: null, validationErrors: ["The AI couldn't finish writing this skill. Try again."] }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Retry generation/ }));
       await vi.advanceTimersByTimeAsync(0);
@@ -149,8 +197,8 @@ describe("SkillPreview", () => {
     expect(calls.find((c) => c.url.endsWith("/generate"))?.method).toBe("POST");
   });
 
-  it("says a failed regeneration kept the previous files, and keeps downloads available", () => {
-    mount(item({ status: "READY", validationErrors: ["SKILL.md: description cannot contain < or >"] }));
+  it("says a failed regeneration kept the previous files, and keeps downloads available", async () => {
+    await mount(item({ status: "READY", validationErrors: ["SKILL.md: description cannot contain < or >"] }));
     const notice = screen.getByRole("status");
     expect(notice.textContent).toMatch(/previous files were kept/);
     expect(notice.textContent).toContain("description cannot contain < or >");
@@ -158,19 +206,21 @@ describe("SkillPreview", () => {
   });
 
   it("shows the files when the pack poll delivers the finished skill, without polling itself", async () => {
-    const { rerender } = mount(item({ status: "GENERATING", files: null }));
+    const { rerender } = await mount(item({ status: "GENERATING", files: null }));
     expect(screen.getByRole("status").textContent).toMatch(/Writing your skill/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
     expect(calls).toEqual([]);
     rerender(createElement(SkillPreview, propsFor(item())));
+    await settle();
+    expect(calls.map((c) => c.url)).toEqual([ITEM_URL]);
     expect(screen.getByRole("button", { name: "SKILL.md" })).toBeTruthy();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("offers Refine and generate for a skill without files, and blocks downloads until one is ready", () => {
-    const { props } = mount(item({ status: "DRAFT", files: null }), { readyCount: 0 });
+  it("offers Refine and generate for a skill without files, and blocks downloads until one is ready", async () => {
+    const { props } = await mount(item({ status: "DRAFT", files: null }), { readyCount: 0 });
     fireEvent.click(screen.getByRole("button", { name: /Refine and generate/ }));
     expect(props.onRefine).toHaveBeenCalled();
     expect((screen.getByRole("button", { name: /Download skill/ }) as HTMLButtonElement).disabled).toBe(true);

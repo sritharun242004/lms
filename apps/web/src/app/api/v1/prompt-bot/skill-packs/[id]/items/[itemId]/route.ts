@@ -5,8 +5,9 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api/response";
 import { withSkillName } from "@/lib/skills/format";
-import { oneLine, uniqueSkillName } from "@/lib/skills/names";
-import { isGenerating, loadItemView, parseStoredFiles, toStoredFiles } from "@/lib/skills/packs";
+import { duplicateNameResponse } from "@/lib/skills/http";
+import { normalizeSkillName, oneLine } from "@/lib/skills/names";
+import { isGenerating, loadItemDetail, loadItemView, parseStoredFiles, toStoredFiles } from "@/lib/skills/packs";
 import { PURPOSE_MAX } from "@/lib/skills/split";
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const user = await getCurrentUser();
   if (!user) return errorResponse("Authentication required", "UNAUTHORIZED", 401);
   const { id, itemId } = await params;
-  const view = await loadItemView(id, itemId, user.id);
+  const view = await loadItemDetail(id, itemId, user.id);
   return view ? successResponse(view) : notFound();
 }
 
@@ -48,8 +49,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (isGenerating(item.status, item.generationStartedAt)) {
       return errorResponse("Wait until the skill has been written before renaming it.", "ALREADY_GENERATING", 409);
     }
-    const taken = item.pack.items.filter((i) => i.kind === "CUSTOM" && i.id !== item.id).map((i) => i.name);
-    const name = uniqueSkillName(parsed.data.name, taken);
+    const name = normalizeSkillName(parsed.data.name);
+    if (item.pack.items.some((i) => i.kind === "CUSTOM" && i.id !== item.id && i.name === name)) return duplicateNameResponse(name);
     if (name !== item.name) {
       data.name = name;
       // The item name owns the folder and the SKILL.md name; keep them identical.

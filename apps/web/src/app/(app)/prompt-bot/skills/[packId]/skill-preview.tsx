@@ -7,7 +7,7 @@ import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm
 import { Textarea } from "@/components/ui/textarea";
 import { FileTree } from "@/components/prompt-bot/skills/file-tree";
 import { SkillMarkdown } from "@/components/prompt-bot/skills/skill-markdown";
-import { downloadZip, requestGenerate, saveItemFiles, skillPackUrl } from "@/lib/skills/client";
+import { downloadZip, getItem, requestGenerate, saveItemFiles, skillPackUrl } from "@/lib/skills/client";
 import type { SkillFile, SkillItemView } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
 import { REPLACE_FILES_CONFIRM } from "./skill-refine";
@@ -25,14 +25,16 @@ const firstFile = (files: SkillFile[]) => files.find((f) => f.path === "SKILL.md
 
 /**
  * One skill: files, rendered SKILL.md, editor, downloads. The pack page owns polling while a skill
- * is being written and hands the finished item back as a new `item` prop.
+ * is being written and hands the finished item back as a new `item` prop. The pack view carries file
+ * paths and sizes only, so the contents load here, per item, whenever a new `item` arrives.
  */
 export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine, onDirtyChange }: Props) {
-  const [saved, setSaved] = React.useState<SkillFile[]>(item.files ?? []);
-  const [files, setFiles] = React.useState<SkillFile[]>(item.files ?? []);
+  const [saved, setSaved] = React.useState<SkillFile[]>([]);
+  const [files, setFiles] = React.useState<SkillFile[]>([]);
+  const [contents, setContents] = React.useState<"loading" | "loaded" | "failed">(item.files ? "loading" : "loaded");
   // Errors of a failed Save belong to the edits on screen; item.validationErrors belong to a generation attempt.
   const [saveErrors, setSaveErrors] = React.useState<string[]>([]);
-  const [selected, setSelected] = React.useState<string | null>(() => firstFile(item.files ?? []));
+  const [selected, setSelected] = React.useState<string | null>(null);
   const [mode, setMode] = React.useState<"preview" | "edit">("preview");
   const [busy, setBusy] = React.useState<"save" | "retry" | null>(null);
   const confirmRef = React.useRef<ConfirmDialogHandle>(null);
@@ -45,24 +47,43 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
 
-  const applied = React.useRef(item);
-  const show = React.useCallback((next: SkillItemView) => {
-    const nextFiles = next.files ?? [];
+  const show = React.useCallback((nextFiles: SkillFile[]) => {
     setSaved(nextFiles);
     setFiles(nextFiles);
     setSaveErrors([]);
     setSelected((path) => (path && nextFiles.some((f) => f.path === path) ? path : firstFile(nextFiles)));
   }, []);
+
+  const request = React.useRef(0);
+  const load = React.useCallback(
+    async (next: SkillItemView) => {
+      const id = ++request.current;
+      if (!next.files) {
+        setContents("loaded");
+        return show([]);
+      }
+      setContents("loading");
+      const result = await getItem(packId, next.id);
+      if (id !== request.current) return;
+      if (!result.ok) return setContents("failed");
+      setContents("loaded");
+      show(result.data.files ?? []);
+    },
+    [packId, show],
+  );
+
+  // Load on mount and whenever the pack hands over a different item; while it is being written the files on screen stay.
+  const applied = React.useRef<SkillItemView | null>(null);
   React.useEffect(() => {
     if (item === applied.current) return;
+    const first = applied.current === null;
     applied.current = item;
-    show(item);
-  }, [item, show]);
+    if (first || item.status !== "GENERATING") void load(item);
+  }, [item, load]);
 
   function adopt(next: SkillItemView) {
     applied.current = next;
     onItemChange(next);
-    show(next);
   }
 
   function updateFile(path: string, content: string) {
@@ -71,12 +92,16 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
 
   async function save() {
     setBusy("save");
-    const result = await saveItemFiles(packId, item.id, files);
+    const sent = files;
+    const result = await saveItemFiles(packId, item.id, sent);
     setBusy(null);
     if (!result.ok) {
       setSaveErrors(result.details?.files ?? [result.message]);
       return;
     }
+    // The server stored exactly what was sent, so the edits on screen are now the saved files.
+    setSaved(sent);
+    setSaveErrors([]);
     adopt(result.data);
     toast.success("Skill saved");
   }
@@ -181,7 +206,20 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
         </div>
       )}
 
-      {files.length === 0 ? (
+      {contents === "loading" ? (
+        <p role="status" className="mt-6 flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Loading the files…
+        </p>
+      ) : contents === "failed" ? (
+        <div role="alert" className="mt-6 flex flex-col items-center gap-3 py-6 text-center text-sm">
+          <p>We couldn&apos;t load the files. Check your connection.</p>
+          <Button variant="outline" size="sm" onClick={() => void load(item)}>
+            <RotateCcw className="size-4" aria-hidden />
+            Load again
+          </Button>
+        </div>
+      ) : files.length === 0 ? (
         !generating && (
           <div className="mt-6 flex flex-col items-center gap-3 py-6 text-center text-sm text-muted-foreground">
             <p>This skill hasn&apos;t been written yet.</p>
