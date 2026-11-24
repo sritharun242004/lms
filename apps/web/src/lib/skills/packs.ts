@@ -5,11 +5,10 @@ import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
 import { buildQuestionContext, scoreAndApply, toAnswerView } from "@/lib/prompt-bot/score-run";
 import { SKILL_MATRIX_SLUG } from "./builtin-skill-matrix";
 import { skillScoringBase } from "./instructions";
+import { GENERATION_STALE_MS } from "./limits";
 import type { SplitResult } from "./split";
 import type { SkillFile, SkillItemStatus, SkillItemView, SkillMatrixView, SkillPackView } from "./types";
 
-/** A GENERATING item older than this was interrupted (for example by a deploy) and may be generated again. */
-export const GENERATION_STALE_MS = 15 * 60 * 1000;
 export const INTERRUPTED_MESSAGE = "Writing this skill was interrupted. Generate it again.";
 export const UNREADABLE_FILES_MESSAGE = "The saved files couldn't be read. Generate this skill again.";
 

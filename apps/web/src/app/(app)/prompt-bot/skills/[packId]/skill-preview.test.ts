@@ -127,8 +127,34 @@ describe("SkillPreview", () => {
       fireEvent.click(screen.getByRole("button", { name: /Retry generation/ }));
       await vi.advanceTimersByTimeAsync(0);
     });
+    // The item has files, so replacing them is confirmed first.
+    expect(screen.getByRole("alertdialog").textContent).toContain("This replaces the current files, including your edits");
+    expect(calls.some((c) => c.url.endsWith("/generate"))).toBe(false);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Generate again" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(calls.find((c) => c.url.endsWith("/generate"))?.method).toBe("POST");
     expect(props.onItemChange).toHaveBeenCalledWith(expect.objectContaining({ status: "GENERATING" }));
+  });
+
+  it("retries a failed skill without files straight away (nothing to replace)", async () => {
+    route = (call) => (call.url.endsWith("/generate") ? ok(item({ status: "GENERATING", files: null }), 202) : ok({}));
+    mount(item({ status: "FAILED", files: null, validationErrors: ["The AI couldn't finish writing this skill. Try again."] }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Retry generation/ }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(calls.find((c) => c.url.endsWith("/generate"))?.method).toBe("POST");
+  });
+
+  it("says a failed regeneration kept the previous files, and keeps downloads available", () => {
+    mount(item({ status: "READY", validationErrors: ["SKILL.md: description cannot contain < or >"] }));
+    const notice = screen.getByRole("status");
+    expect(notice.textContent).toMatch(/previous files were kept/);
+    expect(notice.textContent).toContain("description cannot contain < or >");
+    expect((screen.getByRole("button", { name: /Download skill/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("shows the files when the pack poll delivers the finished skill, without polling itself", async () => {

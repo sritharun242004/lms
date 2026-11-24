@@ -19,7 +19,9 @@ vi.mock("./packs", async (orig) => ({
   loadItemView: mocks.loadItemView,
 }));
 
+import { LimitReachedError } from "@/lib/ai/usage";
 import { AlreadyGeneratingError, GENERATION_FAILED_MESSAGE, runGeneration, SkillNotFoundError, startGeneration } from "./generate";
+import { GENERATION_STALE_MS, GENERATION_TIMEOUT_MS } from "./limits";
 
 const NOW = new Date("2026-11-24T12:00:00Z");
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000);
@@ -46,6 +48,10 @@ const GOOD = {
   assets: [],
 };
 const BAD = { ...GOOD, description: "Use <this>" };
+const SAVED_FILES = [
+  { path: "SKILL.md", content: '---\nname: "board-update"\ndescription: "My edited board update. Use monthly."\n---\n\nMy edits.\n' },
+  { path: "references/context.md", content: "Hand-written context" },
+];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -74,7 +80,7 @@ describe("startGeneration", () => {
     await expect(startGeneration("p1", "i1", "u1", NOW)).resolves.toEqual({ id: "i1", status: "GENERATING" });
     expect(mocks.consumeAiUsage).toHaveBeenCalledWith("u1", "skill_generate");
     expect(mocks.updateMany).toHaveBeenCalledWith({
-      where: { id: "i1", OR: [{ status: { not: "GENERATING" } }, { generationStartedAt: null }, { generationStartedAt: { lt: minutesAgo(15) } }] },
+      where: { id: "i1", OR: [{ status: { not: "GENERATING" } }, { generationStartedAt: null }, { generationStartedAt: { lt: minutesAgo(10) } }] },
       data: { status: "GENERATING", validationErrors: [], generationStartedAt: NOW },
     });
   });
@@ -84,9 +90,28 @@ describe("startGeneration", () => {
     await expect(startGeneration("p1", "i1", "u1", NOW)).resolves.toBeDefined();
   });
 
-  it("loses the claim to a concurrent request", async () => {
+  it("loses the claim to a concurrent request without spending usage", async () => {
     mocks.updateMany.mockResolvedValue({ count: 0 });
     await expect(startGeneration("p1", "i1", "u1", NOW)).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
+  });
+
+  it("claims the skill before it counts the use", async () => {
+    await startGeneration("p1", "i1", "u1", NOW);
+    expect(mocks.updateMany.mock.invocationCallOrder[0]).toBeLessThan(mocks.consumeAiUsage.mock.invocationCallOrder[0]);
+  });
+
+  it("releases the claim, restoring the previous state, when the daily limit is reached", async () => {
+    const limit = new LimitReachedError("skill_generate", NOW);
+    mocks.findOwnedCustomItem.mockResolvedValue({ ...ITEM, status: "READY", validationErrors: ["old note"] });
+    mocks.consumeAiUsage.mockRejectedValue(limit);
+    await expect(startGeneration("p1", "i1", "u1", NOW)).rejects.toBe(limit);
+    expect(mocks.updateMany).toHaveBeenCalledTimes(2);
+    expect(mocks.updateMany.mock.calls[1][0]).toEqual({
+      where: { id: "i1", status: "GENERATING", generationStartedAt: NOW },
+      data: { status: "READY", generationStartedAt: null, validationErrors: ["old note"] },
+    });
+    expect(mocks.loadItemView).not.toHaveBeenCalled();
   });
 });
 
@@ -122,6 +147,43 @@ describe("runGeneration", () => {
     expect(mocks.update.mock.calls[0][0].data.status).toBe("READY");
   });
 
+  it("keeps a good skill's files and READY when both attempts of a regeneration fail validation", async () => {
+    mocks.findOwnedCustomItem.mockResolvedValue({ ...ITEM, status: "GENERATING", files: SAVED_FILES });
+    mocks.generateSkillDraft.mockResolvedValue(BAD);
+    await runGeneration("p1", "i1", "u1");
+    expect(mocks.generateSkillDraft).toHaveBeenCalledTimes(2);
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: "i1" },
+      data: { status: "READY", validationErrors: ["SKILL.md: description cannot contain < or >"] },
+    });
+  });
+
+  it("keeps a good skill's files and READY when a regeneration errors", async () => {
+    mocks.findOwnedCustomItem.mockResolvedValue({ ...ITEM, status: "GENERATING", files: SAVED_FILES });
+    mocks.generateSkillDraft.mockRejectedValue(new Error("overloaded"));
+    await runGeneration("p1", "i1", "u1");
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { status: "READY", validationErrors: [GENERATION_FAILED_MESSAGE] } });
+  });
+
+  it("replaces a good skill's files when the regeneration is valid", async () => {
+    mocks.findOwnedCustomItem.mockResolvedValue({ ...ITEM, status: "GENERATING", files: SAVED_FILES });
+    mocks.generateSkillDraft.mockResolvedValue(GOOD);
+    await runGeneration("p1", "i1", "u1");
+    const { data } = mocks.update.mock.calls[0][0];
+    expect(data).toMatchObject({ status: "READY", validationErrors: [] });
+    expect(data.files[0].content).toContain("Write the update.");
+  });
+
+  it("replaces an earlier invalid draft with the new invalid draft (nothing good to keep)", async () => {
+    const invalid = [{ path: "SKILL.md", content: "no frontmatter" }];
+    mocks.findOwnedCustomItem.mockResolvedValue({ ...ITEM, status: "GENERATING", files: invalid });
+    mocks.generateSkillDraft.mockResolvedValue(BAD);
+    await runGeneration("p1", "i1", "u1");
+    const { data } = mocks.update.mock.calls[0][0];
+    expect(data.status).toBe("FAILED");
+    expect(data.files[0].content).toContain("Use <this>");
+  });
+
   it("turns an AI failure into FAILED with a readable message, without throwing", async () => {
     mocks.generateSkillDraft.mockRejectedValue(new Error("overloaded"));
     await expect(runGeneration("p1", "i1", "u1")).resolves.toBeUndefined();
@@ -137,5 +199,12 @@ describe("runGeneration", () => {
     expect(logged).not.toContain("secret");
     expect(log).toHaveBeenCalledTimes(2);
     log.mockRestore();
+  });
+});
+
+describe("generation window", () => {
+  it("is 10 minutes, and both bounded attempts fit inside it", () => {
+    expect(GENERATION_STALE_MS).toBe(10 * 60_000);
+    expect(2 * GENERATION_TIMEOUT_MS).toBeLessThan(GENERATION_STALE_MS);
   });
 });

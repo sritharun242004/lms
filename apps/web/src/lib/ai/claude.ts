@@ -5,6 +5,7 @@ import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { DETECT_SYSTEM, ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
 import type { SkillDraft } from "@/lib/skills/assemble";
 import { buildSplitMessage, GENERATE_SYSTEM, SPLIT_SYSTEM } from "@/lib/skills/instructions";
+import { GENERATION_TIMEOUT_MS } from "@/lib/skills/limits";
 import type { RawSplit } from "@/lib/skills/split";
 
 let client: Anthropic | null = null;
@@ -152,8 +153,8 @@ const STRING = { type: "string" };
 
 /** The split runs inside a request (120 s cap): one attempt, 100 s. */
 const SPLIT_REQUEST = { timeout: 100_000, maxRetries: 0 };
-/** Generation runs in after(); two attempts at 240 s stay inside the 15-minute stale window. */
-const GENERATE_REQUEST = { timeout: 240_000, maxRetries: 0 };
+/** Generation runs in after(); two attempts stay inside the stale window (limits.ts). */
+const GENERATE_REQUEST = { timeout: GENERATION_TIMEOUT_MS, maxRetries: 0 };
 
 /** Proposes custom skills and catalog matches (spec, Split). The caller applies cleanSplit. */
 export async function splitWork(input: {

@@ -118,8 +118,8 @@ describe("loadPackView", () => {
 });
 
 describe("toItemView", () => {
-  it("reports an interrupted generation as FAILED after 15 minutes, and a recent one as GENERATING", () => {
-    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(16) }) as never, ACTIVE, NOW)).toMatchObject({
+  it("reports an interrupted generation as FAILED after 10 minutes, and a recent one as GENERATING", () => {
+    expect(toItemView(row({ status: "GENERATING", generationStartedAt: minutesAgo(11) }) as never, ACTIVE, NOW)).toMatchObject({
       status: "FAILED",
       validationErrors: [INTERRUPTED_MESSAGE],
     });

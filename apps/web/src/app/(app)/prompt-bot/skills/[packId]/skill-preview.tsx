@@ -3,12 +3,14 @@ import * as React from "react";
 import { AlertTriangle, Download, Loader2, PackageOpen, RotateCcw, Save, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { FileTree } from "@/components/prompt-bot/skills/file-tree";
 import { SkillMarkdown } from "@/components/prompt-bot/skills/skill-markdown";
 import { downloadZip, requestGenerate, saveItemFiles, skillPackUrl } from "@/lib/skills/client";
 import type { SkillFile, SkillItemView } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
+import { REPLACE_FILES_CONFIRM } from "./skill-refine";
 
 type Props = {
   packId: string;
@@ -33,6 +35,7 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
   const [selected, setSelected] = React.useState<string | null>(() => firstFile(item.files ?? []));
   const [mode, setMode] = React.useState<"preview" | "edit">("preview");
   const [busy, setBusy] = React.useState<"save" | "retry" | null>(null);
+  const confirmRef = React.useRef<ConfirmDialogHandle>(null);
   const status = item.status;
   const generating = status === "GENERATING";
   const dirty = JSON.stringify(files) !== JSON.stringify(saved);
@@ -79,6 +82,7 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
   }
 
   async function retry() {
+    if (saved.length > 0 && !(await confirmRef.current?.open(REPLACE_FILES_CONFIRM))) return;
     setBusy("retry");
     const result = await requestGenerate(packId, item.id);
     setBusy(null);
@@ -129,6 +133,19 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
           <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
           Writing your skill. This can take a minute or two.
         </p>
+      )}
+      {status === "READY" && item.validationErrors.length > 0 && (
+        <div role="status" className="mt-4 rounded-2xl bg-warning/10 p-4 text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="size-4" aria-hidden />
+            The new version couldn&apos;t be generated cleanly, so your previous files were kept
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {item.validationErrors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {!generating && status === "FAILED" && (
         <div role="alert" className="mt-4 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive">
@@ -229,6 +246,7 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
           </Button>
         </div>
       )}
+      <ConfirmDialog ref={confirmRef} />
     </section>
   );
 }

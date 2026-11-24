@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPack, patchPack } from "@/lib/skills/client";
+import { GENERATION_STALE_MS } from "@/lib/skills/limits";
 import type { SkillItemView, SkillPackView } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
 import { SkillPreview } from "./skill-preview";
@@ -13,7 +14,8 @@ import { SkillsList } from "./skills-list";
 
 const POLL_FIRST_MS = 3000;
 const POLL_MAX_MS = 15_000;
-const POLL_CAP_MS = 10 * 60_000;
+/** A minute past the stale window: by then the server reports an unfinished skill as interrupted and retryable. */
+const POLL_CAP_MS = GENERATION_STALE_MS + 60_000;
 
 type Step = "skills" | "refine" | "preview";
 const STEPS: { id: Step; label: string }[] = [

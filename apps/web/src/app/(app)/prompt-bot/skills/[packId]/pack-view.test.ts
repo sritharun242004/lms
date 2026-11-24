@@ -112,6 +112,30 @@ describe("PackView", () => {
     expect(screen.getByRole("status").textContent).toMatch(/Writing your skill/);
   });
 
+  it("confirms before Generate again replaces a skill's files, and does nothing on cancel", async () => {
+    const ready = custom({ status: "READY", files: [{ path: "SKILL.md", content: "x" }] });
+    mount({ ...PACK, items: [ready, catalogItem] });
+    fireEvent.click(screen.getByRole("button", { name: "Refine board-update" }));
+    const generateAgain = () =>
+      act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /Generate again/ }));
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    await generateAgain();
+    expect(screen.getByRole("alertdialog").textContent).toContain("This replaces the current files, including your edits");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(calls.some((c) => c.url.endsWith("/generate"))).toBe(false);
+    await generateAgain();
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Generate again" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(calls.find((c) => c.url.endsWith("/generate"))?.method).toBe("POST");
+  });
+
   it("adds a custom skill to the list", async () => {
     route = (call) => (call.url.endsWith("/items") ? ok(custom({ id: "i3", order: 2, name: "weekly-plan", purpose: "Plans the week." }), 201) : ok({}));
     mount();
@@ -174,13 +198,28 @@ describe("PackView polling (C8)", () => {
     expect(calls.filter((c) => c.url === "/api/v1/prompt-bot/skill-packs/p1").length).toBe(1);
   });
 
+  it("keeps polling past the stale window, so an interrupted skill turns retryable without a refresh", async () => {
+    let interrupted = false;
+    route = (call) =>
+      call.url === "/api/v1/prompt-bot/skill-packs/p1"
+        ? ok(interrupted ? { ...PACK, items: [custom({ status: "FAILED", validationErrors: ["Writing this skill was interrupted."] }), catalogItem] } : generating)
+        : ok({});
+    mount(generating);
+    // The server reports the item interrupted once the stale window has passed since the claim.
+    await tick(10 * 60_000 + 10_000);
+    interrupted = true;
+    await tick(45_000);
+    expect(screen.getByText("Needs fixing")).toBeTruthy();
+    expect(screen.queryByText(/Still working/)).toBeNull();
+  });
+
   it("backs off, stops after the cap and says the skill is still being written", async () => {
     route = (call) => (call.url === "/api/v1/prompt-bot/skill-packs/p1" ? ok(generating) : ok({}));
     mount(generating);
     await tick(3000);
     await tick(4500);
     expect(calls.length).toBe(2);
-    await tick(11 * 60_000);
+    await tick(12 * 60_000);
     const polls = calls.length;
     expect(polls).toBeGreaterThan(5);
     expect(polls).toBeLessThan(60);

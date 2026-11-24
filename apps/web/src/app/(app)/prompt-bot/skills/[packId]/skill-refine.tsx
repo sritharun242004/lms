@@ -3,12 +3,20 @@ import * as React from "react";
 import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
 import { useActiveQuestion, useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
 import { patchItem, requestGenerate, saveItemAnswer, scoreItem } from "@/lib/skills/client";
 import type { SkillItemView, SkillMatrixView } from "@/lib/skills/types";
+
+/** Asked before any generation that would replace existing files (Generate again, Retry). */
+export const REPLACE_FILES_CONFIRM = {
+  title: "Generate this skill again?",
+  description: "This replaces the current files, including your edits. If the new version fails, the current files are kept.",
+  confirmLabel: "Generate again",
+};
 
 type Props = {
   packId: string;
@@ -21,6 +29,8 @@ type Props = {
 export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }: Props) {
   const [purpose, setPurpose] = React.useState(item.purpose);
   const [starting, setStarting] = React.useState(false);
+  const confirmRef = React.useRef<ConfirmDialogHandle>(null);
+  const hasFiles = (item.files?.length ?? 0) > 0;
   const state = useMatrixAnswers({
     initialAnswers: item.answers,
     initialRevision: item.scoreRevision,
@@ -50,6 +60,7 @@ export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }:
   }
 
   async function generate() {
+    if (hasFiles && !(await confirmRef.current?.open(REPLACE_FILES_CONFIRM))) return;
     if (gaps.length > 0 && !window.confirm(`${gaps.length} questions not answered yet — the skill will be more general. Continue?`)) return;
     setStarting(true);
     await state.flushSaves();
@@ -107,7 +118,7 @@ export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }:
             </div>
             <Button onClick={() => void generate()} disabled={starting || item.status === "GENERATING"}>
               {starting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Wand2 className="size-4" aria-hidden />}
-              {item.status === "READY" ? "Generate again" : "Generate skill"}
+              {hasFiles ? "Generate again" : "Generate skill"}
             </Button>
           </div>
         </section>
@@ -115,6 +126,7 @@ export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }:
           Your descriptions and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
         </p>
       </div>
+      <ConfirmDialog ref={confirmRef} />
     </div>
   );
 }
