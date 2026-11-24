@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, FileText, Library, LayoutDashboard, Menu, Sparkles, UserPlus } from "lucide-react";
+import { ClipboardCheck, FileText, Library, LayoutDashboard, Menu, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
   const pathname = usePathname();
 
   const links = [
-    { href: "/prompt-bot", label: "Prompt Bot", icon: Sparkles },
     ...(!isMentee ? [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     ...(!isMentee ? [{ href: "/questions", label: "Question Repository", icon: Library }] : []),
     ...(!isMentee ? [{ href: "/forms", label: "Forms & Feedback", icon: FileText }] : []),
@@ -21,10 +20,13 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
     ...(isSuperAdmin ? [{ href: "/admin/registrations", label: "Workshop Registrations", icon: ClipboardCheck }] : []),
   ];
 
+  // Participants have no nav items; don't offer an empty menu.
+  if (links.length === 0) return null;
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="xl:hidden" aria-label="Open navigation">
+        <Button variant="ghost" size="icon" className={isSuperAdmin ? "min-[1400px]:hidden" : "xl:hidden"} aria-label="Open navigation">
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>

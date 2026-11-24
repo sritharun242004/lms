@@ -10,6 +10,9 @@ vi.mock("next/link", () => ({
     createElement("a", { href }, children),
 }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
+vi.mock("@/components/layout/prompt-bot-button", () => ({
+  PromptBotButton: () => createElement("a", { href: "/prompt-bot" }, "Prompt Bot"),
+}));
 vi.mock("@/components/layout/theme-toggle", () => ({ ThemeToggle: () => createElement("span", null, "Theme") }));
 vi.mock("@/components/layout/user-menu", () => ({ UserMenu: () => createElement("span", null, "User menu") }));
 vi.mock("@/components/layout/mobile-nav", () => ({ MobileNav: () => createElement("span", null, "Mobile navigation") }));
@@ -38,6 +41,17 @@ describe("desktop shared navigation", () => {
     const markup = renderToStaticMarkup(tree);
 
     expect(markup).not.toContain("Chats");
+  });
+
+  it.each(["ADMIN", "MENTOR", "MENTEE"])("renders the Prompt Bot header button for %s before the theme and user controls", async (role) => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "user-1", role, name: "Portal User" });
+
+    const markup = renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+
+    expect(markup).toContain('href="/prompt-bot"');
+    expect(markup.indexOf("Prompt Bot")).toBeGreaterThan(-1);
+    expect(markup.indexOf("Prompt Bot")).toBeLessThan(markup.indexOf("Theme"));
+    expect(markup.indexOf("Theme")).toBeLessThan(markup.indexOf("User menu"));
   });
 
   it("passes isAdmin=true only for an ADMIN, and isMentee correctly for a MENTEE", async () => {

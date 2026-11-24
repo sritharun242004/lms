@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { JoinToast } from "@/components/chat/join-toast";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
+import { PromptBotButton } from "@/components/layout/prompt-bot-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
@@ -654,6 +655,7 @@ export function ChatThread({
         )}
         {!canManage && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <PromptBotButton />
             <ThemeToggle />
             {currentUser?.role === "MENTEE" && <UserMenu user={currentUser} />}
           </div>
