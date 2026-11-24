@@ -18,11 +18,11 @@ afterEach(() => {
 });
 
 describe("DesktopNav", () => {
-  it("lists items in the required order: Dashboard, Question Repository, Forms & Feedback, Coach Management, Workshop Registrations", () => {
+  it("lists items in the required order: Prompt Bot, Dashboard, Question Repository, Forms & Feedback, Coach Management, Workshop Registrations", () => {
     usePathname.mockReturnValue("/dashboard");
     render(createElement(DesktopNav, { isMentee: false, isAdmin: true }));
     const labels = screen.getAllByRole("link").map((el) => el.textContent);
-    expect(labels).toEqual(["Dashboard", "Question Repository", "Forms & Feedback", "Coach Management", "Workshop Registrations"]);
+    expect(labels).toEqual(["Prompt Bot", "Dashboard", "Question Repository", "Forms & Feedback", "Coach Management", "Workshop Registrations"]);
   });
 
   it("combines Forms and Feedback into one nav item pointing at /forms", () => {
@@ -47,16 +47,29 @@ describe("DesktopNav", () => {
     expect(screen.getByText("Coach Management").getAttribute("aria-current")).toBeNull();
   });
 
-  it("hides staff-only and admin-only items for a MENTEE", () => {
+  it("hides staff-only and admin-only items for a MENTEE, leaving only Prompt Bot", () => {
     usePathname.mockReturnValue("/chat");
     render(createElement(DesktopNav, { isMentee: true, isAdmin: false }));
-    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    expect(screen.getAllByRole("link").map((el) => el.getAttribute("href"))).toEqual(["/prompt-bot"]);
   });
 
   it("hides admin-only items for a MENTOR", () => {
     usePathname.mockReturnValue("/dashboard");
     render(createElement(DesktopNav, { isMentee: false, isAdmin: false }));
     const labels = screen.getAllByRole("link").map((el) => el.textContent);
-    expect(labels).toEqual(["Dashboard", "Question Repository", "Forms & Feedback"]);
+    expect(labels).toEqual(["Prompt Bot", "Dashboard", "Question Repository", "Forms & Feedback"]);
+  });
+
+  it.each([
+    [false, true],
+    [false, false],
+    [true, false],
+  ])("offers Prompt Bot first for isMentee=%s isAdmin=%s", (isMentee, isAdmin) => {
+    usePathname.mockReturnValue("/prompt-bot/skills");
+    render(createElement(DesktopNav, { isMentee, isAdmin }));
+    const [first] = screen.getAllByRole("link");
+    expect(first.textContent).toBe("Prompt Bot");
+    expect(first.getAttribute("href")).toBe("/prompt-bot");
+    expect(first.getAttribute("aria-current")).toBe("page");
   });
 });

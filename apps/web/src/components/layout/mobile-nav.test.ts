@@ -50,11 +50,30 @@ describe("mobile navigation", () => {
     expect(screen.queryByText("Quiz repository")).toBeNull();
   });
 
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+  ])("offers Prompt Bot first for isMentee=%s isSuperAdmin=%s", (isMentee, isSuperAdmin) => {
+    render(createElement(MobileNav, { isMentee, isSuperAdmin }));
+
+    const links = screen.getAllByRole("link");
+    expect(links[0].textContent).toBe("Prompt Bot");
+    expect(links[0].getAttribute("href")).toBe("/prompt-bot");
+  });
+
+  it("renders the sheet for a mentee with only the Prompt Bot link", () => {
+    render(createElement(MobileNav, { isMentee: true, isSuperAdmin: false }));
+
+    expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/prompt-bot"]);
+  });
+
   it("lists items in the required order and combines Forms and Feedback into one item", () => {
     render(createElement(MobileNav, { isMentee: false, isSuperAdmin: true }));
 
     const labels = screen.getAllByRole("link").map((el) => el.textContent);
-    expect(labels).toEqual(["Dashboard", "Question Repository", "Forms & Feedback", "Coach Management", "Workshop Registrations"]);
+    expect(labels).toEqual(["Prompt Bot", "Dashboard", "Question Repository", "Forms & Feedback", "Coach Management", "Workshop Registrations"]);
     expect(screen.getByRole("link", { name: "Forms & Feedback" }).getAttribute("href")).toBe("/forms");
     expect(screen.queryByRole("link", { name: /^feedback$/i })).toBeNull();
   });

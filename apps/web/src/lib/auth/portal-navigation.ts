@@ -10,10 +10,10 @@ const LOGIN_PATHS: Record<AuthPortal, string> = {
 };
 
 const PORTAL_PATHS: Record<AuthPortal, readonly string[]> = {
-  participant: ["/dashboard", "/chat", "/mentee", "/profile"],
-  coach: ["/dashboard", "/coach", "/mentor", "/questions", "/chat", "/profile"],
-  "super-admin": ["/dashboard", "/admin", "/questions", "/chat", "/profile"],
-  admin: ["/dashboard", "/admin", "/coach", "/mentor", "/questions", "/chat", "/profile"],
+  participant: ["/dashboard", "/chat", "/mentee", "/profile", "/prompt-bot"],
+  coach: ["/dashboard", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot"],
+  "super-admin": ["/dashboard", "/admin", "/questions", "/chat", "/profile", "/prompt-bot"],
+  admin: ["/dashboard", "/admin", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot"],
 };
 
 function pathMatchesPrefix(value: string, prefix: string): boolean {

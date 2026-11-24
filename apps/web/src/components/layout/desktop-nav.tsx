@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 export function DesktopNav({ isMentee, isAdmin }: { isMentee: boolean; isAdmin: boolean }) {
   const pathname = usePathname();
 
-  const links = [
+  const links: { href: string; label: string; matchPrefixes?: string[] }[] = [
+    { href: "/prompt-bot", label: "Prompt Bot" },
     ...(!isMentee ? [{ href: "/dashboard", label: "Dashboard" }] : []),
     ...(!isMentee ? [{ href: "/questions", label: "Question Repository" }] : []),
     ...(!isMentee ? [{ href: "/forms", label: "Forms & Feedback", matchPrefixes: ["/forms", "/feedback"] }] : []),
@@ -16,7 +17,7 @@ export function DesktopNav({ isMentee, isAdmin }: { isMentee: boolean; isAdmin: 
   ];
 
   return (
-    // The admin set needs ~800px on one line; below xl the centred bar would
+    // The admin set (with Prompt Bot) needs ~900px on one line; below xl the centred bar would
     // run under the brand and header buttons, so MobileNav takes over there.
     <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-xl bg-white/35 p-1 text-sm shadow-[inset_0_1px_rgba(255,255,255,.72)] xl:flex dark:bg-white/5">
       {links.map(({ href, label, matchPrefixes }) => {

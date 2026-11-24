@@ -73,6 +73,7 @@ const ROLE_ROUTES: Record<string, UserRole[]> = {
   "/mentee": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
   "/dashboard": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
   "/questions": ["ADMIN", "MENTOR"] as UserRole[],
+  "/prompt-bot": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
 };
 
 // Landing page redirect by role — mentees have no dashboard, chat is their home.

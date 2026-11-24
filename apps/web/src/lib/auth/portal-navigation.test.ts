@@ -57,3 +57,9 @@ describe("portal navigation safety", () => {
     expect(portalForRole("ADMIN")).toBe("super-admin");
   });
 });
+
+describe("prompt bot access", () => {
+  it.each(["participant", "coach", "super-admin", "admin"] as const)("allows %s to return to /prompt-bot", (portal) => {
+    expect(safePortalDestination(portal, "/prompt-bot/abc")).toBe("/prompt-bot/abc");
+  });
+});
