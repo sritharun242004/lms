@@ -1,10 +1,14 @@
 "use client";
 import { Check, Copy, Loader2, Wand2 } from "lucide-react";
 import * as React from "react";
+import type { Components } from "react-markdown";
 import { Button } from "@/components/ui/button";
+import { SafeMarkdown } from "./safe-markdown";
 
 type Props = {
   content: string;
+  /** Changes when a different prompt replaces the shown one (new run, version switch), to fade it in. */
+  contentKey: number;
   streaming: boolean;
   version: number | null;
   versions: number[];
@@ -14,7 +18,29 @@ type Props = {
   unansweredCount: number;
 };
 
-export function EnhancePanel({ content, streaming, version, versions, onSelectVersion, error, onEnhance, unansweredCount }: Props) {
+/** The prompt's sections sit under the panel's h2, so Markdown headings render one level down. */
+const SECTION_HEADINGS: Components = {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- `node` is react-markdown's AST node, not a DOM prop.
+  h1: ({ node, ...props }) => <h3 {...props} />,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- as above
+  h2: ({ node, ...props }) => <h3 {...props} />,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- as above
+  h3: ({ node, ...props }) => <h4 {...props} />,
+};
+
+const PROMPT_TYPE = [
+  "max-w-[72ch] text-sm leading-relaxed text-foreground/90",
+  "[&_h3]:mt-5 [&_h3]:border-t [&_h3]:border-border/70 [&_h3]:pt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-foreground",
+  "[&_h3:first-child]:mt-0 [&_h3:first-child]:border-t-0 [&_h3:first-child]:pt-0",
+  "[&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-foreground",
+  "[&_p]:mt-1.5 [&_ul]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mt-1 [&_li]:pl-0.5",
+  "[&_strong]:font-semibold [&_strong]:text-foreground [&_blockquote]:mt-2 [&_blockquote]:border-l [&_blockquote]:border-border [&_blockquote]:pl-3",
+  "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 dark:[&_a]:text-brand-400",
+  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs dark:[&_code]:bg-white/10",
+  "[&_pre]:mt-2 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-3 dark:[&_pre]:bg-white/5",
+].join(" ");
+
+export function EnhancePanel({ content, contentKey, streaming, version, versions, onSelectVersion, error, onEnhance, unansweredCount }: Props) {
   const [copied, setCopied] = React.useState(false);
   const copiedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
@@ -31,17 +57,18 @@ export function EnhancePanel({ content, streaming, version, versions, onSelectVe
   }
 
   return (
-    <section className="glass rounded-[1.75rem] p-5" aria-labelledby="enhanced-heading">
+    <section className="glass rounded-[1.75rem] p-4 sm:p-5" aria-labelledby="enhanced-heading">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 id="enhanced-heading" className="font-semibold">Enhanced prompt{version ? ` · v${version}` : ""}</h2>
           {unansweredCount > 0 && !streaming && (
             <p className="text-xs text-muted-foreground">
-              {unansweredCount} question{unansweredCount === 1 ? "" : "s"} not answered yet — the enhanced prompt will be higher-level.
+              {unansweredCount} question{unansweredCount === 1 ? "" : "s"} not fully answered. The prompt asks the AI to check{" "}
+              {unansweredCount === 1 ? "it" : "them"} with you first.
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {versions.length > 1 && (
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               Version
@@ -69,18 +96,21 @@ export function EnhancePanel({ content, streaming, version, versions, onSelectVe
           </Button>
         </div>
       </div>
-      <div aria-live="polite">
-        {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        {content && (
-          <pre
-            tabIndex={0}
-            aria-label="Enhanced prompt"
-            className="mt-4 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-2xl bg-white/60 p-4 font-sans text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:bg-white/5"
-          >
+      {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {content && (
+        <div
+          key={contentKey}
+          role="region"
+          aria-label="Enhanced prompt"
+          aria-busy={streaming}
+          tabIndex={0}
+          className="mt-4 max-h-[36rem] overflow-auto rounded-2xl bg-white/60 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 motion-safe:animate-fade-in sm:p-5 dark:bg-white/5"
+        >
+          <SafeMarkdown className={PROMPT_TYPE} components={SECTION_HEADINGS}>
             {content}
-          </pre>
-        )}
-      </div>
+          </SafeMarkdown>
+        </div>
+      )}
     </section>
   );
 }

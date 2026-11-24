@@ -29,6 +29,9 @@ export function Workspace({ initial }: { initial: SessionView }) {
     version: initial.latestEnhancement?.version ?? null,
   });
   const [streaming, setStreaming] = React.useState(false);
+  /** Bumped whenever a different prompt replaces the shown one, so the panel fades it in. */
+  const [contentKey, setContentKey] = React.useState(0);
+  const showNext = () => setContentKey((k) => k + 1);
   const enhancing = React.useRef(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
 
@@ -47,16 +50,22 @@ export function Workspace({ initial }: { initial: SessionView }) {
   }
 
   async function enhance() {
-    if (gaps.length > 0 && !window.confirm(`${gaps.length} questions not answered yet — the enhanced prompt will be higher-level. Continue?`)) return;
+    if (
+      gaps.length > 0 &&
+      !window.confirm(`${gaps.length} questions aren't fully answered yet. The enhanced prompt will ask the AI to check them with you first. Continue?`)
+    )
+      return;
     enhancing.current = true;
     setStreaming(true);
     setEnhanceError(null);
     setEnhanced("");
+    showNext();
     await matrix.flushSaves();
     let streamed = "";
     const restore = () => {
       setEnhanced(lastGood.current.content);
       setVersion(lastGood.current.version);
+      showNext();
     };
     try {
       const res = await fetch(`/api/v1/prompt-bot/sessions/${view.id}/enhance`, { method: "POST", credentials: "include" });
@@ -87,6 +96,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
     lastGood.current = { content: entry.content, version: entry.version };
     setEnhanced(entry.content);
     setVersion(entry.version);
+    showNext();
   }
 
   // Browser Back re-mounts this page from the router's cached first load, so read the saved session
@@ -103,6 +113,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
         lastGood.current = { content: latest.content, version: latest.version };
         setEnhanced(latest.content);
         setVersion(latest.version);
+        showNext();
         setHistory((prev) => [{ version: latest.version, content: latest.content }, ...prev.filter((h) => h.version !== latest.version)]);
       }
     });
@@ -167,6 +178,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
         </section>
         <EnhancePanel
           content={enhanced}
+          contentKey={contentKey}
           streaming={streaming}
           version={version}
           versions={history.map((h) => h.version)}

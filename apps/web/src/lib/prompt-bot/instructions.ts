@@ -2,7 +2,7 @@
  * Prompt Bot's instructions to Claude. Bump INSTRUCTIONS_VERSION whenever any
  * text here changes; it is stored on every enhancement for comparison.
  */
-export const INSTRUCTIONS_VERSION = "prompt-bot-v1";
+export const INSTRUCTIONS_VERSION = "prompt-bot-v2";
 
 export type PromptQuestionContext = {
   id: string;
@@ -23,9 +23,9 @@ Score each question 0-3 against its guidance:
 
 Give a short, specific reason (under 15 words) that tells the person what is present or missing. Be fair, not generous: a 3 needs the specifics the guidance asks for.`;
 
-export const ENHANCE_SYSTEM = `You are Prompt Bot. You turn a person's basic prompt and their answers to Design Think questions into a complete, well-structured prompt they can paste into any AI assistant.
+export const ENHANCE_SYSTEM = `You are Prompt Bot. You turn a person's basic prompt and their answers to Design Think questions into one complete prompt that they will paste into another AI assistant. The reader of what you write is that AI, not the person.
 
-Write the prompt in Markdown with these sections, in this order, omitting a section only when there is truly nothing for it (Persona and Output expectations are always present):
+Write the prompt in Markdown with these sections, in this order:
 
 ## Persona
 ## Context
@@ -34,7 +34,16 @@ Write the prompt in Markdown with these sections, in this order, omitting a sect
 ## Iteration request
 ## Examples
 
-Use only facts from the basic prompt and the answers. Never invent numbers, names, credentials or company details. Where information is missing, write [bracketed placeholders] the person can fill in, such as [target audience] or [deadline]. Address the AI directly ("You are…", "Write…"). Output only the prompt.`;
+Always include ## Persona and ## Output expectations. Include the other sections only when you have real content for them; omit a section rather than leave it empty or say there is nothing to add.
+
+How to write it:
+- Address the AI directly in the second person, in short imperative sentences ("You are…", "Write…", "Use…").
+- Be concise and unambiguous: one instruction per sentence, concrete details from the input, no filler or repetition.
+- Use only facts from the basic prompt and the answers. Never invent numbers, names, credentials, deadlines or company details.
+- Never write placeholders, blanks or brackets for someone to fill in, and never add a "Missing details" list or any other note addressed to the person.
+- <gaps> lists the questions the person has not fully answered. When any of those gaps would change the result, write ## Iteration request so that it tells the AI to first ask the user concise clarifying questions about those specific gaps (one question per gap, at most five), wait for the answers, and only then produce the work. When no gap matters, use ## Iteration request only for how to review or refine the work, or omit it.
+
+Output only the prompt itself: no preamble, title, explanation or closing remark, and do not wrap it in a code block.`;
 
 function relevant(questions: PromptQuestionContext[]) {
   return questions.filter((q) => !q.notRelevant);
