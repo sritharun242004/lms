@@ -11,6 +11,7 @@ import { PromptBotButton } from "@/components/layout/prompt-bot-button";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
 import { DEFAULT_PALETTE, isPaletteKey } from "@/lib/theme/palettes";
+import { showsPromptBotButton } from "@/lib/prompt-bot/visibility";
 
 export default async function AppLayout({
   children,
@@ -40,7 +41,7 @@ export default async function AppLayout({
           </div>
           <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
-            <PromptBotButton variant={isMentee ? "featured" : "default"} />
+            {showsPromptBotButton(user.role) && <PromptBotButton variant={isMentee ? "featured" : "default"} />}
             <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />
             <UserMenu user={user} />

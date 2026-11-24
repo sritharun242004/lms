@@ -81,7 +81,8 @@ describe("group-code chat header", () => {
     renderThread(false, null, true);
 
     expect(screen.getByTestId("participant-logout")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Prompt Bot" }).getAttribute("href")).toBe("/prompt-bot");
+    // Hidden for participants for now (PROMPT_BOT_BUTTON_FOR_PARTICIPANTS = false).
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
   });
 
   it("lets both participants and managers open the group profile from the header", () => {
