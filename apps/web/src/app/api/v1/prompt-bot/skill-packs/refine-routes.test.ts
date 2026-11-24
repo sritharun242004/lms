@@ -79,6 +79,24 @@ describe("score route", () => {
     expect((await score.POST(req("POST", { revision: 1 }), itemCtx)).status).toBe(503);
   });
 
+  it("maps an Anthropic SDK error or an unusable model reply to 502 AI_FAILED", async () => {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const { AiResponseError } = await import("@/lib/ai/errors");
+    for (const error of [new Anthropic.APIConnectionTimeoutError(), new AiResponseError("Claude stopped with max_tokens")]) {
+      mocks.runItemScoring.mockRejectedValueOnce(error);
+      const res = await score.POST(req("POST", { revision: 1 }), itemCtx);
+      expect(res.status).toBe(502);
+      expect((await res.json()).error.code).toBe("AI_FAILED");
+    }
+  });
+
+  it("lets anything else (the database, a vanished skill) surface instead of reporting AI_FAILED", async () => {
+    mocks.runItemScoring.mockRejectedValueOnce(new Error("database down"));
+    await expect(score.POST(req("POST", { revision: 1 }), itemCtx)).rejects.toThrow("database down");
+    mocks.runItemScoring.mockRejectedValueOnce(new Error("skill not found"));
+    await expect(score.POST(req("POST", { revision: 1 }), itemCtx)).rejects.toThrow("skill not found");
+  });
+
   it("rejects a missing revision", async () => {
     expect((await score.POST(req("POST", {}), itemCtx)).status).toBe(400);
   });

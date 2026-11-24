@@ -13,6 +13,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 
 import { detectTaskKind, generateSkillDraft, scoreQuestions, splitWork } from "./claude";
 import { AiNotConfiguredError } from "./config";
+import { AiResponseError } from "./errors";
 
 const reply = (json: unknown) => ({ content: [{ type: "text", text: JSON.stringify(json) }], stop_reason: "end_turn" });
 
@@ -73,6 +74,18 @@ describe("claude client", () => {
   it.each(["max_tokens", "refusal"])("throws a clear error when the reply stopped with %s", async (stop) => {
     mocks.create.mockResolvedValue({ content: [{ type: "text", text: '{"scores":[' }], stop_reason: stop });
     await expect(scoreQuestions("p", [{ id: "q1", text: "Why?", guidance: "g" }])).rejects.toThrow(stop);
+  });
+
+  it("reports every unusable reply (stop reason, no text, bad JSON, wrong shape) as an AiResponseError", async () => {
+    const q = [{ id: "q1", text: "Why?", guidance: "g" }];
+    mocks.create.mockResolvedValueOnce({ content: [{ type: "text", text: "{" }], stop_reason: "max_tokens" });
+    await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
+    mocks.create.mockResolvedValueOnce({ content: [], stop_reason: "end_turn" });
+    await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
+    mocks.create.mockResolvedValueOnce({ content: [{ type: "text", text: "not json" }], stop_reason: "end_turn" });
+    await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
+    mocks.create.mockResolvedValueOnce(reply({ wrong: true }));
+    await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
   });
 });
 

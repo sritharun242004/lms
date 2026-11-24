@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./config";
+import { AiResponseError } from "./errors";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { DETECT_SYSTEM, ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
 import type { SkillDraft } from "@/lib/skills/assemble";
@@ -43,11 +44,19 @@ async function structured<T>(args: {
       )
     : await getClient().messages.create(request, args.requestOptions);
   if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
-    throw new Error(`Claude stopped with ${response.stop_reason}`);
+    throw new AiResponseError(`Claude stopped with ${response.stop_reason}`);
   }
   const text = (response.content as ReadonlyArray<{ type: string; text?: string }>).find((block) => block.type === "text");
-  if (!text || typeof text.text !== "string") throw new Error("Claude returned no text");
-  return args.parse.parse(JSON.parse(text.text));
+  if (!text || typeof text.text !== "string") throw new AiResponseError("Claude returned no text");
+  let json: unknown;
+  try {
+    json = JSON.parse(text.text);
+  } catch {
+    throw new AiResponseError("Claude returned invalid JSON");
+  }
+  const parsed = args.parse.safeParse(json);
+  if (!parsed.success) throw new AiResponseError("Claude's reply did not match the schema");
+  return parsed.data;
 }
 
 const Detection = z.object({ slug: z.string(), confidence: z.number() });
