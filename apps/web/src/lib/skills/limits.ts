@@ -32,6 +32,9 @@ export const GENERATION_STALE_MS = 10 * 60_000;
 /** Jobs redesign (spec 2026-11-25, Limits). Pure constants: safe for client components. */
 export const JOB_LIMITS = {
   titleChars: 120,
+  /** A job skill's folder name as typed (the kebab-case name is derived from it). */
+  skillNameChars: 120,
+  skillPurposeChars: 300,
   descriptionChars: 20_000,
   filesPerJob: 10,
   fileBytes: 20 * 1024 * 1024,

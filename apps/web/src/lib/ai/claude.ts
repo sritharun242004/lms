@@ -6,7 +6,9 @@ import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
 import type { SkillDraft } from "@/lib/skills/assemble";
 import { buildSplitMessage, GENERATE_SYSTEM, SPLIT_SYSTEM } from "@/lib/skills/instructions";
-import { GENERATION_TIMEOUT_MS } from "@/lib/skills/limits";
+import { ANALYSIS_TIMEOUT_MS, GENERATION_TIMEOUT_MS, JOB_LIMITS, SUGGEST_TIMEOUT_MS } from "@/lib/skills/limits";
+import { ANALYSE_SYSTEM, GENERATE_JOB_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
+import type { JobSkillDraft, RawSuggestions } from "@/lib/skills/jobs/types";
 import type { RawSplit } from "@/lib/skills/split";
 
 let client: Anthropic | null = null;
@@ -191,6 +193,104 @@ export async function generateSkillDraft(message: string): Promise<SkillDraft> {
       assets: { type: "array", items: file },
     }),
     parse: DraftReply,
+    maxTokens: 16000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Skills Builder jobs (spec 2026-11-25)
+// ---------------------------------------------------------------------------
+
+/** What one file analysis sends: the facts text, plus the PDF or (resized) image itself when there is one. */
+export type AnalysisContent = {
+  text: string;
+  document?: { base64: string; title: string };
+  image?: { base64: string; mediaType: "image/png" | "image/jpeg" };
+};
+
+/** Analysis runs in after(): one 90 s attempt plus one SDK retry, inside the 5-minute stale window. */
+const ANALYSE_REQUEST = { timeout: ANALYSIS_TIMEOUT_MS, maxRetries: 1 };
+/** Suggest runs inside a request (120 s cap): one attempt. */
+const SUGGEST_REQUEST = { timeout: SUGGEST_TIMEOUT_MS, maxRetries: 0 };
+/** Job generation runs in after(); two attempts stay inside the generation stale window. */
+const JOB_GENERATE_REQUEST = { timeout: GENERATION_TIMEOUT_MS, maxRetries: 0 };
+
+/** Writes the readable style guide for one uploaded file (plain Markdown, Haiku). Document/image blocks go before the text. */
+export async function analyseFile(content: AnalysisContent): Promise<string> {
+  const blocks: Anthropic.ContentBlockParam[] = [];
+  if (content.document) {
+    blocks.push({
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: content.document.base64 },
+      title: content.document.title,
+    });
+  }
+  if (content.image) {
+    blocks.push({ type: "image", source: { type: "base64", media_type: content.image.mediaType, data: content.image.base64 } });
+  }
+  blocks.push({ type: "text", text: content.text });
+  const response = await getClient().messages.create(
+    { model: FAST_MODEL, max_tokens: 3000, system: ANALYSE_SYSTEM, messages: [{ role: "user", content: blocks }] },
+    ANALYSE_REQUEST,
+  );
+  if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
+    throw new AiResponseError(`Claude stopped with ${response.stop_reason}`);
+  }
+  const text = (response.content as ReadonlyArray<{ type: string; text?: string }>)
+    .filter((block) => block.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join("")
+    .trim();
+  if (!text) throw new AiResponseError("Claude returned no analysis");
+  return text.slice(0, JOB_LIMITS.analysisChars);
+}
+
+const SuggestReply = z.object({
+  skills: z.array(z.object({ name: z.string(), purpose: z.string(), fileIds: z.array(z.string()) })),
+});
+
+/** Proposes the skills for one job (spec, Suggest Skills). The caller applies cleanSuggestions. */
+export async function suggestJobSkills(message: string): Promise<RawSuggestions> {
+  return structured({
+    model: BEST_MODEL,
+    fallback: true,
+    requestOptions: SUGGEST_REQUEST,
+    system: SUGGEST_SYSTEM,
+    user: message,
+    schema: object({
+      skills: { type: "array", items: object({ name: STRING, purpose: STRING, fileIds: { type: "array", items: STRING } }) },
+    }),
+    parse: SuggestReply,
+    maxTokens: 4000,
+  });
+}
+
+const JobFile = z.object({ path: z.string(), content: z.string() });
+const JobDraftReply = z.object({
+  description: z.string(),
+  compatibility: z.string(),
+  body: z.string(),
+  references: z.array(JobFile),
+  scripts: z.array(JobFile.extend({ purpose: z.string() })),
+});
+
+/** Writes one job skill as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
+export async function generateJobSkillDraft(message: string): Promise<JobSkillDraft> {
+  const file = object({ path: STRING, content: STRING });
+  return structured({
+    model: BEST_MODEL,
+    fallback: true,
+    requestOptions: JOB_GENERATE_REQUEST,
+    system: GENERATE_JOB_SYSTEM,
+    user: message,
+    schema: object({
+      description: STRING,
+      compatibility: STRING,
+      body: STRING,
+      references: { type: "array", items: file },
+      scripts: { type: "array", items: object({ path: STRING, content: STRING, purpose: STRING }) },
+    }),
+    parse: JobDraftReply,
     maxTokens: 16000,
   });
 }
