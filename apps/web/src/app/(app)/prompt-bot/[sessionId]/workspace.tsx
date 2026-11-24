@@ -6,7 +6,7 @@ import { EnhancePanel } from "@/components/prompt-bot/enhance-panel";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
 import { useActiveQuestion, useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
-import { patchSession, readEnhanceStream, saveAnswer, scoreSession } from "@/lib/prompt-bot/client";
+import { getSession, patchSession, readEnhanceStream, saveAnswer, scoreSession } from "@/lib/prompt-bot/client";
 import type { SessionView } from "@/lib/prompt-bot/sessions";
 
 export function Workspace({ initial }: { initial: SessionView }) {
@@ -15,7 +15,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
   const matrix = useMatrixAnswers({
     initialAnswers: initial.answers,
     initialRevision: initial.scoreRevision,
-    saveAnswer: (questionId, patch) => saveAnswer(view.id, questionId, patch),
+    saveAnswer: (questionId, patch, options) => saveAnswer(view.id, questionId, patch, options),
     score: (revision) => scoreSession(view.id, revision),
   });
   const { activeId, answerRef, selectQuestion } = useActiveQuestion(initial.matrices[0]?.questions[0]?.id ?? null);
@@ -29,6 +29,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
     version: initial.latestEnhancement?.version ?? null,
   });
   const [streaming, setStreaming] = React.useState(false);
+  const enhancing = React.useRef(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
 
   const questions = view.matrices.flatMap((m) => m.questions);
@@ -38,8 +39,8 @@ export function Workspace({ initial }: { initial: SessionView }) {
     matrix.bumpRevision();
     setBasePrompt(value);
     if (!value.trim()) return;
-    matrix.queueSave("basePrompt", async () => {
-      const saved = await patchSession(view.id, { basePrompt: value });
+    matrix.queueSave("basePrompt", async (options) => {
+      const saved = await patchSession(view.id, { basePrompt: value }, options);
       if (!saved.ok) toast.error(saved.message);
       matrix.scheduleScore();
     });
@@ -47,6 +48,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
 
   async function enhance() {
     if (gaps.length > 0 && !window.confirm(`${gaps.length} questions not answered yet — the enhanced prompt will be higher-level. Continue?`)) return;
+    enhancing.current = true;
     setStreaming(true);
     setEnhanceError(null);
     setEnhanced("");
@@ -74,6 +76,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
       setEnhanceError("Couldn't reach the server. Check your connection.");
       restore();
     } finally {
+      enhancing.current = false;
       setStreaming(false);
     }
   }
@@ -85,6 +88,28 @@ export function Workspace({ initial }: { initial: SessionView }) {
     setEnhanced(entry.content);
     setVersion(entry.version);
   }
+
+  // Browser Back re-mounts this page from the router's cached first load, so read the saved session
+  // once and use it if the user hasn't started editing.
+  const { replaceAnswers } = matrix;
+  React.useEffect(() => {
+    let cancelled = false;
+    void getSession(initial.id).then((fresh) => {
+      if (cancelled || !fresh.ok || !Array.isArray(fresh.data?.answers)) return;
+      if (!replaceAnswers(fresh.data.answers, fresh.data.scoreRevision)) return;
+      setBasePrompt(fresh.data.basePrompt);
+      const latest = fresh.data.latestEnhancement;
+      if (latest && !enhancing.current && latest.version > (lastGood.current.version ?? 0)) {
+        lastGood.current = { content: latest.content, version: latest.version };
+        setEnhanced(latest.content);
+        setVersion(latest.version);
+        setHistory((prev) => [{ version: latest.version, content: latest.content }, ...prev.filter((h) => h.version !== latest.version)]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.id, replaceAnswers]);
 
   React.useEffect(() => {
     let cancelled = false;

@@ -99,6 +99,24 @@ describe("PackView", () => {
     expect(calls.some((c) => c.url === "/api/v1/prompt-bot/skill-packs/p1/items/i1/score" && c.method === "POST")).toBe(true);
   });
 
+  it("opens Refine with the saved purpose and answers, not a stale cached first load (browser Back)", async () => {
+    route = (call) =>
+      call.url === "/api/v1/prompt-bot/skill-packs/p1/items/i1" && call.method === "GET"
+        ? ok(
+            custom({
+              purpose: "Saved purpose",
+              scoreRevision: 3,
+              answers: [{ questionId: "pbq_skill_1", answer: "Every Monday", score: 2, reason: "Partly", notRelevant: false }],
+            }),
+          )
+        : ok({});
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Refine board-update" }));
+    await tick(0);
+    expect((screen.getByRole("textbox", { name: "Purpose" }) as HTMLTextAreaElement).value).toBe("Saved purpose");
+    expect((screen.getByRole("textbox", { name: "When should this skill be used?" }) as HTMLTextAreaElement).value).toBe("Every Monday");
+  });
+
   it("warns about unanswered questions before generating, then shows the preview while the skill is written", async () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Refine board-update" }));

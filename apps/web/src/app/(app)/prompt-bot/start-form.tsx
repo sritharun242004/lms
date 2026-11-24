@@ -5,11 +5,13 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocalDraft } from "@/components/prompt-bot/use-local-draft";
 import { createSession } from "@/lib/prompt-bot/client";
 
-export function StartForm() {
+/** `draftKey` names the browser storage slot that keeps unsubmitted text; include the user's id. */
+export function StartForm({ draftKey }: { draftKey: string }) {
   const router = useRouter();
-  const [value, setValue] = React.useState("");
+  const [value, setValue, clearDraft] = useLocalDraft(draftKey);
   const [busy, setBusy] = React.useState(false);
 
   async function submit(event: React.FormEvent) {
@@ -17,8 +19,10 @@ export function StartForm() {
     if (!value.trim() || busy) return;
     setBusy(true);
     const result = await createSession(value);
-    if (result.ok) router.push(`/prompt-bot/${result.data.id}`);
-    else {
+    if (result.ok) {
+      clearDraft();
+      router.push(`/prompt-bot/${result.data.id}`);
+    } else {
       toast.error(result.message);
       setBusy(false);
     }

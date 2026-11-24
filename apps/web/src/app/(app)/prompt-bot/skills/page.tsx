@@ -35,7 +35,7 @@ export default async function SkillsBuilderPage() {
           </Link>
         </div>
       )}
-      {isAiConfigured() ? <NewPackForm /> : <NotConfigured isAdmin={user.role === "ADMIN"} />}
+      {isAiConfigured() ? <NewPackForm draftKey={`skills-builder:draft:${user.id}`} /> : <NotConfigured isAdmin={user.role === "ADMIN"} />}
       {packs.length > 0 && (
         <section className="glass rounded-[1.75rem] p-5" aria-labelledby="your-packs">
           <h2 id="your-packs" className="text-sm font-medium text-muted-foreground">Your skill packs</h2>

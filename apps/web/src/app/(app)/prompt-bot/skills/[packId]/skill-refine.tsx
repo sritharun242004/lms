@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
 import { useActiveQuestion, useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
-import { patchItem, requestGenerate, saveItemAnswer, scoreItem } from "@/lib/skills/client";
+import { getItem, patchItem, requestGenerate, saveItemAnswer, scoreItem } from "@/lib/skills/client";
 import type { SkillItemView, SkillMatrixView } from "@/lib/skills/types";
 
 /** Asked before any generation that would replace existing files (Generate again, Retry). */
@@ -34,10 +34,23 @@ export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }:
   const state = useMatrixAnswers({
     initialAnswers: item.answers,
     initialRevision: item.scoreRevision,
-    saveAnswer: (questionId, patch) => saveItemAnswer(packId, item.id, questionId, patch),
+    saveAnswer: (questionId, patch, options) => saveItemAnswer(packId, item.id, questionId, patch, options),
     score: (revision) => scoreItem(packId, item.id, revision),
   });
   const { activeId, answerRef, selectQuestion } = useActiveQuestion(matrix.questions[0]?.id ?? null);
+  // The pack page can mount from the router's cached first load (browser Back), so read the saved
+  // item once and use it if the user hasn't started editing.
+  const { replaceAnswers } = state;
+  React.useEffect(() => {
+    let cancelled = false;
+    void getItem(packId, item.id).then((fresh) => {
+      if (cancelled || !fresh.ok || !Array.isArray(fresh.data?.answers)) return;
+      if (replaceAnswers(fresh.data.answers, fresh.data.scoreRevision)) setPurpose(fresh.data.purpose);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [packId, item.id, replaceAnswers]);
   const [neverScored] = React.useState(item.answers.length === 0);
   const { scheduleScore } = state;
   React.useEffect(() => {
@@ -51,8 +64,8 @@ export function SkillRefine({ packId, item, matrix, onItemChange, onGenerated }:
     state.bumpRevision();
     setPurpose(value);
     if (!value.trim()) return;
-    state.queueSave("purpose", async () => {
-      const saved = await patchItem(packId, item.id, { purpose: value });
+    state.queueSave("purpose", async (options) => {
+      const saved = await patchItem(packId, item.id, { purpose: value }, options);
       if (!saved.ok) toast.error(saved.message);
       else onItemChange(saved.data);
       state.scheduleScore();
