@@ -3,7 +3,7 @@ import type { UserRole } from "@cms/shared";
 export type AuthPortal = "participant" | "coach" | "super-admin" | "admin";
 
 const LOGIN_PATHS: Record<AuthPortal, string> = {
-  participant: "/",
+  participant: "/login",
   coach: "/admin/login",
   "super-admin": "/admin/login",
   admin: "/admin/login",
@@ -83,4 +83,12 @@ export function safePortalDestination(
         ? "/"
         : "/admin/login";
   return sanitizeReturnPath(value, fallback, PORTAL_PATHS[portal]);
+}
+
+/**
+ * Leaves the app with a full page load, dropping the client router cache and
+ * every in-memory singleton (socket, query cache) the signed-out user had.
+ */
+export function leaveToLogin(path: string): void {
+  window.location.replace(path);
 }

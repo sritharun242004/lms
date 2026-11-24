@@ -4,7 +4,7 @@ import {
   verifyRefreshToken,
   generateAccessToken,
   generateRefreshToken,
-  isRefreshTokenValid,
+  claimRefreshToken,
   revokeRefreshToken,
   storeRefreshToken,
   getAccessCookieOptions,
@@ -27,7 +27,15 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  // Legacy address of the landing page (now "/"); next.config redirects it
+  // before the proxy runs, kept here so a missed redirect still never
+  // bounces a visitor to login.
+  "/workshop/x-intelligence",
 ];
+
+// Public pages a signed-in browser must still reach: emailed links are
+// opened on whatever device is handy, which may hold someone else's session.
+const SIGNED_IN_REACHABLE_ROUTES = ["/", "/forgot-password", "/reset-password", "/verify-email"];
 
 // API routes that don't require authentication
 const PUBLIC_API_ROUTES = [
@@ -40,6 +48,21 @@ const PUBLIC_API_ROUTES = [
   "/api/v1/auth/forgot-password",
   "/api/v1/auth/reset-password",
   "/api/v1/auth/verify-email",
+  // Non-secret workshop config (the general post-registration WhatsApp
+  // link) — the public registration flow reads this before any auth
+  // exists.
+  "/api/v1/workshop/config",
+];
+
+// API route prefixes that don't require authentication — unlike
+// PUBLIC_API_ROUTES' exact matches, these cover a family of routes with
+// dynamic segments (a registration code, etc).
+const PUBLIC_API_ROUTE_PREFIXES = [
+  // Registration creation/lookup, the "Payment Done" self-report, and
+  // QR — all used by an anonymous visitor before any account exists.
+  // Does not cover /api/v1/admin/registrations, a different, protected
+  // prefix.
+  "/api/v1/workshop/registrations",
 ];
 
 // Role-based route prefixes
@@ -73,7 +96,7 @@ function unauthenticatedEntry(pathname: string): string {
   if (pathname === "/questions" || pathname.startsWith("/questions/") || pathname === "/dashboard") {
     return "/admin/login";
   }
-  return "/";
+  return "/login";
 }
 
 export async function proxy(request: NextRequest) {
@@ -92,9 +115,11 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute = PUBLIC_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
-  const isPublicApi = PUBLIC_API_ROUTES.some(
-    (route) => pathname === route
-  );
+  const isPublicApi =
+    PUBLIC_API_ROUTES.some((route) => pathname === route) ||
+    PUBLIC_API_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+    );
 
   if (isPublicApi) {
     return NextResponse.next();
@@ -131,12 +156,16 @@ export async function proxy(request: NextRequest) {
   // itself (which nothing in the app did, so sessions used to die at
   // the 15-minute mark). Proxy runs on the Node.js runtime in this
   // Next.js version, so a direct Prisma call here is safe.
-  let rotated: { accessToken: string; refreshToken: string; rememberMe: boolean } | null = null;
+  let rotated: { accessToken: string; refreshToken: string; rememberMe: boolean; isNewRefresh: boolean } | null = null;
   if (!payload) {
     const refreshCookie = request.cookies.get("refresh_token")?.value;
     if (refreshCookie) {
       const refreshPayload = verifyRefreshToken(refreshCookie);
-      if (refreshPayload && isValidJwtSessionClaims(refreshPayload) && (await isRefreshTokenValid(refreshCookie))) {
+      const claim =
+        refreshPayload && isValidJwtSessionClaims(refreshPayload)
+          ? await claimRefreshToken(refreshCookie)
+          : "invalid";
+      if (refreshPayload && claim !== "invalid") {
         const user = await prisma.user.findUnique({
           where: { id: refreshPayload.sub },
           select: {
@@ -146,13 +175,16 @@ export async function proxy(request: NextRequest) {
 
         if (user?.isActive && isAuthVersionCurrent(refreshPayload.authVersion, user.authVersion)) {
           const rememberMe = Boolean(refreshPayload.rememberMe);
-          await revokeRefreshToken(refreshCookie);
-
           const newAccessToken = generateAccessToken(user);
-          const newRefreshToken = generateRefreshToken(user, rememberMe);
-          await storeRefreshToken(user.id, newRefreshToken, rememberMe);
+          // A request that lost the rotation race keeps the old refresh
+          // token: the winner's response is setting its successor.
+          let newRefreshToken = refreshCookie;
+          if (claim === "rotate") {
+            newRefreshToken = generateRefreshToken(user, rememberMe);
+            await storeRefreshToken(user.id, newRefreshToken, rememberMe);
+          }
 
-          rotated = { accessToken: newAccessToken, refreshToken: newRefreshToken, rememberMe };
+          rotated = { accessToken: newAccessToken, refreshToken: newRefreshToken, rememberMe, isNewRefresh: claim === "rotate" };
 
           // Reflect the rotated token onto the current request so that
           // server components / route handlers rendered after this
@@ -177,11 +209,13 @@ export async function proxy(request: NextRequest) {
     }
     if (rotated) {
       response.cookies.set("access_token", rotated.accessToken, getAccessCookieOptions());
-      response.cookies.set(
-        "refresh_token",
-        rotated.refreshToken,
-        getRefreshCookieOptions(rotated.rememberMe)
-      );
+      if (rotated.isNewRefresh) {
+        response.cookies.set(
+          "refresh_token",
+          rotated.refreshToken,
+          getRefreshCookieOptions(rotated.rememberMe)
+        );
+      }
     }
     return response;
   };
@@ -202,7 +236,7 @@ export async function proxy(request: NextRequest) {
       : (() => {
           const entryPath = unauthenticatedEntry(pathname);
           const loginUrl = new URL(entryPath, request.url);
-          if (entryPath !== "/") {
+          if (entryPath !== "/login") {
             const requestedPath = `${pathname}${request.nextUrl.search}`;
             loginUrl.searchParams.set("redirect", sanitizeReturnPath(requestedPath, pathname));
           }
@@ -216,8 +250,8 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Has a valid token and on public auth page → redirect to dashboard
-  if (payload && isPublicRoute && pathname !== "/") {
+  // Has a valid token and on public auth page → redirect to dashboard.
+  if (payload && isPublicRoute && !SIGNED_IN_REACHABLE_ROUTES.includes(pathname)) {
     const dashboard = ROLE_DASHBOARD[payload.role] || "/dashboard";
     return withRotatedCookies(NextResponse.redirect(new URL(dashboard, request.url)));
   }

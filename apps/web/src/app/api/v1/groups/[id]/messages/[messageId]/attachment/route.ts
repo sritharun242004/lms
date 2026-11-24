@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupAccess } from "@/lib/groups/access";
 import { errorResponse } from "@/lib/api/response";
+import { uploadedFileHeaders } from "@/lib/api/file-response";
 
 /** Any group member (mentor or mentee) may download an attachment they can see. */
 export async function GET(
@@ -29,14 +30,11 @@ export async function GET(
   }
 
   const { fileName, mimeType, size, data } = message.attachment;
-  const isInline = req.nextUrl.searchParams.get("inline") === "1";
-  const asciiFallback = fileName.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+  const inline = req.nextUrl.searchParams.get("inline") === "1";
 
   return new NextResponse(new Uint8Array(data), {
     headers: {
-      "Content-Type": mimeType,
-      "Content-Length": String(size),
-      "Content-Disposition": `${isInline ? "inline" : "attachment"}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      ...uploadedFileHeaders({ fileName, mimeType, size, inline }),
       "Cache-Control": "private, max-age=3600",
     },
   });

@@ -8,11 +8,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname, "../.."),
   },
+  // The landing page moved from /workshop/x-intelligence to "/". Links
+  // already shared keep working (query such as ?package= is carried over).
+  async redirects() {
+    return [{ source: "/workshop/x-intelligence", destination: "/", permanent: false }];
+  },
   experimental: {
     // Requests pass through proxy.ts, which buffers the body up to this
     // limit before route handlers see it — must exceed MAX_ATTACHMENT_SIZE_BYTES
-    // (50MB, from @cms/shared) or chat file uploads get silently truncated.
-    proxyClientMaxBodySize: "55mb",
+    // (150MB, from @cms/shared) or chat file uploads get silently truncated.
+    proxyClientMaxBodySize: "155mb",
   },
 };
 

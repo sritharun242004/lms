@@ -1,5 +1,5 @@
 // Prints INSERT statements for the skill-definition matrix and the skill catalog.
-// Usage: npx tsx scripts/skills-builder-seed-sql.ts >> prisma/migrations/20261124120000_add_skills_builder/migration.sql
+// Usage: npx tsx scripts/skills-builder-seed-sql.ts >> prisma/migrations/20261124160000_add_skills_builder/migration.sql
 import { matrixSeedSql } from "../src/lib/prompt-bot/seed-sql";
 import { SKILL_MATRIX } from "../src/lib/skills/builtin-skill-matrix";
 import { CATALOG_SEED } from "../src/lib/skills/catalog-seed";

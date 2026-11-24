@@ -44,6 +44,7 @@ export interface AuthUser {
   role: UserRole;
   avatarUrl: string | null;
   emailVerified: boolean;
+  themePreference?: string | null;
 }
 
 export interface JwtPayload {

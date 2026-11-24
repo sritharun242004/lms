@@ -16,7 +16,7 @@ describe("unified auth route and presentation contracts", () => {
     expect(adminLogin).toContain("<StaffLoginForm");
     expect(coachLogin).toContain('redirect("/admin/login")');
     expect(superAdminLogin).toContain('redirect("/admin/login")');
-    expect(participantLogin).toContain('redirect("/")');
+    expect(participantLogin).toContain('redirect("/login")');
     expect(participantLogin).not.toContain("StaffLoginForm");
   });
 

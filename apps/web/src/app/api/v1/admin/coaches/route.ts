@@ -28,6 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (error instanceof CoachManagementError) {
       return errorResponse(error.message, error.code, error.status);
     }
+    console.error("Coach account creation error:", error);
     return errorResponse("Unable to create coach account", "COACH_MANAGEMENT_ERROR", 500);
   }
 }

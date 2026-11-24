@@ -145,6 +145,54 @@ export function formatFileSize(bytes: number): string {
   return `${value % 1 === 0 ? value : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
+// ─── Link detection ───────────────────────────────────────────
+export interface TextSegment {
+  text: string;
+  isLink: boolean;
+}
+
+const URL_PATTERN = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]$/;
+
+/**
+ * Splits text into plain-text and link segments so pasted URLs can be
+ * rendered as clickable anchors while leaving everything else untouched.
+ * Trims trailing punctuation (e.g. a period ending the sentence) off the
+ * detected URL so it doesn't get swallowed into the link.
+ */
+export function splitTextWithLinks(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  URL_PATTERN.lastIndex = 0;
+  while ((match = URL_PATTERN.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), isLink: false });
+    }
+
+    let url = match[0];
+    let trailing = "";
+    while (url.length > 0 && TRAILING_PUNCTUATION.test(url)) {
+      trailing = url.slice(-1) + trailing;
+      url = url.slice(0, -1);
+    }
+
+    segments.push({ text: url, isLink: true });
+    if (trailing) {
+      segments.push({ text: trailing, isLink: false });
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), isLink: false });
+  }
+
+  return segments;
+}
+
 // ─── Async utilities ──────────────────────────────────────────
 /**
  * Returns a promise that resolves after `ms` milliseconds.

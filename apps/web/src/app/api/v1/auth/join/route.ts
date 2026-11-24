@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import {
   generateAccessToken,
   generateRefreshToken,
+  getRefreshTokenFromCookies,
+  revokeRefreshToken,
   setAuthCookies,
   storeRefreshToken,
 } from "@/lib/auth";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/api/response";
 import { menteeJoinSchema, AuditAction } from "@cms/shared";
 import { broadcastToGroup } from "@/lib/realtime/broadcast";
+import { clientIp, hitRateLimit, RATE_LIMITS, tooManyAttempts } from "@/lib/api/rate-limit";
 
 /**
  * Public, account-less mentee join: a name and an invite code are
@@ -22,6 +25,9 @@ import { broadcastToGroup } from "@/lib/realtime/broadcast";
  * reading announcements right away.
  */
 export async function POST(req: NextRequest) {
+  const retryAfter = hitRateLimit(`join:ip:${clientIp(req)}`, RATE_LIMITS.joinPerIp);
+  if (retryAfter !== null) return tooManyAttempts(retryAfter);
+
   const parsed = await parseBody(req, menteeJoinSchema);
   if (parsed.error) return parsed.error;
 
@@ -139,13 +145,20 @@ export async function POST(req: NextRequest) {
     });
 
     const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    // Participants have no password to log back in with, so their session is
+    // the long-lived one in every place it is recorded: token, row, cookie.
+    const refreshToken = generateRefreshToken(user, true);
     const publicUser = {
       id: user.id, name: user.name, email: user.email, role: user.role,
       avatarUrl: user.avatarUrl, emailVerified: user.emailVerified,
     };
 
-    await storeRefreshToken(user.id, refreshToken);
+    // Joining replaces whatever session this browser had (e.g. a staff login
+    // in another tab); revoke it rather than leave its refresh token orphaned.
+    const previousRefreshToken = await getRefreshTokenFromCookies();
+    if (previousRefreshToken) await revokeRefreshToken(previousRefreshToken);
+
+    await storeRefreshToken(user.id, refreshToken, true);
     await setAuthCookies(accessToken, refreshToken, true);
 
     await prisma.session.create({

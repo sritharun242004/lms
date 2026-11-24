@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-const authInputClass = "h-11 text-sm sm:text-base bg-white text-black placeholder:text-slate-400 dark:bg-white dark:text-black dark:placeholder:text-slate-400 rounded-xl px-4";
+const authInputClass = "h-11 text-sm sm:text-base bg-white text-black placeholder:text-slate-500 rounded-xl px-4";
 
 export function ParticipantEntryForm({ standalone = false }: { standalone?: boolean }) {
   const router = useRouter();

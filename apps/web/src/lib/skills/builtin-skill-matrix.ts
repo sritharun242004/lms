@@ -1,6 +1,6 @@
 /**
  * The Skills Builder's question matrix (spec, 2026-11-24). Seeded by the
- * 20261124120000_add_skills_builder migration (scripts/skills-builder-seed-sql.ts).
+ * 20261124160000_add_skills_builder migration (scripts/skills-builder-seed-sql.ts).
  * Relative imports only: scripts load this file through tsx.
  */
 import type { BuiltinMatrix, BuiltinQuestion } from "../prompt-bot/builtin-matrices";

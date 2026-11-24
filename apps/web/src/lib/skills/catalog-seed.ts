@@ -1,4 +1,4 @@
-/** Catalog rows seeded by the 20261124120000_add_skills_builder migration. Relative imports only (tsx scripts). */
+/** Catalog rows seeded by the 20261124160000_add_skills_builder migration. Relative imports only (tsx scripts). */
 import { CATALOG_CANDIDATES } from "./catalog-candidates";
 import { VERIFIED_LICENSES } from "./catalog-licenses";
 import { isPermissiveLicense } from "./license";

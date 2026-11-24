@@ -23,6 +23,7 @@ export enum MessageType {
   OPEN_QUESTION = "OPEN_QUESTION",
   WORD_CLOUD = "WORD_CLOUD",
   SCALE = "SCALE",
+  FORM = "FORM",
 }
 
 export enum PollChartType {
@@ -35,8 +36,8 @@ export enum PollChartType {
 // FILE ATTACHMENTS
 // ============================================================
 
-export const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
-export const MAX_ATTACHMENT_SIZE_MB = 50;
+export const MAX_ATTACHMENT_SIZE_BYTES = 150 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_MB = 150;
 
 // ============================================================
 // MESSAGE LIMITS
@@ -125,6 +126,8 @@ export enum AuditAction {
   MENTOR_DEACTIVATED = "MENTOR_DEACTIVATED",
   MENTOR_REACTIVATED = "MENTOR_REACTIVATED",
   STUDENT_REMOVED = "STUDENT_REMOVED",
+  WORKSHOP_REGISTRATION_DELETED = "WORKSHOP_REGISTRATION_DELETED",
+  WORKSHOP_REGISTRATION_PAYMENT_UPDATED = "WORKSHOP_REGISTRATION_PAYMENT_UPDATED",
   SETTINGS_UPDATED = "SETTINGS_UPDATED",
 }
 

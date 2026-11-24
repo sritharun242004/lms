@@ -196,3 +196,15 @@ describe("searchSchema / paginationSchema", () => {
     expect(paginationSchema.safeParse({ limit: 500 }).success).toBe(false);
   });
 });
+
+describe("whitespace handling", () => {
+  it("rejects a participant name that is only spaces or one character once trimmed", () => {
+    expect(menteeJoinSchema.safeParse({ name: "     ", inviteCode: "CMS-AB12" }).success).toBe(false);
+    expect(menteeJoinSchema.safeParse({ name: " a ", inviteCode: "CMS-AB12" }).success).toBe(false);
+    expect(menteeJoinSchema.parse({ name: "  Priya  ", inviteCode: " cms-ab12 " })).toEqual({ name: "Priya", inviteCode: "CMS-AB12" });
+  });
+
+  it("normalises the staff login email so stored lowercase accounts match", () => {
+    expect(loginSchema.parse({ email: "  Coach@Example.COM ", password: "Password1!" }).email).toBe("coach@example.com");
+  });
+});

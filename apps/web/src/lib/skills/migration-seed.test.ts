@@ -7,7 +7,7 @@ import { CATALOG_SEED } from "./catalog-seed";
 import { catalogSeedSql, sqlTextArray } from "./seed-sql";
 
 const SQL = readFileSync(
-  path.join(__dirname, "../../../prisma/migrations/20261124120000_add_skills_builder/migration.sql"),
+  path.join(__dirname, "../../../prisma/migrations/20261124160000_add_skills_builder/migration.sql"),
   "utf8",
 );
 

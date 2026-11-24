@@ -61,7 +61,7 @@ function ForgotPasswordForm() {
           If an account exists for <strong>{form.getValues("email")}</strong>, we&apos;ve
           sent a link to reset your password. It expires in 1 hour.
         </p>
-        <Link href={loginPath} className="text-sm font-medium underline underline-offset-4">
+        <Link href={loginPath} className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4">
           Back to sign in
         </Link>
       </div>
@@ -93,7 +93,7 @@ function ForgotPasswordForm() {
             )}
           />
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="h-11 w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             Send reset link
           </Button>
@@ -104,7 +104,7 @@ function ForgotPasswordForm() {
 
       <Link
         href={loginPath}
-        className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="flex min-h-11 items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         Back to sign in

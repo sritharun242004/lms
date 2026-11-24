@@ -197,11 +197,11 @@
   --sidebar-primary-foreground: #ffffff;
 
   /* Destructive */
-  --destructive: #ef4444;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
   /* Status */
-  --success: #22c55e;
+  --success: #15803d;
   --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-foreground: #ffffff;
@@ -231,7 +231,7 @@
   --background: #09090b;
   --foreground: #f8fafc;
 
-  --primary: #3b82f6;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
 
   --secondary: #1e293b;
@@ -255,10 +255,10 @@
   --sidebar-accent-foreground: #f8fafc;
   --sidebar-border: #1e293b;
   --sidebar-ring: #3b82f6;
-  --sidebar-primary: #3b82f6;
+  --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
 
-  --destructive: #ef4444;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
   --success: #22c55e;
@@ -274,6 +274,137 @@
   --chart-2: #22c55e;
   --chart-3: #f59e0b;
   --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+/* ============================================================
+   COLOUR THEMES (palettes) — Module L
+   Four selectable palettes, switched via [data-palette] on <html>,
+   independent of and layered on top of the existing light/dark (.dark)
+   toggle above. "xi-blue" is the default and intentionally matches the
+   :root/.dark values above exactly — it needs no override block.
+   ============================================================ */
+
+[data-palette="slate"] {
+  --primary: #334155;
+  --primary-foreground: #ffffff;
+  --accent: #f1f5f9;
+  --accent-foreground: #1e293b;
+  --ring: #334155;
+  --sidebar-ring: #334155;
+  --sidebar-primary: #334155;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #334155;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="slate"] {
+  --primary: #94a3b8;
+  --primary-foreground: #0f172a;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --ring: #94a3b8;
+  --sidebar-ring: #94a3b8;
+  --sidebar-primary: #94a3b8;
+  --sidebar-primary-foreground: #0f172a;
+  --chart-1: #cbd5e1;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+[data-palette="emerald"] {
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --accent: #ecfdf5;
+  --accent-foreground: #065f46;
+  --ring: #059669;
+  --sidebar-ring: #059669;
+  --sidebar-primary: #059669;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #059669;
+  --chart-2: #2563eb;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="emerald"] {
+  --primary: #34d399;
+  --primary-foreground: #052e1f;
+  --accent: #064e3b;
+  --accent-foreground: #d1fae5;
+  --ring: #34d399;
+  --sidebar-ring: #34d399;
+  --sidebar-primary: #34d399;
+  --sidebar-primary-foreground: #052e1f;
+  --chart-1: #34d399;
+  --chart-2: #3b82f6;
+  --chart-3: #f59e0b;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --chart-6: #22d3ee;
+  --chart-7: #ea580c;
+  --chart-8: #94a3b8;
+  --chart-9: #a3e635;
+  --chart-10: #d4d4d8;
+}
+
+[data-palette="violet"] {
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --accent: #f5f3ff;
+  --accent-foreground: #4c1d95;
+  --ring: #7c3aed;
+  --sidebar-ring: #7c3aed;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #7c3aed;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #2563eb;
+  --chart-5: #ec4899;
+  --chart-6: #0891b2;
+  --chart-7: #c2410c;
+  --chart-8: #64748b;
+  --chart-9: #65a30d;
+  --chart-10: #be185d;
+}
+.dark[data-palette="violet"] {
+  --primary: #a78bfa;
+  --primary-foreground: #1e1033;
+  --accent: #2e1065;
+  --accent-foreground: #ede9fe;
+  --ring: #a78bfa;
+  --sidebar-ring: #a78bfa;
+  --sidebar-primary: #a78bfa;
+  --sidebar-primary-foreground: #1e1033;
+  --chart-1: #c4b5fd;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #3b82f6;
   --chart-5: #f472b6;
   --chart-6: #22d3ee;
   --chart-7: #ea580c;
@@ -374,8 +505,9 @@ body {
    ============================================================ */
 .glass {
   background: color-mix(in srgb, var(--card) 68%, transparent);
+  /* No hand-written -webkit- copy: Lightning CSS adds the prefix, and a
+     manual one makes it drop the standard property Chrome and Firefox use. */
   backdrop-filter: blur(28px) saturate(1.15);
-  -webkit-backdrop-filter: blur(28px) saturate(1.15);
   border: 1px solid rgba(255, 255, 255, 0.58);
   box-shadow: 0 18px 55px rgba(30, 64, 175, 0.1), inset 0 1px rgba(255,255,255,.72);
 }
@@ -412,8 +544,16 @@ body {
   background: rgba(10, 10, 15, 0.78);
   border-color: rgba(226, 232, 240, 0.1);
   backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.28);
+}
+
+/* Menus float over live content; near-opaque so their items stay readable
+   even where blur is unsupported or slow. */
+.dark [data-slot="dropdown-menu-content"],
+.dark [data-slot="popover-content"],
+.dark [data-slot="select-content"],
+.dark [data-slot="sheet-content"] {
+  background: rgba(10, 10, 15, 0.96);
 }
 
 .dark [data-slot="dialog-overlay"], .dark [data-slot="alert-dialog-overlay"] {
@@ -423,9 +563,16 @@ body {
 
 .dark [data-slot="badge"] { border-color: rgba(226, 232, 240, 0.1); }
 .dark [data-slot="tabs-list"] { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
-.dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(59,130,246,.12); color: #3b82f6; }
+.dark [data-slot="tabs-trigger"][data-state="active"] { background: rgba(59,130,246,.12); color: #60a5fa; }
 
-.dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(226,232,240,0.12); }
+/* The default blue palette's --primary is dark enough for white button text
+   (#2563eb), which is too dark to read as text on the near-black page. No
+   single blue passes both, so primary-coloured text gets a lighter shade. */
+.dark:is(:not([data-palette]), [data-palette="xi-blue"]) .text-primary { color: #60a5fa; }
+
+/* Unlayered, so it beats per-field utility colours: the text colour must
+   travel with the dark background or forced-black fields go unreadable. */
+.dark input, .dark textarea, .dark [data-slot="select-trigger"] { background: rgba(255,255,255,0.035); border-color: rgba(226,232,240,0.12); color: var(--foreground); }
 .dark input:focus, .dark textarea:focus { box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
 
 /* ============================================================

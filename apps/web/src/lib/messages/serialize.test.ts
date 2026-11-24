@@ -78,3 +78,33 @@ describe("serializeMessage open-answer identity", () => {
     expect(payload).not.toContain('"user"');
   });
 });
+
+describe("serializeMessage formInvitation", () => {
+  const formMessage = {
+    ...rawMessage,
+    type: "FORM",
+    openQuestion: null,
+    formInvitations: [
+      {
+        id: "invitation-1",
+        status: "SENT",
+        form: { title: "Day 1 feedback", description: "Tell us how it went" },
+      },
+    ],
+  };
+
+  it("surfaces only the viewer's own invitation, scoped by the select's where clause", () => {
+    const result = serializeMessage(formMessage, "participant-1", false);
+    expect(result.formInvitation).toEqual({
+      id: "invitation-1",
+      status: "SENT",
+      formTitle: "Day 1 feedback",
+      formDescription: "Tell us how it went",
+    });
+  });
+
+  it("is null when the viewer has no invitation row for this message", () => {
+    const result = serializeMessage({ ...formMessage, formInvitations: [] }, "participant-1", false);
+    expect(result.formInvitation).toBeNull();
+  });
+});

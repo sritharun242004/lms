@@ -3,10 +3,13 @@ import Link from "next/link";
 import { MessagesSquare } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { PaletteSwitcher } from "@/components/layout/palette-switcher";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { DesktopNav } from "@/components/layout/desktop-nav";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
+import { DEFAULT_PALETTE, isPaletteKey } from "@/lib/theme/palettes";
 
 export default async function AppLayout({
   children,
@@ -20,6 +23,7 @@ export default async function AppLayout({
 
   const isMentee = user.role === "MENTEE";
   const homeHref = isMentee ? "/chat" : "/dashboard";
+  const palette = isPaletteKey(user.themePreference) ? user.themePreference : DEFAULT_PALETTE;
 
   const header = (
       <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5 sm:pt-4">
@@ -33,23 +37,9 @@ export default async function AppLayout({
               <span className="hidden sm:inline">AI Empowerment</span>
             </Link>
           </div>
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-xl bg-white/35 p-1 text-sm shadow-[inset_0_1px_rgba(255,255,255,.72)] md:flex dark:bg-white/5">
-            <Link href="/prompt-bot" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-              Prompt Bot
-            </Link>
-            {!isMentee && <Link href="/questions" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">Question repository</Link>}
-            {!isMentee && (
-              <Link href="/dashboard" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Dashboard
-              </Link>
-            )}
-            {user.role === "ADMIN" && (
-              <Link href="/admin/coaches" className="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-white/65 hover:text-primary dark:hover:bg-white/10">
-                Coach account management
-              </Link>
-            )}
-          </nav>
+          <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
+            <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />
             <UserMenu user={user} />
           </div>
@@ -57,8 +47,16 @@ export default async function AppLayout({
       </header>
   );
   return (
-    <AppFrame header={header}>
-      <PageMotion>{children}</PageMotion>
-    </AppFrame>
+    <>
+      {/* Corrects <html data-palette> from the root layout's static
+          default to this signed-in user's saved choice before paint —
+          same flash-avoidance trick next-themes uses for light/dark.
+          `palette` is constrained to a fixed PaletteKey enum, never
+          arbitrary user input, so this is safe to inline. */}
+      <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute('data-palette','${palette}')` }} />
+      <AppFrame header={header}>
+        <PageMotion>{children}</PageMotion>
+      </AppFrame>
+    </>
   );
 }

@@ -5,7 +5,7 @@ import { BUILTIN_MATRICES } from "./builtin-matrices";
 import { matrixSeedSql, sqlLiteral } from "./seed-sql";
 
 const ENHANCER_SQL = readFileSync(
-  path.join(__dirname, "../../../prisma/migrations/20261124090000_add_prompt_bot/migration.sql"),
+  path.join(__dirname, "../../../prisma/migrations/20261124150000_add_prompt_bot/migration.sql"),
   "utf8",
 );
 

@@ -20,11 +20,13 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // Phones get 40px-tall controls (a comfortable thumb target); from
+      // sm up the original, denser desktop sizes apply unchanged.
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-lg gap-1.5 px-3 has-[>svg]:px-2.5",
+        default: "h-10 px-4 py-2 has-[>svg]:px-3 sm:h-9",
+        sm: "h-10 rounded-lg gap-1.5 px-3 has-[>svg]:px-2.5 sm:h-8",
         lg: "h-11 rounded-xl px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        icon: "size-10 sm:size-9",
       },
     },
     defaultVariants: {

@@ -39,7 +39,7 @@ export function LandingPage() {
             <h2 className="mt-5 text-3xl sm:text-4xl lg:text-4xl font-bold tracking-tight leading-tight">
               Interactive learning and real-time collaboration.
             </h2>
-            <p className="mt-5 text-base sm:text-lg text-primary-foreground/80 font-normal leading-relaxed">
+            <p className="mt-5 text-base sm:text-lg text-primary-foreground/90 font-normal leading-relaxed">
               Join interactive sessions, share your responses, and learn together in real time.
             </p>
           </div>

@@ -53,7 +53,7 @@ describe("built-in matrices", () => {
 
   it("is seeded by the migration exactly as defined", () => {
     const sql = readFileSync(
-      path.join(__dirname, "../../../prisma/migrations/20261124090000_add_prompt_bot/migration.sql"),
+      path.join(__dirname, "../../../prisma/migrations/20261124150000_add_prompt_bot/migration.sql"),
       "utf8",
     );
     for (const matrix of BUILTIN_MATRICES) {

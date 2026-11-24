@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { LogOut, User as UserIcon } from "lucide-react";
-import { toast } from "sonner";
 import type { AuthUser } from "@cms/shared";
 import { useAuth } from "@/providers/auth-provider";
 import { getInitials } from "@/lib/utils";
@@ -10,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/hooks/use-confirm";
 import { visibleRoleLabel } from "@/lib/cms/task-requirements";
-import { canonicalLoginPath, portalForRole } from "@/lib/auth/portal-navigation";
+import { canonicalLoginPath, leaveToLogin, portalForRole } from "@/lib/auth/portal-navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +26,9 @@ export function UserMenu({ user }: { user: AuthUser }) {
 
   async function handleLogout() {
     await logout();
-    toast.success("Signed out");
-    router.push(canonicalLoginPath(portalForRole(user.role)));
+    // A hard navigation, not router.push: the client router cache would
+    // otherwise let Back re-render the signed-out user's pages.
+    leaveToLogin(canonicalLoginPath(portalForRole(user.role)));
   }
 
   async function requestLogout() {
@@ -51,7 +51,7 @@ export function UserMenu({ user }: { user: AuthUser }) {
         </Button>
       )}
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <DropdownMenuTrigger className="flex min-h-10 min-w-10 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         <Avatar>
           <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
           <AvatarFallback>{getInitials(user.name)}</AvatarFallback>

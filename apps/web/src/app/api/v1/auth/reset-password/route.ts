@@ -6,8 +6,12 @@ import {
 } from "@/lib/auth";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/response";
 import { resetPasswordSchema, AuditAction } from "@cms/shared";
+import { clientIp, hitRateLimit, RATE_LIMITS, tooManyAttempts } from "@/lib/api/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const retryAfter = hitRateLimit(`reset:ip:${clientIp(req)}`, RATE_LIMITS.resetPasswordPerIp);
+  if (retryAfter !== null) return tooManyAttempts(retryAfter);
+
   const parsed = await parseBody(req, resetPasswordSchema);
   if (parsed.error) return parsed.error;
 

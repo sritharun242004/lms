@@ -48,7 +48,7 @@ describe("password portal context", () => {
     mocks.search = "portal=javascript%3Aalert(1)";
     const html = renderToStaticMarkup(createElement(ForgotPasswordPage));
 
-    expect(html).toContain('href="/"');
+    expect(html).toContain('href="/login"');
   });
 
   it("preserves the portal when an invalid reset link requests a replacement", () => {

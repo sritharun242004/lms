@@ -34,18 +34,18 @@ describe("mobile navigation", () => {
     expect(screen.queryByRole("link", { name: "Chats" })).toBeNull();
   });
 
-  it("labels the Super Admin coach route as Coach account management", () => {
+  it("labels the Super Admin coach route as Coach Management", () => {
     render(createElement(MobileNav, { isMentee: false, isSuperAdmin: true }));
 
-    expect(screen.getByRole("link", { name: "Coach account management" }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: "Coach Management" }).getAttribute("href"))
       .toBe("/admin/coaches");
     expect(screen.queryByText("Participant onboarding")).toBeNull();
   });
 
-  it("uses the Question repository label without changing the route", () => {
+  it("uses the Question Repository label without changing the route", () => {
     render(createElement(MobileNav, { isMentee: false, isSuperAdmin: false }));
 
-    expect(screen.getByRole("link", { name: "Question repository" }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: "Question Repository" }).getAttribute("href"))
       .toBe("/questions");
     expect(screen.queryByText("Quiz repository")).toBeNull();
   });
@@ -67,5 +67,14 @@ describe("mobile navigation", () => {
 
     expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
     expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/prompt-bot"]);
+  });
+
+  it("lists items in the required order and combines Forms and Feedback into one item", () => {
+    render(createElement(MobileNav, { isMentee: false, isSuperAdmin: true }));
+
+    const labels = screen.getAllByRole("link").map((el) => el.textContent);
+    expect(labels).toEqual(["Prompt Bot", "Dashboard", "Question Repository", "Forms & Feedback", "Coach Management", "Workshop Registrations"]);
+    expect(screen.getByRole("link", { name: "Forms & Feedback" }).getAttribute("href")).toBe("/forms");
+    expect(screen.queryByRole("link", { name: /^feedback$/i })).toBeNull();
   });
 });

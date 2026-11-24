@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   verifyRefreshToken: vi.fn(),
   generateAccessToken: vi.fn(),
   generateRefreshToken: vi.fn(),
-  isRefreshTokenValid: vi.fn(),
+  claimRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
   storeRefreshToken: vi.fn(),
   findUser: vi.fn(),
@@ -48,7 +48,7 @@ describe("portal-aware proxy redirects", () => {
     ["/mentor/dashboard", "/admin/login?redirect=%2Fmentor%2Fdashboard"],
     ["/questions?returnTo=%2Fchat%2Fgroup-1", "/admin/login?redirect=%2Fquestions%3FreturnTo%3D%252Fchat%252Fgroup-1"],
     ["/dashboard", "/admin/login?redirect=%2Fdashboard"],
-    ["/chat/group-1", "/"],
+    ["/chat/group-1", "/login"],
   ] as const)("redirects unauthenticated %s to %s", async (path, expected) => {
     const response = await proxy(request(path));
 
@@ -59,6 +59,8 @@ describe("portal-aware proxy redirects", () => {
     ["/admin/login", "MENTOR", "/coach/dashboard"],
     ["/admin/login", "ADMIN", "/admin/dashboard"],
     ["/participant/login", "MENTEE", "/chat"],
+    ["/login", "MENTEE", "/chat"],
+    ["/login", "ADMIN", "/admin/dashboard"],
   ] as const)("redirects an authenticated %s visitor to the existing role destination", async (path, role, expected) => {
     const response = await proxy(request(path, role));
 
@@ -75,7 +77,7 @@ describe("portal-aware proxy redirects", () => {
     const req = request("/admin/coaches");
     req.cookies.set("refresh_token", "stored-refresh-token");
     mocks.verifyRefreshToken.mockReturnValue({ sub: "coach-1", role: "MENTOR", authVersion: 0 });
-    mocks.isRefreshTokenValid.mockResolvedValue(true);
+    mocks.claimRefreshToken.mockResolvedValue("rotate");
     mocks.findUser.mockResolvedValue({
       id: "coach-1",
       name: "Coach One",
@@ -93,6 +95,49 @@ describe("portal-aware proxy redirects", () => {
     expect(mocks.revokeRefreshToken).toHaveBeenCalledWith("stored-refresh-token");
     expect(mocks.generateAccessToken).not.toHaveBeenCalled();
     expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it.each(["/reset-password", "/verify-email", "/forgot-password"])(
+    "lets a signed-in browser open %s from an emailed link",
+    async (path) => {
+      const response = await proxy(request(`${path}?token=abc`, "MENTEE"));
+      expect(response.headers.get("location")).toBeNull();
+    }
+  );
+
+  it("rotates both cookies for the request that wins the refresh claim", async () => {
+    const req = request("/coach/dashboard");
+    req.cookies.set("refresh_token", "old-refresh");
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "u1", role: "MENTOR", authVersion: 0 });
+    mocks.claimRefreshToken.mockResolvedValue("rotate");
+    mocks.generateAccessToken.mockReturnValue("new-access");
+    mocks.generateRefreshToken.mockReturnValue("new-refresh");
+    mocks.verifyAccessToken.mockImplementation((t: string) => (t === "new-access" ? { sub: "u1", role: "MENTOR", authVersion: 0 } : null));
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("access_token")?.value).toBe("new-access");
+    expect(response.cookies.get("refresh_token")?.value).toBe("new-refresh");
+    expect(mocks.storeRefreshToken).toHaveBeenCalledWith("u1", "new-refresh", false);
+  });
+
+  it("keeps a request that lost a concurrent refresh signed in without forking the refresh token", async () => {
+    const req = request("/coach/dashboard");
+    req.cookies.set("refresh_token", "old-refresh");
+    mocks.verifyRefreshToken.mockReturnValue({ sub: "u1", role: "MENTOR", authVersion: 0 });
+    mocks.claimRefreshToken.mockResolvedValue("grace");
+    mocks.generateAccessToken.mockReturnValue("new-access");
+    mocks.verifyAccessToken.mockImplementation((t: string) => (t === "new-access" ? { sub: "u1", role: "MENTOR", authVersion: 0 } : null));
+
+    const response = await proxy(req);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("access_token")?.value).toBe("new-access");
+    // No Set-Cookie for refresh_token: the winner's response owns it.
+    expect(response.cookies.get("refresh_token")).toBeUndefined();
+    expect(mocks.generateRefreshToken).not.toHaveBeenCalled();
+    expect(mocks.storeRefreshToken).not.toHaveBeenCalled();
   });
 
   it("rejects an otherwise valid unexpired access JWT when its auth version is stale", async () => {
@@ -140,5 +185,33 @@ describe("portal-aware proxy redirects", () => {
     expect(rejected.headers.get("location")).toBe(
       "http://localhost/admin/login?redirect=%2Fmentor%2Fdashboard"
     );
+  });
+
+  it.each(["/", "/login"])("lets an unauthenticated visitor open %s (landing page, participant portal)", async (path) => {
+    const response = await proxy(request(path));
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("lets a signed-in user read the landing page at / instead of bouncing them to a dashboard", async () => {
+    const response = await proxy(request("/", "ADMIN"));
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it.each([
+    "/workshop/x-intelligence",
+    "/api/v1/workshop/registrations",
+    "/api/v1/workshop/registrations/XI-2026-0001",
+    "/api/v1/workshop/registrations/XI-2026-0001/payment-done",
+    "/api/v1/workshop/registrations/XI-2026-0001/qr",
+    "/api/v1/workshop/config",
+  ])("never redirects an unauthenticated visitor away from the public workshop route %s", async (path) => {
+    const response = await proxy(request(path));
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.status).not.toBe(401);
+  });
+
+  it("still protects the admin registrations prefix despite the similarly-named public one", async () => {
+    const response = await proxy(request("/api/v1/admin/registrations"));
+    expect(response.status).toBe(401);
   });
 });

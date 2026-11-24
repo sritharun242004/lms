@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Library, LayoutDashboard, Menu, Sparkles, UserPlus } from "lucide-react";
+import { ClipboardCheck, FileText, Library, LayoutDashboard, Menu, Sparkles, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -14,15 +14,17 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
 
   const links = [
     { href: "/prompt-bot", label: "Prompt Bot", icon: Sparkles },
-    ...(!isMentee ? [{ href: "/questions", label: "Question repository", icon: Library }] : []),
     ...(!isMentee ? [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-    ...(isSuperAdmin ? [{ href: "/admin/coaches", label: "Coach account management", icon: UserPlus }] : []),
+    ...(!isMentee ? [{ href: "/questions", label: "Question Repository", icon: Library }] : []),
+    ...(!isMentee ? [{ href: "/forms", label: "Forms & Feedback", icon: FileText }] : []),
+    ...(isSuperAdmin ? [{ href: "/admin/coaches", label: "Coach Management", icon: UserPlus }] : []),
+    ...(isSuperAdmin ? [{ href: "/admin/registrations", label: "Workshop Registrations", icon: ClipboardCheck }] : []),
   ];
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Open navigation">
+        <Button variant="ghost" size="icon" className="xl:hidden" aria-label="Open navigation">
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
