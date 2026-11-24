@@ -18,7 +18,7 @@ describe("assembleSkillFiles", () => {
   it("writes SKILL.md first with the item's name, and places files in their folders", () => {
     const files = assembleSkillFiles("board-update", DRAFT);
     expect(files.map((f) => f.path)).toEqual(["SKILL.md", "references/context.md", "scripts/count_words.py", "assets/template.md"]);
-    expect(files[0].content.startsWith("---\nname: board-update\n")).toBe(true);
+    expect(files[0].content.startsWith('---\nname: "board-update"\n')).toBe(true);
     expect(validateSkillFiles(files, "board-update")).toEqual([]);
   });
 
@@ -37,6 +37,16 @@ describe("assembleSkillFiles", () => {
     const mentioned = assembleSkillFiles("board-update", { ...DRAFT, body: "Run `scripts/count_words.py` on the draft." })[0].content;
     expect(mentioned).not.toContain("## Scripts");
   });
+
+  // YAML 1.1 (PyYAML) reads these unquoted as a bool, int, null or date; each is a valid skill name.
+  it.each(["yes", "no", "on", "off", "true", "null", "123", "2024", "2024-01-01", "0x1f", "1e3"])(
+    "quotes the name %s so it round-trips through the validator as text",
+    (name) => {
+      const files = assembleSkillFiles(name, DRAFT);
+      expect(parse(splitFrontmatter(files[0].content)!.frontmatter, { version: "1.1" }).name).toBe(name);
+      expect(validateSkillFiles(files, name)).toEqual([]);
+    },
+  );
 
   it("writes compatibility only when there is one", () => {
     expect(buildSkillMd("x", "d", "", "b")).not.toContain("compatibility");

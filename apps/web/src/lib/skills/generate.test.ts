@@ -101,7 +101,7 @@ describe("runGeneration", () => {
     expect(data.status).toBe("READY");
     expect(data.validationErrors).toEqual([]);
     expect(data.files[0]).toMatchObject({ path: "SKILL.md" });
-    expect(data.files[0].content).toContain("name: board-update");
+    expect(data.files[0].content).toContain('name: "board-update"');
   });
 
   it("retries once with the validation errors, then marks the skill FAILED", async () => {

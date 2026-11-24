@@ -126,6 +126,10 @@ describe("withSkillName", () => {
     expect(validateSkillMd(renamed, "weekly-report")).toEqual([]);
   });
 
+  it.each(["yes", "off", "null", "2024", "2024-01-01"])("renames to %s as text that the validator accepts", (name) => {
+    expect(validateSkillMd(withSkillName(md(VALID), name), name)).toEqual([]);
+  });
+
   it("leaves content without valid frontmatter untouched", () => {
     expect(withSkillName("no frontmatter", "x")).toBe("no frontmatter");
     expect(withSkillName(md("name: [unclosed"), "x")).toBe(md("name: [unclosed"));
