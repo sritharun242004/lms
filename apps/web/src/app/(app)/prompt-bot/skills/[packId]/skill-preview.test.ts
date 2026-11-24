@@ -143,6 +143,21 @@ describe("SkillPreview", () => {
     expect((screen.getByRole("textbox", { name: "Contents of references/context.md" }) as HTMLTextAreaElement).value).toBe("Edited");
   });
 
+  it("asks the browser to confirm leaving the page only while edits are unsaved", async () => {
+    await mount();
+    const leave = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(leave()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "context.md" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Contents of references/context.md" }), { target: { value: "Edited" } });
+    expect(leave()).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: "Contents of references/context.md" }), { target: { value: "Context" } });
+    expect(leave()).toBe(false);
+  });
+
   it("saves every file, shows the server's per-file errors, and never offers Retry for a failed save", async () => {
     route = (call) => (call.url.endsWith("/files") ? failFiles() : ok({}));
     const { props } = await mount();

@@ -47,6 +47,14 @@ export function SkillPreview({ packId, item, readyCount, onItemChange, onRefine,
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
 
+  // Closing or reloading the tab would lose unsaved edits.
+  React.useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   const show = React.useCallback((nextFiles: SkillFile[]) => {
     setSaved(nextFiles);
     setFiles(nextFiles);
