@@ -32,6 +32,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!parsed.success) return validationErrorResponse(parsed.error);
   const owned = await prisma.promptBotSession.findFirst({ where: { id, userId: user.id } });
   if (!owned) return errorResponse("Session not found", "NOT_FOUND", 404);
+  if (typeof parsed.data.taskMatrixId === "string") {
+    const matrix = await prisma.promptMatrix.findFirst({ where: { id: parsed.data.taskMatrixId, kind: "TASK", isActive: true } });
+    if (!matrix) return errorResponse("Unknown task matrix", "VALIDATION_ERROR", 400);
+  }
 
   const data: Record<string, unknown> = {};
   if (parsed.data.title !== undefined) data.title = parsed.data.title;

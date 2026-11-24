@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   sessionUpdate: vi.fn(),
   sessionDelete: vi.fn(),
   matrixFindMany: vi.fn(),
+  matrixFindFirst: vi.fn(),
   answerUpsert: vi.fn(),
   loadSessionView: vi.fn(),
   ensureAnswerRows: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock("@/lib/db/prisma", () => ({
       update: mocks.sessionUpdate,
       delete: mocks.sessionDelete,
     },
-    promptMatrix: { findMany: mocks.matrixFindMany },
+    promptMatrix: { findMany: mocks.matrixFindMany, findFirst: mocks.matrixFindFirst },
     promptBotAnswer: { upsert: mocks.answerUpsert },
   },
 }));
@@ -60,6 +61,7 @@ beforeEach(() => {
   mocks.getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTEE" });
   mocks.isAiConfigured.mockReturnValue(true);
   mocks.matrixFindMany.mockResolvedValue([{ id: "pbm_image", slug: "image", name: "Image", description: "Images" }]);
+  mocks.matrixFindFirst.mockResolvedValue({ id: "pbm_code" });
   mocks.detectTaskKind.mockResolvedValue({ slug: "image", confidence: 0.9 });
   mocks.sessionCreate.mockResolvedValue({ id: "s1" });
   mocks.loadSessionView.mockResolvedValue(VIEW);
@@ -121,7 +123,7 @@ describe("prompt bot session routes", () => {
     const denied = await answer.PUT(json("/x", "PUT", { answer: "CEOs" }), ctx({ id: "s9", questionId: "c1" }));
     expect(denied.status).toBe(404);
 
-    mocks.sessionFindFirst.mockResolvedValue({ id: "s1", userId: "u1" });
+    mocks.sessionFindFirst.mockResolvedValue({ id: "s1", userId: "u1", taskMatrixId: null });
     const ok = await answer.PUT(json("/x", "PUT", { answer: "CEOs", notRelevant: false }), ctx({ id: "s1", questionId: "c1" }));
     expect(ok.status).toBe(200);
     expect(mocks.answerUpsert).toHaveBeenCalledWith({
@@ -129,5 +131,28 @@ describe("prompt bot session routes", () => {
       create: { sessionId: "s1", questionId: "c1", answer: "CEOs", notRelevant: false },
       update: { answer: "CEOs", notRelevant: false },
     });
+  });
+
+  it("rejects an answer for a question outside the session's active matrices", async () => {
+    mocks.sessionFindFirst.mockResolvedValue({ id: "s1", userId: "u1", taskMatrixId: null });
+    const res = await answer.PUT(json("/x", "PUT", { answer: "x" }), ctx({ id: "s1", questionId: "other" }));
+    expect(res.status).toBe(404);
+    expect(mocks.answerUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown, inactive or non-task matrix on PATCH", async () => {
+    mocks.sessionFindFirst.mockResolvedValue({ id: "s1", userId: "u1" });
+    mocks.matrixFindFirst.mockResolvedValue(null);
+    const res = await item.PATCH(json("/x", "PATCH", { taskMatrixId: "pbm_nope" }), ctx({ id: "s1" }));
+    expect(res.status).toBe(400);
+    expect(mocks.matrixFindFirst).toHaveBeenCalledWith({ where: { id: "pbm_nope", kind: "TASK", isActive: true } });
+    expect(mocks.sessionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows clearing the task matrix with null", async () => {
+    mocks.sessionFindFirst.mockResolvedValue({ id: "s1", userId: "u1" });
+    const res = await item.PATCH(json("/x", "PATCH", { taskMatrixId: null }), ctx({ id: "s1" }));
+    expect(res.status).toBe(200);
+    expect(mocks.matrixFindFirst).not.toHaveBeenCalled();
   });
 });

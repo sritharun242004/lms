@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { matricesForSession } from "@/lib/prompt-bot/sessions";
 import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api/response";
 
 type Ctx = { params: Promise<{ id: string; questionId: string }> };
@@ -18,6 +19,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   if (!parsed.success) return validationErrorResponse(parsed.error);
   const owned = await prisma.promptBotSession.findFirst({ where: { id, userId: user.id } });
   if (!owned) return errorResponse("Session not found", "NOT_FOUND", 404);
+  const matrices = await matricesForSession(owned.taskMatrixId);
+  if (!matrices.some((m) => m.questions.some((q) => q.id === questionId))) {
+    return errorResponse("Question not found", "NOT_FOUND", 404);
+  }
 
   const fields = {
     ...(parsed.data.answer !== undefined ? { answer: parsed.data.answer } : {}),
