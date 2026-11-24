@@ -35,4 +35,17 @@ describe("Prompt Bot start page", () => {
     expect(screen.getByLabelText("What do you want AI to do?")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Board update email/ }).getAttribute("href")).toBe("/prompt-bot/s1");
   });
+
+  it("shows Manage questions only to coaches and admins", async () => {
+    mocks.isAiConfigured.mockReturnValue(true);
+    mocks.findMany.mockResolvedValue([]);
+    mocks.getCurrentUser.mockResolvedValue({ id: "c1", role: "MENTOR", name: "Coach" });
+    render(await PromptBotPage());
+    expect(screen.getByRole("link", { name: /Manage questions/ }).getAttribute("href")).toBe("/prompt-bot/matrices");
+
+    cleanup();
+    mocks.getCurrentUser.mockResolvedValue({ id: "p1", role: "MENTEE", name: "Ravi" });
+    render(await PromptBotPage());
+    expect(screen.queryByRole("link", { name: /Manage questions/ })).toBeNull();
+  });
 });

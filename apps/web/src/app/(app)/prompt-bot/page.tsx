@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Clock3 } from "lucide-react";
+import { Clock3, ListChecks } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { isAiConfigured } from "@/lib/ai/config";
 import { prisma } from "@/lib/db/prisma";
+import { canEditMatrices } from "@/lib/prompt-bot/matrix-input";
 import { NotConfigured } from "@/components/prompt-bot/not-configured";
 import { StartForm } from "./start-form";
 
@@ -24,6 +25,16 @@ export default async function PromptBotPage() {
           Using a structured approach, the quality, certainty and consistency of AI is massively increased.
         </p>
       </header>
+      {canEditMatrices(user!.role) && (
+        <div className="flex justify-center">
+          <Link
+            href="/prompt-bot/matrices"
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            <ListChecks className="size-4" aria-hidden /> Manage questions
+          </Link>
+        </div>
+      )}
       {isAiConfigured() ? <StartForm /> : <NotConfigured isAdmin={user!.role === "ADMIN"} />}
       {recent.length > 0 && (
         <section className="glass rounded-[1.75rem] p-5" aria-labelledby="recent-prompts">
