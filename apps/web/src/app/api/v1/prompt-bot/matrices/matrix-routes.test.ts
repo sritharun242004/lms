@@ -76,6 +76,15 @@ describe("matrix routes", () => {
     expect((await item.DELETE(json("DELETE"), ctx("pbm_core"))).status).toBe(400);
   });
 
+  it("rejects emptying the core matrix's questions", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "a1", role: "ADMIN" });
+    mocks.findUnique.mockResolvedValue({ id: "pbm_core", slug: "core", isBuiltIn: true, kind: "CORE", questions: [{ id: "q1" }] });
+    const res = await item.PATCH(json("PATCH", { questions: [] }), ctx("pbm_core"));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("VALIDATION_ERROR");
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
   it("deactivates questions removed from the edited list instead of deleting them", async () => {
     mocks.getCurrentUser.mockResolvedValue({ id: "a1", role: "ADMIN" });
     mocks.findUnique.mockResolvedValue({ id: "pbm_image", slug: "image", isBuiltIn: true, kind: "TASK", questions: [{ id: "q1" }, { id: "q2" }] });

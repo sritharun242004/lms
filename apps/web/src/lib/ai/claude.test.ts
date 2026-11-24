@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ create: vi.fn() }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), ctor: vi.fn() }));
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
+    constructor(options: unknown) {
+      mocks.ctor(options);
+    }
     messages = { create: mocks.create };
     beta = { messages: { stream: vi.fn() } };
   },
@@ -48,5 +51,27 @@ describe("claude client", () => {
     await expect(detectTaskKind("p", matrices)).resolves.toEqual({ slug: null, confidence: 0.9 });
     mocks.create.mockResolvedValueOnce(reply({ slug: "image", confidence: 0.8 }));
     await expect(detectTaskKind("p", matrices)).resolves.toEqual({ slug: "image", confidence: 0.8 });
+  });
+
+  it("builds the client with a timeout under the 120s request cap and limited retries", async () => {
+    vi.resetModules();
+    mocks.create.mockResolvedValue(reply({ scores: [] }));
+    const fresh = await import("./claude");
+    await fresh.scoreQuestions("p", [{ id: "q1", text: "Why?", guidance: "g" }]);
+    expect(mocks.ctor).toHaveBeenCalledWith({ apiKey: "sk-ant-test", timeout: 90_000, maxRetries: 1 });
+  });
+
+  it("scales the scoring token budget with the number of questions", async () => {
+    mocks.create.mockResolvedValue(reply({ scores: [] }));
+    const many = Array.from({ length: 40 }, (_, i) => ({ id: `q${i}`, text: "t", guidance: "g" }));
+    await scoreQuestions("p", many);
+    expect(mocks.create.mock.calls[0][0].max_tokens).toBe(3600);
+    await scoreQuestions("p", many.slice(0, 2));
+    expect(mocks.create.mock.calls[1][0].max_tokens).toBe(2000);
+  });
+
+  it.each(["max_tokens", "refusal"])("throws a clear error when the reply stopped with %s", async (stop) => {
+    mocks.create.mockResolvedValue({ content: [{ type: "text", text: '{"scores":[' }], stop_reason: stop });
+    await expect(scoreQuestions("p", [{ id: "q1", text: "Why?", guidance: "g" }])).rejects.toThrow(stop);
   });
 });

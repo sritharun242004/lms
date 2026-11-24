@@ -8,7 +8,7 @@ let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!isAiConfigured()) throw new AiNotConfiguredError();
-  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 1 });
   return client;
 }
 
@@ -28,6 +28,9 @@ async function structured<T>(args: {
     messages: [{ role: "user", content: args.user }],
     output_config: { format: { type: "json_schema", schema: args.schema } },
   });
+  if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
+    throw new Error(`Claude stopped with ${response.stop_reason}`);
+  }
   const text = response.content.find((block) => block.type === "text");
   if (!text || text.type !== "text") throw new Error("Claude returned no text");
   return args.parse.parse(JSON.parse(text.text));
@@ -88,7 +91,7 @@ export async function scoreQuestions(
       additionalProperties: false,
     },
     parse: Scores,
-    maxTokens: 2000,
+    maxTokens: Math.max(2000, 90 * questions.length),
   });
   return sanitizeScores(result.scores, new Set(questions.map((q) => q.id)));
 }
@@ -114,6 +117,9 @@ export function streamEnhancement(message: string, signal?: AbortSignal) {
   }
   return {
     textStream: textStream(),
-    finalModel: async () => (await stream.finalMessage()).model,
+    finalMessage: async () => {
+      const message = await stream.finalMessage();
+      return { model: message.model as string, stopReason: (message.stop_reason as string | null) ?? null };
+    },
   };
 }

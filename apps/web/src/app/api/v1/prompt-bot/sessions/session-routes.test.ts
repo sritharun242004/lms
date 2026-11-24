@@ -60,6 +60,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTEE" });
   mocks.isAiConfigured.mockReturnValue(true);
+  mocks.consumeAiUsage.mockResolvedValue(undefined);
   mocks.matrixFindMany.mockResolvedValue([{ id: "pbm_image", slug: "image", name: "Image", description: "Images" }]);
   mocks.matrixFindFirst.mockResolvedValue({ id: "pbm_code" });
   mocks.detectTaskKind.mockResolvedValue({ slug: "image", confidence: 0.9 });
@@ -102,6 +103,22 @@ describe("prompt bot session routes", () => {
     mocks.runScoring.mockRejectedValue(new LimitReachedError("score", new Date()));
     const res = await collection.POST(json("/api/v1/prompt-bot/sessions", "POST", { basePrompt: "Make a hero image" }));
     expect(res.status).toBe(201);
+  });
+
+  it("checks the score allowance before detection and creates nothing when the limit is reached", async () => {
+    const { LimitReachedError } = await import("@/lib/ai/usage");
+    mocks.consumeAiUsage.mockRejectedValue(new LimitReachedError("score", new Date("2026-11-25T00:00:00Z")));
+    const res = await collection.POST(json("/api/v1/prompt-bot/sessions", "POST", { basePrompt: "Make a hero image" }));
+    expect(res.status).toBe(429);
+    expect((await res.json()).error.code).toBe("LIMIT_REACHED");
+    expect(mocks.detectTaskKind).not.toHaveBeenCalled();
+    expect(mocks.sessionCreate).not.toHaveBeenCalled();
+  });
+
+  it("consumes a score unit before running detection", async () => {
+    await collection.POST(json("/api/v1/prompt-bot/sessions", "POST", { basePrompt: "Make a hero image" }));
+    expect(mocks.consumeAiUsage).toHaveBeenCalledWith("u1", "score");
+    expect(mocks.consumeAiUsage.mock.invocationCallOrder[0]).toBeLessThan(mocks.detectTaskKind.mock.invocationCallOrder[0]);
   });
 
   it("hides other users' sessions as 404", async () => {

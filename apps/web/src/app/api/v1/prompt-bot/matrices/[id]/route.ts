@@ -33,6 +33,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (matrix!.id === CORE_MATRIX_ID && parsed.data.isActive === false) {
     return errorResponse("The Design Think core matrix must stay active", "VALIDATION_ERROR", 400);
   }
+  if (matrix!.id === CORE_MATRIX_ID && parsed.data.questions?.length === 0) {
+    return errorResponse("The Design Think core matrix needs at least one question", "VALIDATION_ERROR", 400);
+  }
 
   const ops = [];
   ops.push(

@@ -43,10 +43,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const send = (event: unknown) => controller.enqueue(encoder.encode(sse(event)));
       let content = "";
       try {
-        const { textStream, finalModel } = streamEnhancement(buildEnhanceMessage(view.basePrompt, questions), req.signal);
+        const { textStream, finalMessage } = streamEnhancement(buildEnhanceMessage(view.basePrompt, questions), req.signal);
         for await (const text of textStream) {
           content += text;
           send({ type: "delta", text });
+        }
+        const final = await finalMessage();
+        if (!content.trim() || final.stopReason === "refusal") {
+          send({ type: "error", message: "The AI declined or returned nothing for this prompt. Try rephrasing it." });
+          return;
         }
         const latest = await prisma.promptBotEnhancement.findFirst({ where: { sessionId: id }, orderBy: { version: "desc" } });
         const version = (latest?.version ?? 0) + 1;
@@ -56,12 +61,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             version,
             content: content.trim(),
             unansweredQuestionIds: gaps,
-            model: await finalModel(),
+            model: final.model,
             instructionsVersion: INSTRUCTIONS_VERSION,
           },
         });
         send({ type: "done", version });
-      } catch {
+      } catch (error) {
+        console.error("[prompt-bot] enhance failed:", error instanceof Error ? error.name : "unknown");
         send({ type: "error", message: "The AI couldn't finish your enhanced prompt. Please try again." });
       } finally {
         controller.close();

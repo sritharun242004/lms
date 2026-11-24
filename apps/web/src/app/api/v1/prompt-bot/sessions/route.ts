@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api/response";
 import { isAiConfigured, AiNotConfiguredError } from "@/lib/ai/config";
 import { detectTaskKind } from "@/lib/ai/claude";
-import { LimitReachedError } from "@/lib/ai/usage";
+import { consumeAiUsage, LimitReachedError } from "@/lib/ai/usage";
 import { aiErrorResponse } from "@/lib/prompt-bot/http";
 import { loadSessionView, runScoring, titleFrom } from "@/lib/prompt-bot/sessions";
 import { readiness } from "@/lib/prompt-bot/scoring";
@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
     where: { kind: "TASK", isActive: true },
     select: { id: true, slug: true, name: true, description: true },
   });
+  // Detection is an AI call: spend a score unit first, and refuse before creating a session that could never be scored.
+  try {
+    await consumeAiUsage(user.id, "score");
+  } catch (error) {
+    if (error instanceof LimitReachedError) return aiErrorResponse(error);
+    throw error;
+  }
   let taskMatrixId: string | null = null;
   try {
     const detection = await detectTaskKind(parsed.data.basePrompt, taskMatrices);

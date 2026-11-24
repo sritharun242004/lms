@@ -80,7 +80,7 @@ describe("enhance route", () => {
         yield "## Persona\n";
         yield "You are…";
       })(),
-      finalModel: async () => "claude-opus-5-5",
+      finalMessage: async () => ({ model: "claude-opus-5-5", stopReason: "end_turn" }),
     });
     const res = await enhance.POST(req(), ctx);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
@@ -105,10 +105,26 @@ describe("enhance route", () => {
         yield "partial";
         throw new Error("boom");
       })(),
-      finalModel: async () => "x",
+      finalMessage: async () => ({ model: "x", stopReason: "end_turn" }),
     });
     const body = await (await enhance.POST(req(), ctx)).text();
     expect(body).toContain('"type":"error"');
+    expect(mocks.enhancementCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["empty output", "  ", "end_turn"],
+    ["a refusal", "partial", "refusal"],
+  ])("sends an error event and saves nothing on %s", async (_name, text, stopReason) => {
+    mocks.streamEnhancement.mockReturnValue({
+      textStream: (async function* () {
+        yield text;
+      })(),
+      finalMessage: async () => ({ model: "claude-opus-5-5", stopReason }),
+    });
+    const body = await (await enhance.POST(req(), ctx)).text();
+    expect(body).toContain('"type":"error"');
+    expect(body).not.toContain('"type":"done"');
     expect(mocks.enhancementCreate).not.toHaveBeenCalled();
   });
 
