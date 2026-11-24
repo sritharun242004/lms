@@ -36,6 +36,42 @@ function scoreFor(user) {
   }));
 }
 
+const VALID_DRAFT = {
+  name: "ignored-by-the-server",
+  description:
+    'Drafts the monthly board update from rough notes: numbers first, "no surprises" tone. Use when asked for a board update, an investor update or a monthly summary.',
+  compatibility: "",
+  body:
+    "# Board update writer\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Run `scripts/word_count.py` on the draft and keep it under 400 words.\n",
+  references: [{ path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" }],
+  scripts: [{ path: "scripts/word_count.py", content: "import sys\nprint(len(sys.stdin.read().split()))\n", purpose: "Counts the words in a draft read from standard input." }],
+  assets: [],
+};
+
+// Skills Builder shapes, recognised by the JSON schema the app sends.
+// FAKE_FIRST_INVALID=1 makes the first generate call fail validation (exercises the retry).
+function skillsStructured(props, user) {
+  if ("customSkills" in props) {
+    console.log("[fake] split");
+    return {
+      customSkills: [
+        { name: "Board Update Writer", purpose: "Drafts the monthly board update from my notes." },
+        { name: "board update writer", purpose: "A duplicate name, to check that names are made unique." },
+      ],
+      catalogMatches: [
+        { slug: "impeccable", why: "Polishes the dashboards you review every week." },
+        { slug: "not-in-the-catalog", why: "Must be dropped." },
+      ],
+    };
+  }
+  if ("body" in props) {
+    const retry = user.includes("<validation_errors>");
+    console.log(`[fake] generate${retry ? " (retry)" : ""}`);
+    return process.env.FAKE_FIRST_INVALID && !retry ? { ...VALID_DRAFT, description: "Uses <angle> brackets" } : VALID_DRAFT;
+  }
+  return null;
+}
+
 function structured(system, user) {
   if (system.includes("classify what kind of task")) return { slug: "writing", confidence: 0.9 };
   if (system.includes("assess how well")) return { scores: scoreFor(user) };
@@ -78,11 +114,13 @@ http
         res.end();
         return;
       }
+      const props = body.output_config?.format?.schema?.properties ?? {};
+      const payload = skillsStructured(props, user) ?? structured(system, user);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
         JSON.stringify({
           id, type: "message", role: "assistant", model,
-          content: [{ type: "text", text: JSON.stringify(structured(system, user)) }],
+          content: [{ type: "text", text: JSON.stringify(payload) }],
           stop_reason: "end_turn", stop_sequence: null,
           usage: { input_tokens: 100, output_tokens: 80 },
         }),
