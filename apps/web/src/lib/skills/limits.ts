@@ -35,6 +35,8 @@ export const JOB_LIMITS = {
   /** A job skill's folder name as typed (the kebab-case name is derived from it). */
   skillNameChars: 120,
   skillPurposeChars: 300,
+  /** Every small JSON body (job, answer, skill, analysis edits): a 20 000-character text fits with escaping headroom. */
+  jsonBodyBytes: 64 * 1024,
   descriptionChars: 20_000,
   filesPerJob: 10,
   fileBytes: 20 * 1024 * 1024,

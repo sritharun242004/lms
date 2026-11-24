@@ -3,12 +3,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
 import { buildQuestionContext, scoreAndApply, toAnswerView } from "@/lib/prompt-bot/score-run";
-import { SKILL_MATRIX_SLUG } from "./builtin-skill-matrix";
 import { skillScoringBase } from "./instructions";
 import { GENERATION_STALE_MS, PACK_LIMITS } from "./limits";
 import type { SplitResult } from "./split";
+import { loadSkillMatrix } from "./matrix";
 import type { ZipSkill } from "./zip";
 import type { SkillFile, SkillFileEntry, SkillItemDetail, SkillItemStatus, SkillItemView, SkillMatrixView, SkillPackView } from "./types";
+
+export { loadSkillMatrix };
 
 export const INTERRUPTED_MESSAGE = "Writing this skill was interrupted. Generate it again.";
 export const UNREADABLE_FILES_MESSAGE = "The saved files couldn't be read. Generate this skill again.";
@@ -50,18 +52,6 @@ async function fileIndexes(where: Prisma.Sql): Promise<Map<string, unknown>> {
 }
 
 export const toStoredFiles = (files: SkillFile[]): Prisma.InputJsonValue => files.map((f) => ({ path: f.path, content: f.content }));
-
-export async function loadSkillMatrix(): Promise<SkillMatrixView> {
-  const matrix = await prisma.promptMatrix.findFirst({
-    where: { slug: SKILL_MATRIX_SLUG, kind: "SKILL", isActive: true },
-    include: { questions: { where: { isActive: true }, orderBy: { order: "asc" } } },
-  });
-  return {
-    id: matrix?.id ?? "",
-    name: matrix?.name ?? "Skill definition",
-    questions: matrix?.questions.map((q) => ({ id: q.id, text: q.text, guidance: q.guidance, order: q.order })) ?? [],
-  };
-}
 
 const itemInclude = { answers: true, catalogEntry: true } as const satisfies Prisma.SkillPackItemInclude;
 type ItemRow = Prisma.SkillPackItemGetPayload<{ include: typeof itemInclude; omit: { files: true } }>;
