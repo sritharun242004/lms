@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { debounce, readEnhanceStream } from "./client";
+import { call, debounce, readEnhanceStream } from "./client";
 
 function sseResponse(chunks: string[]) {
   const stream = new ReadableStream({
@@ -48,5 +48,21 @@ describe("debounce", () => {
     vi.advanceTimersByTime(1);
     expect(fn).toHaveBeenCalledWith("b");
     vi.useRealTimers();
+  });
+});
+
+describe("call", () => {
+  it("returns the error code, message and field details of a failed request", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: false, error: { code: "VALIDATION_ERROR", message: "Fix these", details: { files: ["bad path"] } } }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+    expect(await call("/x")).toEqual({ ok: false, code: "VALIDATION_ERROR", message: "Fix these", details: { files: ["bad path"] } });
+    vi.unstubAllGlobals();
   });
 });

@@ -1,13 +1,22 @@
 import type { AnswerView, SessionView } from "./sessions";
 
-type CallResult<T> = { ok: true; data: T } | { ok: false; code: string; message: string };
+export type CallResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; code: string; message: string; details?: Record<string, string[]> };
 
-async function call<T>(url: string, init?: RequestInit): Promise<CallResult<T>> {
+export type ScoreReply = { applied: boolean; revision: number; answers: AnswerView[] };
+
+export async function call<T>(url: string, init?: RequestInit): Promise<CallResult<T>> {
   try {
     const res = await fetch(url, { credentials: "include", headers: { "content-type": "application/json" }, ...init });
     const body = await res.json().catch(() => null);
     if (res.ok && body?.success) return { ok: true, data: body.data as T };
-    return { ok: false, code: body?.error?.code ?? "REQUEST_FAILED", message: body?.error?.message ?? "Something went wrong." };
+    return {
+      ok: false,
+      code: body?.error?.code ?? "REQUEST_FAILED",
+      message: body?.error?.message ?? "Something went wrong.",
+      ...(body?.error?.details ? { details: body.error.details as Record<string, string[]> } : {}),
+    };
   } catch {
     return { ok: false, code: "NETWORK_ERROR", message: "Couldn't reach the server. Check your connection." };
   }
@@ -20,10 +29,7 @@ export const patchSession = (id: string, patch: { title?: string; basePrompt?: s
 export const saveAnswer = (id: string, questionId: string, patch: { answer?: string; notRelevant?: boolean }) =>
   call<{ saved: true }>(`/api/v1/prompt-bot/sessions/${id}/answers/${questionId}`, { method: "PUT", body: JSON.stringify(patch) });
 export const scoreSession = (id: string, revision: number) =>
-  call<{ applied: boolean; revision: number; answers: AnswerView[] }>(`/api/v1/prompt-bot/sessions/${id}/score`, {
-    method: "POST",
-    body: JSON.stringify({ revision }),
-  });
+  call<ScoreReply>(`/api/v1/prompt-bot/sessions/${id}/score`, { method: "POST", body: JSON.stringify({ revision }) });
 
 export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number) {
   let t: ReturnType<typeof setTimeout> | null = null;
