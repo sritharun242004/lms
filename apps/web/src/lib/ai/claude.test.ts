@@ -11,7 +11,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 
-import { detectTaskKind, generateSkillDraft, scoreQuestions, splitWork } from "./claude";
+import { generateSkillDraft, scoreQuestions, splitWork } from "./claude";
 import { AiNotConfiguredError } from "./config";
 import { AiResponseError } from "./errors";
 
@@ -42,16 +42,6 @@ describe("claude client", () => {
     const args = mocks.create.mock.calls[0][0];
     expect(args.model).toBe("claude-haiku-4-5");
     expect(args.output_config.format.type).toBe("json_schema");
-  });
-
-  it("returns no task when confidence is low or the slug is unknown", async () => {
-    const matrices = [{ slug: "image", name: "Image", description: "Images" }];
-    mocks.create.mockResolvedValueOnce(reply({ slug: "image", confidence: 0.4 }));
-    await expect(detectTaskKind("p", matrices)).resolves.toEqual({ slug: null, confidence: 0.4 });
-    mocks.create.mockResolvedValueOnce(reply({ slug: "video", confidence: 0.9 }));
-    await expect(detectTaskKind("p", matrices)).resolves.toEqual({ slug: null, confidence: 0.9 });
-    mocks.create.mockResolvedValueOnce(reply({ slug: "image", confidence: 0.8 }));
-    await expect(detectTaskKind("p", matrices)).resolves.toEqual({ slug: "image", confidence: 0.8 });
   });
 
   it("builds the client with a timeout under the 120s request cap and limited retries", async () => {

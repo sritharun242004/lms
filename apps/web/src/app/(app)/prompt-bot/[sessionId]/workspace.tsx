@@ -1,22 +1,21 @@
 "use client";
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { EnhancePanel } from "@/components/prompt-bot/enhance-panel";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
 import { useActiveQuestion, useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
-import { patchSession, readEnhanceStream, saveAnswer, scoreSession } from "@/lib/prompt-bot/client";
+import { getSession, patchSession, readEnhanceStream, saveAnswer, scoreSession } from "@/lib/prompt-bot/client";
 import type { SessionView } from "@/lib/prompt-bot/sessions";
 
-export function Workspace({ initial, taskMatrices }: { initial: SessionView; taskMatrices: { id: string; name: string }[] }) {
-  const [view, setView] = React.useState(initial);
+export function Workspace({ initial }: { initial: SessionView }) {
+  const view = initial;
   const [basePrompt, setBasePrompt] = React.useState(initial.basePrompt);
   const matrix = useMatrixAnswers({
     initialAnswers: initial.answers,
     initialRevision: initial.scoreRevision,
-    saveAnswer: (questionId, patch) => saveAnswer(view.id, questionId, patch),
+    saveAnswer: (questionId, patch, options) => saveAnswer(view.id, questionId, patch, options),
     score: (revision) => scoreSession(view.id, revision),
   });
   const { activeId, answerRef, selectQuestion } = useActiveQuestion(initial.matrices[0]?.questions[0]?.id ?? null);
@@ -30,6 +29,10 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
     version: initial.latestEnhancement?.version ?? null,
   });
   const [streaming, setStreaming] = React.useState(false);
+  /** Bumped whenever a different prompt replaces the shown one, so the panel fades it in. */
+  const [contentKey, setContentKey] = React.useState(0);
+  const showNext = () => setContentKey((k) => k + 1);
+  const enhancing = React.useRef(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
 
   const questions = view.matrices.flatMap((m) => m.questions);
@@ -39,33 +42,30 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
     matrix.bumpRevision();
     setBasePrompt(value);
     if (!value.trim()) return;
-    matrix.queueSave("basePrompt", async () => {
-      const saved = await patchSession(view.id, { basePrompt: value });
+    matrix.queueSave("basePrompt", async (options) => {
+      const saved = await patchSession(view.id, { basePrompt: value }, options);
       if (!saved.ok) toast.error(saved.message);
       matrix.scheduleScore();
     });
   }
 
-  async function switchTask(taskMatrixId: string | null) {
-    await matrix.flushSaves();
-    const result = await patchSession(view.id, { taskMatrixId });
-    if (!result.ok) return toast.error(result.message);
-    matrix.bumpRevision();
-    setView(result.data);
-    matrix.mergeAnswers(result.data.answers);
-    matrix.scheduleScore();
-  }
-
   async function enhance() {
-    if (gaps.length > 0 && !window.confirm(`${gaps.length} questions not answered yet — the enhanced prompt will be higher-level. Continue?`)) return;
+    if (
+      gaps.length > 0 &&
+      !window.confirm(`${gaps.length} questions aren't fully answered yet. The enhanced prompt will ask the AI to check them with you first. Continue?`)
+    )
+      return;
+    enhancing.current = true;
     setStreaming(true);
     setEnhanceError(null);
     setEnhanced("");
+    showNext();
     await matrix.flushSaves();
     let streamed = "";
     const restore = () => {
       setEnhanced(lastGood.current.content);
       setVersion(lastGood.current.version);
+      showNext();
     };
     try {
       const res = await fetch(`/api/v1/prompt-bot/sessions/${view.id}/enhance`, { method: "POST", credentials: "include" });
@@ -85,6 +85,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
       setEnhanceError("Couldn't reach the server. Check your connection.");
       restore();
     } finally {
+      enhancing.current = false;
       setStreaming(false);
     }
   }
@@ -95,7 +96,31 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
     lastGood.current = { content: entry.content, version: entry.version };
     setEnhanced(entry.content);
     setVersion(entry.version);
+    showNext();
   }
+
+  // Browser Back re-mounts this page from the router's cached first load, so read the saved session
+  // once and use it if the user hasn't started editing.
+  const { replaceAnswers } = matrix;
+  React.useEffect(() => {
+    let cancelled = false;
+    void getSession(initial.id).then((fresh) => {
+      if (cancelled || !fresh.ok || !Array.isArray(fresh.data?.answers)) return;
+      if (!replaceAnswers(fresh.data.answers, fresh.data.scoreRevision)) return;
+      setBasePrompt(fresh.data.basePrompt);
+      const latest = fresh.data.latestEnhancement;
+      if (latest && !enhancing.current && latest.version > (lastGood.current.version ?? 0)) {
+        lastGood.current = { content: latest.content, version: latest.version };
+        setEnhanced(latest.content);
+        setVersion(latest.version);
+        showNext();
+        setHistory((prev) => [{ version: latest.version, content: latest.content }, ...prev.filter((h) => h.version !== latest.version)]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.id, replaceAnswers]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -119,8 +144,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   }, [initial.id]);
 
   const active = questions.find((q) => q.id === activeId) ?? null;
-  const task = view.matrices.find((m) => m.kind === "TASK") ?? null;
-  const groups = view.matrices.map((m) => ({ id: m.id, title: m.kind === "CORE" ? "Core" : m.name, questions: m.questions }));
+  const groups = view.matrices.map((m) => ({ id: m.id, title: m.name, questions: m.questions }));
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -132,24 +156,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
         scoreState={matrix.scoreState}
         onSelect={selectQuestion}
         onToggleRelevant={(id) => matrix.updateAnswer(id, { notRelevant: !matrix.answerFor(id).notRelevant })}
-      >
-        <label className="mt-5 flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Task type</span>
-          <span className="relative">
-            <select
-              value={task?.id ?? ""}
-              onChange={(e) => void switchTask(e.target.value || null)}
-              className="appearance-none rounded-xl border border-border bg-white/60 py-1.5 pl-3 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:bg-white/5"
-            >
-              <option value="">Core only</option>
-              {taskMatrices.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-muted-foreground" aria-hidden />
-          </span>
-        </label>
-      </MatrixPanel>
+      />
 
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-[1.75rem] p-5">
@@ -171,6 +178,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
         </section>
         <EnhancePanel
           content={enhanced}
+          contentKey={contentKey}
           streaming={streaming}
           version={version}
           versions={history.map((h) => h.version)}

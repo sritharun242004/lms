@@ -6,9 +6,17 @@ export type CallResult<T> =
 
 export type ScoreReply = { applied: boolean; revision: number; answers: AnswerView[] };
 
+/** Options for a save that may be sent while the page is going away. */
+export type SaveOptions = { keepalive?: boolean };
+
+/** Browsers cap in-flight keepalive bodies at 64 KiB per page; larger saves go as ordinary requests. */
+const KEEPALIVE_BODY_LIMIT = 60_000;
+
 export async function call<T>(url: string, init?: RequestInit): Promise<CallResult<T>> {
+  const keepalive =
+    init?.keepalive === true && typeof init.body === "string" && new TextEncoder().encode(init.body).length <= KEEPALIVE_BODY_LIMIT;
   try {
-    const res = await fetch(url, { credentials: "include", headers: { "content-type": "application/json" }, ...init });
+    const res = await fetch(url, { credentials: "include", headers: { "content-type": "application/json" }, ...init, keepalive });
     const body = await res.json().catch(() => null);
     if (res.ok && body?.success) return { ok: true, data: body.data as T };
     return {
@@ -24,10 +32,15 @@ export async function call<T>(url: string, init?: RequestInit): Promise<CallResu
 
 export const createSession = (basePrompt: string) =>
   call<SessionView>("/api/v1/prompt-bot/sessions", { method: "POST", body: JSON.stringify({ basePrompt }) });
-export const patchSession = (id: string, patch: { title?: string; basePrompt?: string; taskMatrixId?: string | null }) =>
-  call<SessionView>(`/api/v1/prompt-bot/sessions/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
-export const saveAnswer = (id: string, questionId: string, patch: { answer?: string; notRelevant?: boolean }) =>
-  call<{ saved: true }>(`/api/v1/prompt-bot/sessions/${id}/answers/${questionId}`, { method: "PUT", body: JSON.stringify(patch) });
+export const getSession = (id: string) => call<SessionView>(`/api/v1/prompt-bot/sessions/${id}`);
+export const patchSession = (id: string, patch: { title?: string; basePrompt?: string }, options: SaveOptions = {}) =>
+  call<SessionView>(`/api/v1/prompt-bot/sessions/${id}`, { method: "PATCH", body: JSON.stringify(patch), keepalive: options.keepalive });
+export const saveAnswer = (id: string, questionId: string, patch: { answer?: string; notRelevant?: boolean }, options: SaveOptions = {}) =>
+  call<{ saved: true }>(`/api/v1/prompt-bot/sessions/${id}/answers/${questionId}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+    keepalive: options.keepalive,
+  });
 export const scoreSession = (id: string, revision: number) =>
   call<ScoreReply>(`/api/v1/prompt-bot/sessions/${id}/score`, { method: "POST", body: JSON.stringify({ revision }) });
 

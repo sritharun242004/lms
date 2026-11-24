@@ -29,6 +29,17 @@ describe("QuestionRow", () => {
     expect(screen.getByText("3/3")).toBeTruthy();
   });
 
+  it("collapses the note of a fully answered row until it is selected", () => {
+    const note = () => screen.getByText(base.reason);
+    const { rerender } = render(createElement(QuestionRow, { ...base, score: 2, notRelevant: false }));
+    expect(note().getAttribute("data-collapsed")).toBe("false");
+    rerender(createElement(QuestionRow, { ...base, score: 3, notRelevant: false }));
+    expect(note().getAttribute("data-collapsed")).toBe("true");
+    expect(note().getAttribute("title")).toBe(base.reason);
+    rerender(createElement(QuestionRow, { ...base, score: 3, notRelevant: false, active: true }));
+    expect(note().getAttribute("data-collapsed")).toBe("false");
+  });
+
   it("shows not-relevant questions dimmed with a restore action", () => {
     const onToggleRelevant = vi.fn();
     render(createElement(QuestionRow, { ...base, score: 0, notRelevant: true, onToggleRelevant }));
@@ -39,8 +50,8 @@ describe("QuestionRow", () => {
 });
 
 describe("ReadinessMeter", () => {
-  it("reads 'N of M answered'", () => {
-    render(createElement(ReadinessMeter, { answered: 3, relevant: 14, ratio: 0.4 }));
-    expect(screen.getByText("3 of 14 answered")).toBeTruthy();
+  it("reads 'N of M ready'", () => {
+    render(createElement(ReadinessMeter, { answered: 3, relevant: 7, ratio: 0.4 }));
+    expect(screen.getByText(/of 7 ready/).textContent).toBe("3 of 7 ready");
   });
 });

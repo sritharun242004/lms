@@ -6,12 +6,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocalDraft } from "@/components/prompt-bot/use-local-draft";
 import { createPack } from "@/lib/skills/client";
 
-export function NewPackForm() {
+/** `draftKey` names the browser storage slots that keep unsubmitted text; include the user's id. */
+export function NewPackForm({ draftKey }: { draftKey: string }) {
   const router = useRouter();
-  const [description, setDescription] = React.useState("");
-  const [role, setRole] = React.useState("");
+  const [description, setDescription, clearDescription] = useLocalDraft(`${draftKey}:description`);
+  const [role, setRole, clearRole] = useLocalDraft(`${draftKey}:role`);
   const [busy, setBusy] = React.useState(false);
 
   async function submit(event: React.FormEvent) {
@@ -19,8 +21,11 @@ export function NewPackForm() {
     if (!description.trim() || busy) return;
     setBusy(true);
     const result = await createPack(description, role);
-    if (result.ok) router.push(`/prompt-bot/skills/${result.data.id}`);
-    else {
+    if (result.ok) {
+      clearDescription();
+      clearRole();
+      router.push(`/prompt-bot/skills/${result.data.id}`);
+    } else {
       toast.error(result.message);
       setBusy(false);
     }

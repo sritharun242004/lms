@@ -18,7 +18,7 @@ export default async function MatricesPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Question matrices</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Design Think is always applied. Task matrices add questions when Prompt Bot detects that kind of task.
+          Prompt Bot asks the Design Think questions on every prompt. Task matrices are kept for reference and are not added to prompts.
         </p>
       </header>
       <MatrixEditor initial={JSON.parse(JSON.stringify(matrices))} />

@@ -27,7 +27,7 @@ describe("MatrixPanel", () => {
     render(createElement(MatrixPanel, props));
     expect(screen.getByRole("heading", { level: 2, name: "Skill definition" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 3, name: "Questions" })).toBeTruthy();
-    expect(screen.getByText("1 of 2 answered")).toBeTruthy();
+    expect(screen.getByText(/of 2 ready/).textContent).toBe("1 of 2 ready");
     expect(screen.getByRole("button", { name: /^2\.\s*Context\?/ })).toBeTruthy();
     expect(screen.getAllByRole("meter")).toHaveLength(2);
   });

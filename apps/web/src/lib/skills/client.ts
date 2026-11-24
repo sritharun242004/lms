@@ -1,9 +1,13 @@
-import { call, type ScoreReply } from "@/lib/prompt-bot/client";
+import { call, type SaveOptions, type ScoreReply } from "@/lib/prompt-bot/client";
 import type { SkillFile, SkillItemDetail, SkillItemView, SkillPackView } from "./types";
 
 export const skillPackUrl = (packId: string) => `/api/v1/prompt-bot/skill-packs/${packId}`;
 const itemUrl = (packId: string, itemId: string) => `${skillPackUrl(packId)}/items/${itemId}`;
-const send = (method: string, body?: unknown): RequestInit => ({ method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+const send = (method: string, body?: unknown, options: SaveOptions = {}): RequestInit => ({
+  method,
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  ...(options.keepalive ? { keepalive: true } : {}),
+});
 
 export const createPack = (description: string, role: string) =>
   call<SkillPackView>("/api/v1/prompt-bot/skill-packs", send("POST", { description, ...(role.trim() ? { role: role.trim() } : {}) }));
@@ -12,11 +16,20 @@ export const patchPack = (packId: string, patch: { title: string }) => call<Skil
 export const addItem = (packId: string, input: { name: string; purpose: string }) =>
   call<SkillItemView>(`${skillPackUrl(packId)}/items`, send("POST", input));
 export const getItem = (packId: string, itemId: string) => call<SkillItemDetail>(itemUrl(packId, itemId));
-export const patchItem = (packId: string, itemId: string, patch: { name?: string; purpose?: string; order?: number }) =>
-  call<SkillItemView>(itemUrl(packId, itemId), send("PATCH", patch));
+export const patchItem = (
+  packId: string,
+  itemId: string,
+  patch: { name?: string; purpose?: string; order?: number },
+  options: SaveOptions = {},
+) => call<SkillItemView>(itemUrl(packId, itemId), send("PATCH", patch, options));
 export const deleteItem = (packId: string, itemId: string) => call<{ deleted: true }>(itemUrl(packId, itemId), send("DELETE"));
-export const saveItemAnswer = (packId: string, itemId: string, questionId: string, patch: { answer?: string; notRelevant?: boolean }) =>
-  call<{ saved: true }>(`${itemUrl(packId, itemId)}/answers/${questionId}`, send("PUT", patch));
+export const saveItemAnswer = (
+  packId: string,
+  itemId: string,
+  questionId: string,
+  patch: { answer?: string; notRelevant?: boolean },
+  options: SaveOptions = {},
+) => call<{ saved: true }>(`${itemUrl(packId, itemId)}/answers/${questionId}`, send("PUT", patch, options));
 export const scoreItem = (packId: string, itemId: string, revision: number) =>
   call<ScoreReply>(`${itemUrl(packId, itemId)}/score`, send("POST", { revision }));
 export const requestGenerate = (packId: string, itemId: string) => call<SkillItemView>(`${itemUrl(packId, itemId)}/generate`, send("POST"));

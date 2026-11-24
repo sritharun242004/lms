@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEnhanceMessage, buildScoringText, ENHANCE_SYSTEM, type PromptQuestionContext } from "./instructions";
+import { buildEnhanceMessage, buildScoringText, ENHANCE_SYSTEM, INSTRUCTIONS_VERSION, type PromptQuestionContext } from "./instructions";
 
 const questions: PromptQuestionContext[] = [
   { id: "q1", text: "Why are we doing this?", guidance: "Reason", answer: "To win a client", score: 3, notRelevant: false },
@@ -23,11 +23,26 @@ describe("prompt bot instructions", () => {
     expect(message).not.toContain("Where will this image be published?");
   });
 
-  it("asks for the Elements of LLM Prompts sections in order with placeholders for gaps", () => {
+  it("asks for the Elements of LLM Prompts sections in order, Persona and Output expectations always", () => {
     const order = ["Persona", "Context", "Data", "Output expectations", "Iteration request", "Examples"];
     const positions = order.map((h) => ENHANCE_SYSTEM.indexOf(`## ${h}`));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(ENHANCE_SYSTEM).toContain("[bracketed placeholders]");
+    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona and ## Output expectations/);
+    expect(ENHANCE_SYSTEM).toMatch(/omit/i);
+  });
+
+  it("writes to the AI, and turns gaps into clarifying questions instead of placeholders for the person", () => {
+    expect(ENHANCE_SYSTEM).not.toContain("[bracketed placeholders]");
+    expect(ENHANCE_SYSTEM).toMatch(/Never write placeholders/);
+    expect(ENHANCE_SYSTEM).toMatch(/Missing details/);
+    expect(ENHANCE_SYSTEM).toMatch(/## Iteration request[^\n]*first ask the user[^\n]*clarifying questions/);
+    expect(ENHANCE_SYSTEM).toMatch(/second person/);
+    expect(ENHANCE_SYSTEM).toMatch(/no preamble/i);
+    expect(ENHANCE_SYSTEM).toMatch(/imperative/);
+  });
+
+  it("versions the instructions", () => {
+    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v2");
   });
 });

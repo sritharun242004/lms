@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api/response";
-import { ensureAnswerRows, loadSessionView, matricesForSession } from "@/lib/prompt-bot/sessions";
+import { loadSessionView } from "@/lib/prompt-bot/sessions";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -12,8 +12,8 @@ const PatchBody = z
   .object({
     title: z.string().trim().min(1).max(120).optional(),
     basePrompt: z.string().trim().min(1).max(20000).optional(),
-    taskMatrixId: z.string().min(1).nullable().optional(),
   })
+  .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
@@ -32,23 +32,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!parsed.success) return validationErrorResponse(parsed.error);
   const owned = await prisma.promptBotSession.findFirst({ where: { id, userId: user.id } });
   if (!owned) return errorResponse("Session not found", "NOT_FOUND", 404);
-  if (typeof parsed.data.taskMatrixId === "string") {
-    const matrix = await prisma.promptMatrix.findFirst({ where: { id: parsed.data.taskMatrixId, kind: "TASK", isActive: true } });
-    if (!matrix) return errorResponse("Unknown task matrix", "VALIDATION_ERROR", 400);
-  }
 
   const data: Record<string, unknown> = {};
   if (parsed.data.title !== undefined) data.title = parsed.data.title;
   if (parsed.data.basePrompt !== undefined) data.basePrompt = parsed.data.basePrompt;
-  if (parsed.data.taskMatrixId !== undefined) {
-    data.taskMatrixId = parsed.data.taskMatrixId;
-    data.taskDetected = false;
-  }
   await prisma.promptBotSession.update({ where: { id }, data });
-  if (parsed.data.taskMatrixId !== undefined) {
-    const matrices = await matricesForSession(parsed.data.taskMatrixId);
-    await ensureAnswerRows(id, matrices.flatMap((m) => m.questions.map((q) => q.id)));
-  }
   return successResponse(await loadSessionView(id, user.id));
 }
 

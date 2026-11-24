@@ -8,7 +8,7 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 import { Workspace } from "./workspace";
 
-type Call = { url: string; method: string; body: string | null };
+type Call = { url: string; method: string; body: string | null; keepalive: boolean };
 let calls: Call[];
 let route: (call: Call) => Response | Promise<Response>;
 let enhancementList: { version: number; content: string; unansweredQuestionIds: string[]; createdAt: string }[];
@@ -23,8 +23,6 @@ function makeView(overrides: Partial<SessionView> = {}): SessionView {
     id: "s1",
     title: "T",
     basePrompt: "Write an email",
-    taskMatrixId: null,
-    taskDetected: false,
     scoreRevision: 0,
     matrices: [
       {
@@ -49,7 +47,7 @@ function makeView(overrides: Partial<SessionView> = {}): SessionView {
 
 const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 const mount = async (view = makeView()) => {
-  render(React.createElement(Workspace, { initial: view, taskMatrices: [] }));
+  render(React.createElement(Workspace, { initial: view }));
   await tick(0);
 };
 const answerBox = () => screen.getByRole("textbox", { name: "First question" }) as HTMLTextAreaElement;
@@ -73,7 +71,7 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
-      const call = { url, method: init?.method ?? "GET", body: (init?.body as string) ?? null };
+      const call = { url, method: init?.method ?? "GET", body: (init?.body as string) ?? null, keepalive: init?.keepalive === true };
       calls.push(call);
       return route(call);
     }),
@@ -96,6 +94,57 @@ describe("Workspace", () => {
     expect(put).toBeGreaterThan(-1);
     expect(enhance).toBeGreaterThan(put);
     expect(calls[put].body).toBe(JSON.stringify({ answer: "my answer" }));
+  });
+
+  it("saves an unsaved basic-prompt edit and answer when the user navigates away", async () => {
+    await mount();
+    type(screen.getByLabelText("Your prompt"), "Write an email to the board");
+    type(answerBox(), "to approve the budget");
+    expect(calls.filter((c) => c.method !== "GET")).toHaveLength(0);
+    cleanup();
+    await tick(0);
+    expect(calls).toContainEqual(expect.objectContaining({ method: "PATCH", body: JSON.stringify({ basePrompt: "Write an email to the board" }) }));
+    expect(calls).toContainEqual(expect.objectContaining({ method: "PUT", body: JSON.stringify({ answer: "to approve the budget" }) }));
+  });
+
+  it("sends unsaved edits as keepalive requests when the page is hidden", async () => {
+    await mount();
+    type(screen.getByLabelText("Your prompt"), "Write an email to the board");
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    await tick(0);
+    expect(calls).toContainEqual(expect.objectContaining({ method: "PATCH", keepalive: true }));
+  });
+
+  it("replaces stale first-load data with the saved session (browser Back reuses the cached page)", async () => {
+    route = (call) =>
+      call.url.endsWith("/sessions/s1")
+        ? json(
+            makeView({
+              basePrompt: "Saved prompt",
+              scoreRevision: 4,
+              answers: [{ questionId: "q1", answer: "saved answer", score: 2, reason: "Partly", notRelevant: false }],
+            }),
+          )
+        : json([]);
+    await mount();
+    await tick(0);
+    expect((screen.getByLabelText("Your prompt") as HTMLTextAreaElement).value).toBe("Saved prompt");
+    expect(answerBox().value).toBe("saved answer");
+    expect(screen.getByText("2/3")).toBeTruthy();
+  });
+
+  it("keeps what the user typed if the saved session arrives after an edit", async () => {
+    let release!: (r: Response) => void;
+    route = (call) => (call.url.endsWith("/sessions/s1") ? new Promise<Response>((r) => (release = r)) : json({ saved: true }));
+    await mount();
+    type(answerBox(), "typed now");
+    await act(async () => {
+      release(json(makeView({ answers: [{ questionId: "q1", answer: "older", score: 0, reason: null, notRelevant: false }] })));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(answerBox().value).toBe("typed now");
   });
 
   it("discards a score response computed before a newer edit", async () => {

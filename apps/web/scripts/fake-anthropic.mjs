@@ -6,24 +6,31 @@ import http from "node:http";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
+// Same shape as a real prompt-bot-v2 reply: sections addressed to the AI, no placeholders,
+// and missing details turned into clarifying questions in the Iteration request.
 const ENHANCED = `## Persona
-You are an experienced freelance copywriter who has won first clients through cold outreach.
+You are an experienced freelance copywriter who wins first clients through short, specific cold emails.
 
 ## Context
-The person wants to win their first client with a cold email to [target audience].
+I am a freelance designer looking for my first paying client. I want to email small business owners who have outdated websites.
 
 ## Data
-- Offer: [service and outcome]
-- Proof: [portfolio link]
+- Offer: a one-page website redesign delivered in two weeks.
+- Proof: three practice projects for local cafés.
 
 ## Output expectations
-Write one cold email under [word limit] words in a [tone] voice with a low-pressure call to action.
+Write one cold email under 150 words with:
+- A subject line under 8 words.
+- A first sentence about the reader's business, not about me.
+- One low-pressure call to action: a 15-minute call.
 
 ## Iteration request
-Offer two subject lines and ask what to adjust.
+Before you write, ask me these questions and wait for my answers:
+1. Which industry should the email target?
+2. What tone should it have: formal, friendly or bold?
+3. Is there a price or discount to mention?
 
-## Examples
-[paste an email you like]
+Then write the email and offer two alternative subject lines.
 `;
 
 function scoreFor(user) {
@@ -73,7 +80,6 @@ function skillsStructured(props, user) {
 }
 
 function structured(system, user) {
-  if (system.includes("classify what kind of task")) return { slug: "writing", confidence: 0.9 };
   if (system.includes("assess how well")) return { scores: scoreFor(user) };
   return { note: "unknown structured request" };
 }

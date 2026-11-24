@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/lib/ai/config", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/config")>()), isAiConfigured: mocks.isAiConfigured }));
 vi.mock("@/lib/ai/usage", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/usage")>()), consumeAiUsage: mocks.consumeAiUsage }));
-vi.mock("@/lib/ai/claude", () => ({ splitWork: mocks.splitWork, scoreQuestions: vi.fn(), detectTaskKind: vi.fn() }));
+vi.mock("@/lib/ai/claude", () => ({ splitWork: mocks.splitWork, scoreQuestions: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     skillCatalogEntry: { findMany: mocks.catalogFindMany },

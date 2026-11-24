@@ -11,6 +11,23 @@ function sseResponse(chunks: string[]) {
   return new Response(stream, { headers: { "content-type": "text/event-stream" } });
 }
 
+describe("call", () => {
+  it("sends keepalive only for bodies small enough for the browser's keepalive quota", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true, data: {} }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await call("/small", { method: "PUT", body: JSON.stringify({ answer: "hi" }), keepalive: true });
+    await call("/large", { method: "PUT", body: JSON.stringify({ answer: "x".repeat(70_000) }), keepalive: true });
+    await call("/plain", { method: "PUT", body: "{}" });
+    const keepalive = (fetchMock.mock.calls as unknown as [string, RequestInit][]).map(([url, init]) => [url, init.keepalive === true]);
+    expect(keepalive).toEqual([
+      ["/small", true],
+      ["/large", false],
+      ["/plain", false],
+    ]);
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("readEnhanceStream", () => {
   it("joins deltas split across network chunks and returns the version", async () => {
     const onDelta = vi.fn();

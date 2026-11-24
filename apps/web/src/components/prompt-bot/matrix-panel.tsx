@@ -20,7 +20,11 @@ type Props = {
   children?: React.ReactNode;
 };
 
-/** The left column of a matrix workspace: readiness, then numbered question rows with 3-slice bars. */
+/**
+ * The left column of a matrix workspace: heading and overall progress, then numbered question rows
+ * with 3-slice bars. Sized so seven rows fit a laptop screen; on large screens it stays in view and
+ * scrolls on its own if a matrix is longer.
+ */
 export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, activeId, scoreState, onSelect, onToggleRelevant, children }: Props) {
   const headingId = React.useId();
   const Heading = headingLevel;
@@ -29,22 +33,28 @@ export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, a
   const offsets = groups.map((_, i) => groups.slice(0, i).reduce((sum, g) => sum + g.questions.length, 0));
 
   return (
-    <aside className="glass h-fit rounded-[1.75rem] p-5 lg:sticky lg:top-24" aria-labelledby={headingId}>
-      <Heading id={headingId} className="text-lg font-semibold">
-        {heading}
-      </Heading>
-      <div className="mt-3">
-        <ReadinessMeter {...ready} />
-      </div>
-      <p className="mt-2 h-4 text-xs text-muted-foreground" aria-live="polite">
+    <aside
+      className="glass h-fit rounded-[1.75rem] p-4 sm:p-5 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overscroll-contain"
+      aria-labelledby={headingId}
+    >
+      <ReadinessMeter {...ready}>
+        <Heading id={headingId} className="text-lg font-semibold">
+          {heading}
+        </Heading>
+      </ReadinessMeter>
+      <p className="mt-1.5 h-4 text-xs text-muted-foreground" aria-live="polite">
         {scoreState === "scoring" ? "Updating…" : scoreState === "failed" ? "Couldn't update the bars — keep typing to retry." : ""}
       </p>
       {groups.map((group, gi) => (
-        <section key={group.id} className="mt-4" aria-labelledby={`${headingId}-${group.id}`}>
-          <GroupHeading id={`${headingId}-${group.id}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <section key={group.id} className="mt-2" aria-labelledby={`${headingId}-${group.id}`}>
+          {/* One group needs no visible label; the heading stays for screen-reader navigation. */}
+          <GroupHeading
+            id={`${headingId}-${group.id}`}
+            className={groups.length === 1 ? "sr-only" : "mb-1.5 mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"}
+          >
             {group.title}
           </GroupHeading>
-          <ul className="mt-2 flex flex-col gap-1">
+          <ul className="-mx-1 flex flex-col gap-0.5">
             {group.questions.map((q, qi) => {
               const a = answerFor(q.id);
               return (
