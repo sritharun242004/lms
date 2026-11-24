@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
@@ -21,6 +21,8 @@ type Matrix = {
 };
 
 const MAX_QUESTIONS = 20;
+const ELEMENTS = ["persona", "context", "data", "output", "iteration", "examples", "goal", "plan"];
+const metaOf = (m: Matrix | null) => ({ name: m?.name ?? "", description: m?.description ?? "" });
 const activeQuestions = (m: Matrix | null) => m?.questions.filter((q) => q.isActive !== false) ?? [];
 
 async function call(url: string, method: string, payload?: unknown) {
@@ -43,6 +45,7 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(initial[0]?.id ?? null);
   const selected = matrices.find((m) => m.id === selectedId) ?? null;
   const [draft, setDraft] = React.useState<Question[]>(() => activeQuestions(selected));
+  const [meta, setMeta] = React.useState(() => metaOf(selected));
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [adding, setAdding] = React.useState(false);
@@ -51,11 +54,19 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
 
   function select(id: string | null, source: Matrix[] = matrices) {
     setSelectedId(id);
-    setDraft(activeQuestions(source.find((m) => m.id === id) ?? null));
+    const next = source.find((m) => m.id === id) ?? null;
+    setDraft(activeQuestions(next));
+    setMeta(metaOf(next));
     setError(null);
   }
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(activeQuestions(selected));
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(activeQuestions(selected)) ||
+    JSON.stringify(meta) !== JSON.stringify(metaOf(selected));
+  const metaValid = meta.name.trim().length >= 2 && meta.name.length <= 80 && meta.description.length <= 300;
+
+  const saveAll = () =>
+    save({ name: meta.name.trim(), description: meta.description.trim() || null, questions: draft });
 
   async function save(patch: Record<string, unknown>) {
     if (!selected || saving) return;
@@ -69,7 +80,10 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
       return toast.error(message);
     }
     setMatrices((prev) => prev.map((m) => (m.id === selected.id ? res.data : m)));
-    if ("questions" in patch) setDraft(activeQuestions(res.data));
+    if ("questions" in patch) {
+      setDraft(activeQuestions(res.data));
+      setMeta(metaOf(res.data));
+    }
     toast.success("Matrix saved");
   }
 
@@ -115,6 +129,13 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
     select(next[0]?.id ?? null, next);
     toast.success("Matrix deleted");
   }
+
+  const move = (i: number, by: -1 | 1) =>
+    setDraft((d) => {
+      const next = [...d];
+      [next[i], next[i + by]] = [next[i + by], next[i]];
+      return next;
+    });
 
   const updateDraft = (i: number, patch: Partial<Question>) =>
     setDraft((d) => d.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -202,6 +223,24 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
             </div>
           </div>
 
+          <div className="mt-4 grid gap-3">
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Name
+              <Input aria-label="Matrix name" value={meta.name} maxLength={80} onChange={(e) => setMeta((m) => ({ ...m, name: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Description
+              <Textarea
+                aria-label="Matrix description"
+                value={meta.description}
+                maxLength={300}
+                placeholder="When should this matrix be used?"
+                onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
+                className="min-h-14"
+              />
+            </label>
+          </div>
+
           {draft.length === 0 && (
             <p className="mt-4 rounded-2xl border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
               No questions yet. Add the first one below.
@@ -222,10 +261,35 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
                       onChange={(e) => updateDraft(i, { guidance: e.target.value })}
                       className="min-h-16"
                     />
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      Element
+                      <select
+                        aria-label={`Element for question ${i + 1}`}
+                        value={q.element ?? ""}
+                        onChange={(e) => updateDraft(i, { element: e.target.value || null })}
+                        className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <option value="">None</option>
+                        {ELEMENTS.map((el) => (
+                          <option key={el} value={el}>
+                            {el[0].toUpperCase() + el.slice(1)}
+                          </option>
+                        ))}
+                        {q.element && !ELEMENTS.includes(q.element) && <option value={q.element}>{q.element}</option>}
+                      </select>
+                    </label>
                   </div>
-                  <Button variant="ghost" size="icon" aria-label={`Remove question ${i + 1}`} onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}>
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <div className="flex flex-col">
+                    <Button variant="ghost" size="icon" aria-label={`Move question ${i + 1} up`} disabled={saving || i === 0} onClick={() => move(i, -1)}>
+                      <ArrowUp className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label={`Move question ${i + 1} down`} disabled={saving || i === draft.length - 1} onClick={() => move(i, 1)}>
+                      <ArrowDown className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label={`Remove question ${i + 1}`} disabled={saving} onClick={() => setDraft((d) => d.filter((_, j) => j !== i))}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -248,7 +312,7 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
                 {draft.length}/{MAX_QUESTIONS}
               </span>
             </Button>
-            <Button onClick={() => save({ questions: draft })} disabled={saving || !dirty}>
+            <Button onClick={saveAll} disabled={saving || !dirty || !metaValid}>
               <Save className="size-4" /> {saving ? "Saving..." : "Save questions"}
             </Button>
           </div>
