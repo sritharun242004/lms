@@ -400,7 +400,7 @@ All under `/api/v1/prompt-bot/skill-jobs`. JSON envelope as everywhere (`{ succe
 | `PATCH /:id/files/:fileId` | `{ analysis: 1–12 000 }` | 200 `JobFileView` | 400, 404, 409 `ALREADY_ANALYSING` |
 | `DELETE /:id/files/:fileId` | — | 200 `{ deleted: true }` | 404, 409 `ALREADY_GENERATING` |
 | `POST /:id/files/:fileId/analyse` | — | 202 `JobFileView` (`PENDING`) | 404, 409 `ALREADY_ANALYSING`, 429, 503 |
-| `POST /:id/suggest` | — | 200 `JobView` | 400, 404, 409 `FILES_ANALYSING`/`ALREADY_GENERATING`, 429, 502, 503 |
+| `POST /:id/suggest` | — | 200 `JobView` | 400, 404, 409 `FILES_ANALYSING`/`ALREADY_GENERATING`/`TOO_MANY_SKILLS` (5 skills already have versions, so nothing can be added)/`DUPLICATE_NAME` (a concurrent save won the name), 429, 502, 503 |
 | `POST /:id/skills` | `{ name: 1–120, purpose: 1–300, fileIds?: string[] }` | 201 `JobSkillView` | 400, 404, 409 `DUPLICATE_NAME`/`TOO_MANY_SKILLS` |
 | `PATCH /:id/skills/:skillId` | `{ name?, purpose?, fileIds?, order? }` | 200 `JobSkillView` | 400, 404, 409 `DUPLICATE_NAME`/`ALREADY_GENERATING` |
 | `DELETE /:id/skills/:skillId` | — | 200 `{ deleted: true }` | 404, 409 `ALREADY_GENERATING` |

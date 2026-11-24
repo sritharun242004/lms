@@ -16,7 +16,6 @@ const NAME_MAX = 255;
 function uploadName(raw: string | null): string | null {
   if (raw === null) return null;
   const base = raw.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex -- control characters are exactly what is being removed.
   const name = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   return name && name.length <= NAME_MAX ? name : null;
 }
