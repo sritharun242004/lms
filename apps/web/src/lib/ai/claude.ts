@@ -3,6 +3,9 @@ import { z } from "zod";
 import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./config";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { DETECT_SYSTEM, ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
+import type { SkillDraft } from "@/lib/skills/assemble";
+import { buildSplitMessage, GENERATE_SYSTEM, SPLIT_SYSTEM } from "@/lib/skills/instructions";
+import type { RawSplit } from "@/lib/skills/split";
 
 let client: Anthropic | null = null;
 
@@ -20,19 +23,29 @@ async function structured<T>(args: {
   schema: Record<string, unknown>;
   parse: z.ZodType<T>;
   maxTokens: number;
+  /** Opus skills calls enable Anthropic's server-side refusal fallback. */
+  fallback?: boolean;
+  /** Per-request SDK options; the shared client keeps its own defaults for everything else. */
+  requestOptions?: { timeout: number; maxRetries: number };
 }): Promise<T> {
-  const response = await getClient().messages.create({
+  const request = {
     model: args.model,
     max_tokens: args.maxTokens,
     system: args.system,
-    messages: [{ role: "user", content: args.user }],
-    output_config: { format: { type: "json_schema", schema: args.schema } },
-  });
+    messages: [{ role: "user" as const, content: args.user }],
+    output_config: { format: { type: "json_schema" as const, schema: args.schema } },
+  };
+  const response = args.fallback
+    ? await getClient().beta.messages.create(
+        { ...request, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" },
+        args.requestOptions,
+      )
+    : await getClient().messages.create(request, args.requestOptions);
   if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
     throw new Error(`Claude stopped with ${response.stop_reason}`);
   }
-  const text = response.content.find((block) => block.type === "text");
-  if (!text || text.type !== "text") throw new Error("Claude returned no text");
+  const text = (response.content as ReadonlyArray<{ type: string; text?: string }>).find((block) => block.type === "text");
+  if (!text || typeof text.text !== "string") throw new Error("Claude returned no text");
   return args.parse.parse(JSON.parse(text.text));
 }
 
@@ -122,4 +135,77 @@ export function streamEnhancement(message: string, signal?: AbortSignal) {
       return { model: message.model as string, stopReason: (message.stop_reason as string | null) ?? null };
     },
   };
+}
+
+const SplitReply = z.object({
+  customSkills: z.array(z.object({ name: z.string(), purpose: z.string() })),
+  catalogMatches: z.array(z.object({ slug: z.string(), why: z.string() })),
+});
+
+const object = (properties: Record<string, unknown>) => ({
+  type: "object",
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+const STRING = { type: "string" };
+
+/** The split runs inside a request (120 s cap): one attempt, 100 s. */
+const SPLIT_REQUEST = { timeout: 100_000, maxRetries: 0 };
+/** Generation runs in after(); two attempts at 240 s stay inside the 15-minute stale window. */
+const GENERATE_REQUEST = { timeout: 240_000, maxRetries: 0 };
+
+/** Proposes custom skills and catalog matches (spec, Split). The caller applies cleanSplit. */
+export async function splitWork(input: {
+  description: string;
+  role: string | null;
+  catalog: { slug: string; name: string; description: string }[];
+}): Promise<RawSplit> {
+  return structured({
+    model: BEST_MODEL,
+    fallback: true,
+    requestOptions: SPLIT_REQUEST,
+    system: SPLIT_SYSTEM,
+    user: buildSplitMessage(input),
+    schema: object({
+      customSkills: { type: "array", items: object({ name: STRING, purpose: STRING }) },
+      catalogMatches: { type: "array", items: object({ slug: STRING, why: STRING }) },
+    }),
+    parse: SplitReply,
+    maxTokens: 4000,
+  });
+}
+
+const DraftFile = z.object({ path: z.string(), content: z.string() });
+const DraftReply = z.object({
+  name: z.string(),
+  description: z.string(),
+  compatibility: z.string(),
+  body: z.string(),
+  references: z.array(DraftFile),
+  scripts: z.array(DraftFile.extend({ purpose: z.string() })),
+  assets: z.array(DraftFile),
+});
+
+/** Writes one skill as structured fields (spec, Generate). The server assembles and validates the files. */
+export async function generateSkillDraft(message: string): Promise<SkillDraft> {
+  const file = object({ path: STRING, content: STRING });
+  return structured({
+    model: BEST_MODEL,
+    fallback: true,
+    requestOptions: GENERATE_REQUEST,
+    system: GENERATE_SYSTEM,
+    user: message,
+    schema: object({
+      name: STRING,
+      description: STRING,
+      compatibility: STRING,
+      body: STRING,
+      references: { type: "array", items: file },
+      scripts: { type: "array", items: object({ path: STRING, content: STRING, purpose: STRING }) },
+      assets: { type: "array", items: file },
+    }),
+    parse: DraftReply,
+    maxTokens: 16000,
+  });
 }
