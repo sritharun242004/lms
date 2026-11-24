@@ -23,6 +23,9 @@ vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => [vi.fn(), null] }));
 vi.mock("@/components/groups/group-members-dialog", () => ({
   GroupMembersDialog: ({ trigger }: { trigger: ReactNode }) => createElement("div", null, trigger),
 }));
+vi.mock("@/components/layout/prompt-bot-button", () => ({
+  PromptBotButton: () => createElement("a", { href: "/prompt-bot" }, "Prompt Bot"),
+}));
 vi.mock("@/components/layout/theme-toggle", () => ({ ThemeToggle: () => createElement("span", null, "Theme") }));
 vi.mock("@/components/layout/user-menu", () => ({
   UserMenu: ({ user }: { user: { role: string } }) => createElement("button", { "data-testid": "participant-logout" }, `Log out ${user.role}`),
@@ -78,6 +81,7 @@ describe("group-code chat header", () => {
     renderThread(false, null, true);
 
     expect(screen.getByTestId("participant-logout")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Prompt Bot" }).getAttribute("href")).toBe("/prompt-bot");
   });
 
   it("lets both participants and managers open the group profile from the header", () => {
@@ -121,6 +125,12 @@ describe("group-code chat header", () => {
 
     expect(screen.queryByText("Group code")).toBeNull();
     expect(screen.queryByRole("link", { name: "Back" })).toBeNull();
+  });
+
+  it("does not add the Prompt Bot button to the manager chat header", () => {
+    renderThread(true, "JOIN-42");
+
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
   });
 
   it.each([

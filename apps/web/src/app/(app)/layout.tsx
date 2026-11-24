@@ -7,6 +7,7 @@ import { PaletteSwitcher } from "@/components/layout/palette-switcher";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { DesktopNav } from "@/components/layout/desktop-nav";
+import { PromptBotButton } from "@/components/layout/prompt-bot-button";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
 import { DEFAULT_PALETTE, isPaletteKey } from "@/lib/theme/palettes";
@@ -39,6 +40,7 @@ export default async function AppLayout({
           </div>
           <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
+            <PromptBotButton variant={isMentee ? "featured" : "default"} />
             <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />
             <UserMenu user={user} />
