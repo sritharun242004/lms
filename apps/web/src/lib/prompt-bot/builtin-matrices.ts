@@ -10,7 +10,7 @@ export type BuiltinMatrix = {
   slug: string;
   name: string;
   description: string;
-  kind: "CORE" | "TASK";
+  kind: "CORE" | "TASK" | "SKILL";
   questions: BuiltinQuestion[];
 };
 
