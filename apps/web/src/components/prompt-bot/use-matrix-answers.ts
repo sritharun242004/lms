@@ -122,11 +122,7 @@ export function useMatrixAnswers({ initialAnswers, initialRevision, saveAnswer, 
     [bumpRevision, queueSave, scheduleScore],
   );
 
-  const mergeAnswers = React.useCallback((incoming: AnswerView[]) => {
-    setAnswers((prev) => ({ ...Object.fromEntries(incoming.map((a) => [a.questionId, a])), ...prev }));
-  }, []);
-
-  return { answers, answerFor, scoreState, updateAnswer, mergeAnswers, queueSave, flushSaves, bumpRevision, scheduleScore };
+  return { answers, answerFor, scoreState, updateAnswer, queueSave, flushSaves, bumpRevision, scheduleScore };
 }
 
 /** Which question's answer box is open. Clicking a row focuses the box; mounting does not. */

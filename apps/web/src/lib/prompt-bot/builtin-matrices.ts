@@ -1,18 +1,27 @@
 /**
  * Built-in question matrices. `core` and `image` are verbatim from the
  * institute's Design Think decks; the other task matrices are drafts the
- * institute edits in /prompt-bot/matrices before launch (spec, 2026-11-24).
- * The migration seeds these rows (scripts/prompt-bot-seed-sql.ts).
+ * institute edits in /prompt-bot/matrices (spec, 2026-11-24).
+ *
+ * Prompt Bot asks only the seven active core questions. Retired rows stay in the
+ * database, switched off (`isActive: false`), so stored answers keep their
+ * question. 20261124150000_add_prompt_bot seeds every row as active;
+ * 20261125090000_prompt_bot_core_seven switches the retired ones off
+ * (scripts/prompt-bot-seed-sql.ts prints both).
  */
-export type BuiltinQuestion = { id: string; text: string; guidance: string; element: string | null };
+export type BuiltinQuestion = { id: string; text: string; guidance: string; element: string | null; isActive?: boolean };
 export type BuiltinMatrix = {
   id: string;
   slug: string;
   name: string;
   description: string;
   kind: "CORE" | "TASK" | "SKILL";
+  /** Omitted means active. */
+  isActive?: boolean;
   questions: BuiltinQuestion[];
 };
+
+export const activeQuestions = (matrix: BuiltinMatrix) => matrix.questions.filter((q) => q.isActive !== false);
 
 export const CORE_MATRIX_ID = "pbm_core";
 
@@ -38,7 +47,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
       q("core", 5, "What are the goals and objectives & How do we measure them?", "Concrete objectives and how success will be measured.", "goal"),
       q("core", 6, "What are the different ways we can approach this?", "Options or angles considered, or permission for the AI to propose options.", "iteration"),
       q("core", 7, "What does success look like?", "A description of the ideal finished output: format, length, tone and quality bar.", "output"),
-      q("core", 8, "What is the systematic plan to work on this?", "Steps or sequence, including iteration such as asking clarifying questions first.", "plan"),
+      { ...q("core", 8, "What is the systematic plan to work on this?", "Steps or sequence, including iteration such as asking clarifying questions first.", "plan"), isActive: false },
     ],
   },
   {
@@ -47,6 +56,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Image",
     description: "Creating an image, graphic, illustration or visual.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("image", 1, "Why do we need this image?", "The purpose the image serves and the decision or action it supports."),
       q("image", 2, "What is the full context?", "Where it sits: campaign, document, brand, surrounding content and constraints."),
@@ -62,6 +72,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Presentation",
     description: "Slide decks, pitches, board or team presentations.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("presentation", 1, "What decision or action should the audience take after this presentation?", "The specific decision, approval or action expected at the end."),
       q("presentation", 2, "What does the audience already know, and what do they doubt?", "Their starting knowledge, objections and concerns."),
@@ -77,6 +88,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Writing",
     description: "Emails, posts, articles, announcements and other written pieces.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("writing", 1, "What should the reader do or feel after reading?", "The action or reaction the piece must produce."),
       q("writing", 2, "Who exactly is the reader and what is your relationship?", "The reader's role, seniority and relationship to the writer."),
@@ -92,6 +104,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Strategy",
     description: "Plans, decisions, strategy and prioritisation.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("strategy", 1, "What decision or plan is needed, and by when?", "The decision to make or plan to produce, and the deadline."),
       q("strategy", 2, "What constraints apply (budget, people, time)?", "Hard limits on money, people, time or technology."),
@@ -107,6 +120,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Code",
     description: "Software, automation and technical work.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("code", 1, "What should the software do, for whom?", "The behaviour required and who uses it."),
       q("code", 2, "What stack, environment or existing code is involved?", "Languages, frameworks, versions, systems and existing code."),
@@ -122,6 +136,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Research",
     description: "Investigating, analysing and summarising information.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("research", 1, "What question must the research answer?", "The precise question and the decision it informs."),
       q("research", 2, "What scope, period and geography?", "Boundaries: topics, time range and regions."),
@@ -137,6 +152,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
     name: "Data analysis",
     description: "Analysing data, metrics, spreadsheets and reports.",
     kind: "TASK",
+    isActive: false,
     questions: [
       q("data", 1, "What question should the data answer?", "The business question behind the analysis."),
       q("data", 2, "What data is available and in what shape?", "Sources, columns, size, quality and format."),

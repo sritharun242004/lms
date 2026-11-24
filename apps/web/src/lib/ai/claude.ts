@@ -3,7 +3,7 @@ import { z } from "zod";
 import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./config";
 import { AiResponseError } from "./errors";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
-import { DETECT_SYSTEM, ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
+import { ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
 import type { SkillDraft } from "@/lib/skills/assemble";
 import { buildSplitMessage, GENERATE_SYSTEM, SPLIT_SYSTEM } from "@/lib/skills/instructions";
 import { GENERATION_TIMEOUT_MS } from "@/lib/skills/limits";
@@ -57,31 +57,6 @@ async function structured<T>(args: {
   const parsed = args.parse.safeParse(json);
   if (!parsed.success) throw new AiResponseError("Claude's reply did not match the schema");
   return parsed.data;
-}
-
-const Detection = z.object({ slug: z.string(), confidence: z.number() });
-
-export async function detectTaskKind(
-  basePrompt: string,
-  matrices: { slug: string; name: string; description: string | null }[],
-): Promise<{ slug: string | null; confidence: number }> {
-  if (matrices.length === 0) return { slug: null, confidence: 0 };
-  const list = matrices.map((m) => `- ${m.slug}: ${m.name}${m.description ? ` — ${m.description}` : ""}`).join("\n");
-  const result = await structured({
-    model: FAST_MODEL,
-    system: DETECT_SYSTEM,
-    user: `Task kinds:\n${list}\n- none: nothing fits\n\nPrompt:\n${basePrompt}`,
-    schema: {
-      type: "object",
-      properties: { slug: { type: "string" }, confidence: { type: "number" } },
-      required: ["slug", "confidence"],
-      additionalProperties: false,
-    },
-    parse: Detection,
-    maxTokens: 200,
-  });
-  const known = matrices.some((m) => m.slug === result.slug);
-  return { slug: known && result.confidence >= 0.5 ? result.slug : null, confidence: result.confidence };
 }
 
 const Scores = z.object({ scores: z.array(z.unknown()) });

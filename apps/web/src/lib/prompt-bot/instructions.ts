@@ -13,8 +13,6 @@ export type PromptQuestionContext = {
   notRelevant: boolean;
 };
 
-export const DETECT_SYSTEM = `You classify what kind of task a person wants an AI assistant to do, so the right follow-up questions can be shown. Pick the single best matching task kind from the list you are given, or "none" if nothing fits well. Return a confidence between 0 and 1.`;
-
 export const SCORE_SYSTEM = `You assess how well a person's prompt and notes answer a set of Design Think questions. Read everything they wrote as one text: an answer to one question often appears in the prompt or under another question.
 
 Score each question 0-3 against its guidance:

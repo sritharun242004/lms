@@ -46,25 +46,6 @@ describe("useMatrixAnswers", () => {
     expect(saveAnswer).toHaveBeenCalledWith("q1", { notRelevant: true });
   });
 
-  it("keeps local edits over incoming rows when merging", () => {
-    const { result } = renderHook(() =>
-      useMatrixAnswers({
-        initialAnswers: [{ questionId: "q1", answer: "local", score: 1, reason: null, notRelevant: false }],
-        initialRevision: 0,
-        saveAnswer: vi.fn(),
-        score: vi.fn(),
-      }),
-    );
-    act(() =>
-      result.current.mergeAnswers([
-        { questionId: "q1", answer: "server", score: 0, reason: null, notRelevant: false },
-        { questionId: "q2", answer: "new", score: 0, reason: null, notRelevant: false },
-      ]),
-    );
-    expect(result.current.answerFor("q1").answer).toBe("local");
-    expect(result.current.answerFor("q2").answer).toBe("new");
-  });
-
   it("reports a failed score", async () => {
     const score = vi.fn(() => Promise.resolve({ ok: false as const, code: "AI_FAILED", message: "x" }));
     const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score }));

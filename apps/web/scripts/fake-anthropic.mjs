@@ -73,7 +73,6 @@ function skillsStructured(props, user) {
 }
 
 function structured(system, user) {
-  if (system.includes("classify what kind of task")) return { slug: "writing", confidence: 0.9 };
   if (system.includes("assess how well")) return { scores: scoreFor(user) };
   return { note: "unknown structured request" };
 }

@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { AnswerBody, answerFields } from "@/lib/prompt-bot/answer-input";
-import { matricesForSession } from "@/lib/prompt-bot/sessions";
+import { sessionMatrices } from "@/lib/prompt-bot/sessions";
 import { errorResponse, successResponse, validationErrorResponse } from "@/lib/api/response";
 
 type Ctx = { params: Promise<{ id: string; questionId: string }> };
@@ -15,16 +15,20 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   if (!parsed.success) return validationErrorResponse(parsed.error);
   const owned = await prisma.promptBotSession.findFirst({ where: { id, userId: user.id } });
   if (!owned) return errorResponse("Session not found", "NOT_FOUND", 404);
-  const matrices = await matricesForSession(owned.taskMatrixId);
+  const matrices = await sessionMatrices();
   if (!matrices.some((m) => m.questions.some((q) => q.id === questionId))) {
     return errorResponse("Question not found", "NOT_FOUND", 404);
   }
 
   const fields = answerFields(parsed.data);
-  await prisma.promptBotAnswer.upsert({
-    where: { sessionId_questionId: { sessionId: id, questionId } },
-    create: { sessionId: id, questionId, ...fields },
-    update: fields,
-  });
+  // Touching the session keeps "Continue" on the start page pointing at the prompt being worked on.
+  await prisma.$transaction([
+    prisma.promptBotAnswer.upsert({
+      where: { sessionId_questionId: { sessionId: id, questionId } },
+      create: { sessionId: id, questionId, ...fields },
+      update: fields,
+    }),
+    prisma.promptBotSession.update({ where: { id }, data: { updatedAt: new Date() } }),
+  ]);
   return successResponse({ saved: true });
 }

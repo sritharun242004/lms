@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { EnhancePanel } from "@/components/prompt-bot/enhance-panel";
@@ -10,8 +9,8 @@ import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
 import { patchSession, readEnhanceStream, saveAnswer, scoreSession } from "@/lib/prompt-bot/client";
 import type { SessionView } from "@/lib/prompt-bot/sessions";
 
-export function Workspace({ initial, taskMatrices }: { initial: SessionView; taskMatrices: { id: string; name: string }[] }) {
-  const [view, setView] = React.useState(initial);
+export function Workspace({ initial }: { initial: SessionView }) {
+  const view = initial;
   const [basePrompt, setBasePrompt] = React.useState(initial.basePrompt);
   const matrix = useMatrixAnswers({
     initialAnswers: initial.answers,
@@ -44,16 +43,6 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
       if (!saved.ok) toast.error(saved.message);
       matrix.scheduleScore();
     });
-  }
-
-  async function switchTask(taskMatrixId: string | null) {
-    await matrix.flushSaves();
-    const result = await patchSession(view.id, { taskMatrixId });
-    if (!result.ok) return toast.error(result.message);
-    matrix.bumpRevision();
-    setView(result.data);
-    matrix.mergeAnswers(result.data.answers);
-    matrix.scheduleScore();
   }
 
   async function enhance() {
@@ -119,8 +108,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   }, [initial.id]);
 
   const active = questions.find((q) => q.id === activeId) ?? null;
-  const task = view.matrices.find((m) => m.kind === "TASK") ?? null;
-  const groups = view.matrices.map((m) => ({ id: m.id, title: m.kind === "CORE" ? "Core" : m.name, questions: m.questions }));
+  const groups = view.matrices.map((m) => ({ id: m.id, title: m.name, questions: m.questions }));
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -132,24 +120,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
         scoreState={matrix.scoreState}
         onSelect={selectQuestion}
         onToggleRelevant={(id) => matrix.updateAnswer(id, { notRelevant: !matrix.answerFor(id).notRelevant })}
-      >
-        <label className="mt-5 flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Task type</span>
-          <span className="relative">
-            <select
-              value={task?.id ?? ""}
-              onChange={(e) => void switchTask(e.target.value || null)}
-              className="appearance-none rounded-xl border border-border bg-white/60 py-1.5 pl-3 pr-8 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:bg-white/5"
-            >
-              <option value="">Core only</option>
-              {taskMatrices.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-muted-foreground" aria-hidden />
-          </span>
-        </label>
-      </MatrixPanel>
+      />
 
       <div className="flex min-w-0 flex-col gap-5">
         <section className="glass rounded-[1.75rem] p-5">

@@ -24,7 +24,7 @@ export async function call<T>(url: string, init?: RequestInit): Promise<CallResu
 
 export const createSession = (basePrompt: string) =>
   call<SessionView>("/api/v1/prompt-bot/sessions", { method: "POST", body: JSON.stringify({ basePrompt }) });
-export const patchSession = (id: string, patch: { title?: string; basePrompt?: string; taskMatrixId?: string | null }) =>
+export const patchSession = (id: string, patch: { title?: string; basePrompt?: string }) =>
   call<SessionView>(`/api/v1/prompt-bot/sessions/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const saveAnswer = (id: string, questionId: string, patch: { answer?: string; notRelevant?: boolean }) =>
   call<{ saved: true }>(`/api/v1/prompt-bot/sessions/${id}/answers/${questionId}`, { method: "PUT", body: JSON.stringify(patch) });

@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { BUILTIN_MATRICES, CORE_MATRIX_ID } from "./builtin-matrices";
+import { activeQuestions, BUILTIN_MATRICES, CORE_MATRIX_ID } from "./builtin-matrices";
+import { retirementSql } from "./seed-sql";
 
 const CORE_VERBATIM = [
   "Why are we doing this?",
@@ -11,7 +12,6 @@ const CORE_VERBATIM = [
   "What are the goals and objectives & How do we measure them?",
   "What are the different ways we can approach this?",
   "What does success look like?",
-  "What is the systematic plan to work on this?",
 ];
 const IMAGE_VERBATIM = [
   "Why do we need this image?",
@@ -23,11 +23,24 @@ const IMAGE_VERBATIM = [
 ];
 
 describe("built-in matrices", () => {
-  it("keeps the eight Design Think questions verbatim and in deck order", () => {
+  it("asks exactly the seven Design Think questions, verbatim and in deck order", () => {
     const core = BUILTIN_MATRICES.find((m) => m.id === CORE_MATRIX_ID)!;
     expect(core.slug).toBe("core");
     expect(core.kind).toBe("CORE");
-    expect(core.questions.map((q) => q.text)).toEqual(CORE_VERBATIM);
+    expect(core.isActive).not.toBe(false);
+    expect(activeQuestions(core).map((q) => q.text)).toEqual(CORE_VERBATIM);
+  });
+
+  it("keeps the retired plan question as an inactive row instead of deleting it", () => {
+    const core = BUILTIN_MATRICES.find((m) => m.id === CORE_MATRIX_ID)!;
+    const retired = core.questions.filter((q) => q.isActive === false);
+    expect(retired.map((q) => q.id)).toEqual(["pbq_core_8"]);
+  });
+
+  it("keeps the task add-on matrices but switches every one of them off", () => {
+    const tasks = BUILTIN_MATRICES.filter((m) => m.kind === "TASK");
+    expect(tasks.length).toBeGreaterThan(0);
+    for (const m of tasks) expect(m.isActive).toBe(false);
   });
 
   it("keeps the six image questions verbatim", () => {
@@ -61,5 +74,14 @@ describe("built-in matrices", () => {
       for (const q of matrix.questions) expect(sql).toContain(q.text.replace(/'/g, "''"));
     }
     expect(sql).toContain(`'singleton'`);
+  });
+
+  it("is switched to the core seven by the follow-up data migration, with updates only", () => {
+    const sql = readFileSync(
+      path.join(__dirname, "../../../prisma/migrations/20261125090000_prompt_bot_core_seven/migration.sql"),
+      "utf8",
+    );
+    for (const line of retirementSql(BUILTIN_MATRICES)) expect(sql).toContain(line);
+    expect(sql).not.toMatch(/\b(DELETE|DROP|TRUNCATE|INSERT|ALTER)\b/i);
   });
 });

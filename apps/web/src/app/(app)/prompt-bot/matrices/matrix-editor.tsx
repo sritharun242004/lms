@@ -200,7 +200,7 @@ export function MatrixEditor({ initial }: { initial: Matrix[] }) {
             <div>
               <h2 id="matrix-heading" className="text-lg font-semibold">Questions</h2>
               <p className="text-xs text-muted-foreground">
-                {selected.kind === "CORE" ? "Applied to every prompt. Can be edited but not switched off." : "Applied when Prompt Bot detects this kind of task."}
+                {selected.kind === "CORE" ? "Applied to every prompt. Can be edited but not switched off." : "Kept for reference. Prompt Bot asks only the Design Think questions, even when this is switched on."}
               </p>
             </div>
             <div className="flex items-center gap-3">

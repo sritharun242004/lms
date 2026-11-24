@@ -23,8 +23,6 @@ function makeView(overrides: Partial<SessionView> = {}): SessionView {
     id: "s1",
     title: "T",
     basePrompt: "Write an email",
-    taskMatrixId: null,
-    taskDetected: false,
     scoreRevision: 0,
     matrices: [
       {
@@ -49,7 +47,7 @@ function makeView(overrides: Partial<SessionView> = {}): SessionView {
 
 const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 const mount = async (view = makeView()) => {
-  render(React.createElement(Workspace, { initial: view, taskMatrices: [] }));
+  render(React.createElement(Workspace, { initial: view }));
   await tick(0);
 };
 const answerBox = () => screen.getByRole("textbox", { name: "First question" }) as HTMLTextAreaElement;
