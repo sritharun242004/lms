@@ -1,9 +1,8 @@
 // apps/web/src/lib/prompt-bot/sessions.ts
 import { prisma } from "@/lib/db/prisma";
-import { scoreQuestions } from "@/lib/ai/claude";
-import { consumeAiUsage } from "@/lib/ai/usage";
-import { buildScoringText } from "./instructions";
-import { shouldApplyRevision } from "./scoring";
+import { scoreAndApply, toAnswerView, type AnswerView } from "./score-run";
+
+export type { AnswerView };
 
 export type MatrixView = {
   id: string;
@@ -12,7 +11,6 @@ export type MatrixView = {
   kind: "CORE" | "TASK";
   questions: { id: string; text: string; guidance: string; order: number }[];
 };
-export type AnswerView = { questionId: string; answer: string; score: number; reason: string | null; notRelevant: boolean };
 export type SessionView = {
   id: string;
   title: string;
@@ -55,10 +53,6 @@ export async function ensureAnswerRows(sessionId: string, questionIds: string[])
   });
 }
 
-function toAnswerView(a: { questionId: string; answer: string; score: number; reason: string | null; notRelevant: boolean }): AnswerView {
-  return { questionId: a.questionId, answer: a.answer, score: a.score, reason: a.reason, notRelevant: a.notRelevant };
-}
-
 export async function loadSessionView(id: string, userId: string): Promise<SessionView | null> {
   const session = await prisma.promptBotSession.findFirst({
     where: { id, userId },
@@ -86,31 +80,25 @@ export async function runScoring(sessionId: string, userId: string, revision: nu
   const view = await loadSessionView(sessionId, userId);
   if (!view) throw new Error("session not found");
   const questions = view.matrices.flatMap((m) => m.questions);
-  await ensureAnswerRows(sessionId, questions.map((q) => q.id));
-  const byId = new Map(view.answers.map((a) => [a.questionId, a]));
-  const context = questions.map((q) => {
-    const a = byId.get(q.id);
-    return { id: q.id, text: q.text, guidance: q.guidance, answer: a?.answer ?? "", score: a?.score ?? 0, notRelevant: a?.notRelevant ?? false };
+  return scoreAndApply({
+    userId,
+    revision,
+    scoringBase: view.basePrompt,
+    questions,
+    answers: view.answers,
+    ensureRows: () => ensureAnswerRows(sessionId, questions.map((q) => q.id)),
+    readRevision: async () =>
+      (await prisma.promptBotSession.findFirst({ where: { id: sessionId, userId }, select: { scoreRevision: true } }))?.scoreRevision ?? null,
+    applyOps: (results, scoredAt, next) => [
+      ...results.map((r) =>
+        prisma.promptBotAnswer.update({
+          where: { sessionId_questionId: { sessionId, questionId: r.questionId } },
+          data: { score: r.score, reason: r.reason, scoredAt },
+        }),
+      ),
+      prisma.promptBotSession.update({ where: { id: sessionId }, data: { scoreRevision: next } }),
+    ],
+    transaction: (ops) => prisma.$transaction(ops),
+    reload: async () => (await loadSessionView(sessionId, userId))?.answers ?? [],
   });
-  const relevantQuestions = context.filter((q) => !q.notRelevant);
-
-  await consumeAiUsage(userId, "score");
-  const results = await scoreQuestions(buildScoringText(view.basePrompt, context), relevantQuestions);
-
-  const current = await prisma.promptBotSession.findFirst({ where: { id: sessionId, userId }, select: { scoreRevision: true } });
-  if (!current || !shouldApplyRevision(revision, current.scoreRevision)) {
-    return { applied: false, revision: current?.scoreRevision ?? revision, answers: view.answers };
-  }
-  const scoredAt = new Date();
-  await prisma.$transaction([
-    ...results.map((r) =>
-      prisma.promptBotAnswer.update({
-        where: { sessionId_questionId: { sessionId, questionId: r.questionId } },
-        data: { score: r.score, reason: r.reason, scoredAt },
-      }),
-    ),
-    prisma.promptBotSession.update({ where: { id: sessionId }, data: { scoreRevision: revision } }),
-  ]);
-  const fresh = await loadSessionView(sessionId, userId);
-  return { applied: true, revision, answers: fresh?.answers ?? [] };
 }
