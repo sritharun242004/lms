@@ -34,4 +34,34 @@ describe("PromptBotButton", () => {
     render(createElement(PromptBotButton));
     expect(screen.getByRole("link", { name: "Prompt Bot" }).getAttribute("aria-current")).toBeNull();
   });
+
+  it("default variant keeps the soft tinted pill", () => {
+    usePathname.mockReturnValue("/dashboard");
+    render(createElement(PromptBotButton));
+    const link = screen.getByRole("link", { name: "Prompt Bot" });
+    expect(link.getAttribute("data-variant")).toBe("default");
+    expect(link.className).toContain("bg-primary/10");
+    expect(link.className).not.toContain("bg-gradient-to-b");
+  });
+
+  it("featured variant is a filled primary pill with label, aria-label and decorative icon", () => {
+    usePathname.mockReturnValue("/dashboard");
+    render(createElement(PromptBotButton, { variant: "featured" }));
+    const link = screen.getByRole("link", { name: "Prompt Bot" });
+    expect(link.getAttribute("data-variant")).toBe("featured");
+    expect(link.className).toContain("text-primary-foreground");
+    expect(link.className).toContain("rounded-full");
+    expect(link.className).not.toContain("bg-primary/10");
+    expect(link.querySelector("span")?.textContent).toBe("Prompt Bot");
+    expect(link.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(link.querySelector("svg")?.getAttribute("class")).toContain("prompt-bot-sparkle");
+  });
+
+  it("featured variant marks the current page", () => {
+    usePathname.mockReturnValue("/prompt-bot");
+    render(createElement(PromptBotButton, { variant: "featured" }));
+    const link = screen.getByRole("link", { name: "Prompt Bot" });
+    expect(link.getAttribute("aria-current")).toBe("page");
+    expect(link.className).toContain("ring-primary/40");
+  });
 });

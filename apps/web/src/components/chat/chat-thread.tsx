@@ -655,7 +655,7 @@ export function ChatThread({
         )}
         {!canManage && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <PromptBotButton />
+            <PromptBotButton variant="featured" />
             <ThemeToggle />
             {currentUser?.role === "MENTEE" && <UserMenu user={currentUser} />}
           </div>

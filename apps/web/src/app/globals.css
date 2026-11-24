@@ -530,8 +530,16 @@ body {
   to { transform: translate3d(5%, 4%, 0) scale(1.08); }
 }
 
+@keyframes prompt-bot-sparkle {
+  0%, 70%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  80% { transform: scale(1.2) rotate(14deg); opacity: 0.85; }
+  90% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.prompt-bot-sparkle { animation: prompt-bot-sparkle 5s ease-in-out 1.2s 3; }
+
 @media (prefers-reduced-motion: reduce) {
   .ambient-orb { animation: none; }
+  .prompt-bot-sparkle { animation: none; }
 }
 
 .dark [data-slot="card"],

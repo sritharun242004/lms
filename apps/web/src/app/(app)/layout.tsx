@@ -40,7 +40,7 @@ export default async function AppLayout({
           </div>
           <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
-            <PromptBotButton />
+            <PromptBotButton variant={isMentee ? "featured" : "default"} />
             <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />
             <UserMenu user={user} />
