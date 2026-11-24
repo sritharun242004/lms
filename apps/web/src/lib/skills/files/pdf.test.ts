@@ -16,6 +16,19 @@ describe("PDF facts", () => {
     expect(extractPdf(tinyPdf({ pages: 1 })).pages).toBe(1);
   });
 
+  it("ignores the literal /Encrypt inside page content and finds a real trailer entry", () => {
+    const body = "%PDF-1.7\n1 0 obj\n<< /Length 20 >>\nstream\n(see /Encrypt here)\nendstream\nendobj\n" + "x".repeat(10_000) + "\ntrailer\n<< /Size 2 /Root 1 0 R >>\nstartxref\n0\n%%EOF\n";
+    expect(isEncryptedPdf(new Uint8Array(Buffer.from(body, "latin1")))).toBe(false);
+    expect(isEncryptedPdf(new Uint8Array(Buffer.from(body.replace("/Size 2", "/Size 2 /Encrypt 5 0 R"), "latin1")))).toBe(true);
+  });
+
+  it("finds /Encrypt in an xref-stream dictionary at the startxref offset", () => {
+    const head = "%PDF-1.7\n";
+    const dict = "5 0 obj\n<< /Type /XRef /Size 6 /Root 1 0 R /Encrypt 4 0 R /Length 3 >>\nstream\nabc\nendstream\nendobj\n";
+    const text = head + dict + "y".repeat(10_000) + "\nstartxref\n" + head.length + "\n%%EOF\n";
+    expect(isEncryptedPdf(new Uint8Array(Buffer.from(text, "latin1")))).toBe(true);
+  });
+
   it("detects an /Encrypt dictionary", () => {
     expect(isEncryptedPdf(tinyPdf({ encrypted: true }))).toBe(true);
     expect(isEncryptedPdf(tinyPdf())).toBe(false);

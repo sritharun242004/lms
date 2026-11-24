@@ -924,6 +924,7 @@ model SkillJobAnswer {
   question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, questionId])
+  @@index([questionId])
   @@map("skill_job_answers")
 }
 

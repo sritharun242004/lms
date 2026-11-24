@@ -42,4 +42,16 @@ describe("xml scanner", () => {
     expect(textOf("<w:r><w:t>Hel</w:t></w:r><w:r><w:t>lo &amp; bye</w:t></w:r>")).toBe("Hello & bye");
     expect(collapse("  a \n\t b  ", 3)).toBe("a b");
   });
+
+  it("stays linear and bounded on a flood of unclosed elements", () => {
+    const xml = "<a:t>".repeat(200_000);
+    const started = Date.now();
+    const found = elements(xml, "t");
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(found.length).toBeLessThanOrEqual(50_000);
+  });
+
+  it("still pairs closed elements after an unclosed one of another name", () => {
+    expect(elements("<a:x><a:t>ok</a:t>", "t").map((e) => e.inner)).toEqual(["ok"]);
+  });
 });

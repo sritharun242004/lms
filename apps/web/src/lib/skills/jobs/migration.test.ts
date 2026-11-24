@@ -46,4 +46,11 @@ describe("skill jobs migration", () => {
     expect(SCHEMA).toMatch(/\/\/\/ Deprecated 2026-11-25[^\n]*\nmodel SkillCatalogEntry \{/);
     expect(SCHEMA).toMatch(/\/\/\/ Deprecated 2026-11-25[^\n]*\n\s+catalogEntryId\s+String\?/);
   });
+
+  it("indexes the answer question foreign key in a follow-up additive migration", () => {
+    const follow = readFileSync(path.join(WEB, "prisma/migrations/20261125120500_skill_job_answers_question_idx/migration.sql"), "utf8");
+    expect(follow).toContain('CREATE INDEX "skill_job_answers_question_id_idx" ON "skill_job_answers"("question_id");');
+    expect(follow).not.toMatch(/\bDROP\b/i);
+    expect(SCHEMA).toMatch(/@@index\(\[questionId\]\)\n\s+@@map\("skill_job_answers"\)/);
+  });
 });

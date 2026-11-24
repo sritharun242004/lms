@@ -28,4 +28,10 @@ describe("images", () => {
     const smallMeta = await sharp(Buffer.from(small.base64, "base64")).metadata();
     expect([small.mediaType, smallMeta.format, smallMeta.width, smallMeta.height]).toEqual(["image/jpeg", "jpeg", 30, 20]);
   });
+
+  it("refuses an image declaring more pixels than the decode limit", async () => {
+    const huge = await sharp({ create: { width: 8000, height: 8000, channels: 3, background: { r: 0, g: 0, b: 0 } } }).png({ compressionLevel: 9 }).toBuffer();
+    expect(await code(extractImage(new Uint8Array(huge), "PNG"))).toBe("FILE_UNREADABLE");
+    expect(await code(imageForClaude(new Uint8Array(huge), "PNG"))).toBe("FILE_UNREADABLE");
+  });
 });

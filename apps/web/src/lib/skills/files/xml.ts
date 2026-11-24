@@ -24,19 +24,26 @@ function parseAttrs(raw: string): Record<string, string> {
   return attrs;
 }
 
+/** Upper bound on elements returned per call: far above any part the extractors read, so a hostile part can't flood them. */
+export const MAX_ELEMENTS = 50_000;
+
 export function elements(xml: string, localName: string): XmlElement[] {
   const open = new RegExp(`<((?:[A-Za-z_][\\w.-]*:)?${escapeRegExp(localName)})(?=[\\s/>])([^>]*?)(/?)>`, "g");
   const found: XmlElement[] = [];
-  for (let m = open.exec(xml); m; m = open.exec(xml)) {
+  // Once a close tag is missing from the rest of the part it is missing for every later element of that name,
+  // so searching again would rescan the part per element (quadratic): remember it and treat the rest as unclosed.
+  const exhausted = new Set<string>();
+  for (let m = open.exec(xml); m && found.length < MAX_ELEMENTS; m = open.exec(xml)) {
     const [, name, rawAttrs, selfClosing] = m;
     const attrs = parseAttrs(rawAttrs);
-    if (selfClosing) {
+    if (selfClosing || exhausted.has(name)) {
       found.push({ name, attrs, inner: "" });
       continue;
     }
     const close = `</${name}>`;
     const end = xml.indexOf(close, open.lastIndex);
     if (end === -1) {
+      exhausted.add(name);
       found.push({ name, attrs, inner: "" });
       continue;
     }
