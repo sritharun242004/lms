@@ -23,6 +23,15 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   const [scoreState, setScoreState] = React.useState<"idle" | "scoring" | "failed">("idle");
   const [enhanced, setEnhanced] = React.useState(initial.latestEnhancement?.content ?? "");
   const [version, setVersion] = React.useState<number | null>(initial.latestEnhancement?.version ?? null);
+  const [history, setHistory] = React.useState<{ version: number; content: string }[]>(() =>
+    initial.latestEnhancement ? [{ version: initial.latestEnhancement.version, content: initial.latestEnhancement.content }] : [],
+  );
+  const lastGood = React.useRef<{ content: string; version: number | null }>({
+    content: initial.latestEnhancement?.content ?? "",
+    version: initial.latestEnhancement?.version ?? null,
+  });
+  const answerRef = React.useRef<HTMLTextAreaElement>(null);
+  const focusAnswer = React.useRef(false);
   const [streaming, setStreaming] = React.useState(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
   const revision = React.useRef(initial.scoreRevision);
@@ -34,41 +43,53 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   const ready = readiness(list);
   const gaps = unansweredQuestionIds(list);
 
+  // The revision is bumped on every edit (see bumpRevision); the scheduled score sends whatever is
+  // current when it fires and its response is applied only if no edit happened since it was sent.
   const scheduleScore = React.useCallback(() => {
-    revision.current += 1;
-    const mine = revision.current;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
+      const sent = revision.current;
       setScoreState("scoring");
-      const result = await scoreSession(view.id, mine);
+      const result = await scoreSession(view.id, sent);
       if (!result.ok) {
         setScoreState("failed");
         if (result.code === "LIMIT_REACHED") toast.error(result.message);
         return;
       }
       setScoreState("idle");
-      if (result.data.applied && mine === revision.current) {
+      if (result.data.applied && sent === revision.current) {
         setAnswers((prev) => {
           const next = { ...prev };
-          for (const a of result.data.answers) next[a.questionId] = { ...a, answer: prev[a.questionId]?.answer ?? a.answer };
+          for (const a of result.data.answers) {
+            const local = prev[a.questionId];
+            next[a.questionId] = local ? { ...local, score: a.score, reason: a.reason } : a;
+          }
           return next;
         });
       }
     }, SCORE_DELAY_MS);
   }, [view.id]);
 
+  const bumpRevision = () => {
+    revision.current += 1;
+  };
+
   // Per-field debounced network saves. State updates stay immediate; `pending` holds the latest
   // save per field so it can also be flushed early (before enhance / task switch / unmount).
   const pending = React.useRef(new Map<string, () => Promise<void>>());
-  const inflight = React.useRef(new Set<Promise<void>>());
+  const tails = React.useRef(new Map<string, Promise<void>>());
   const debouncers = React.useRef(new Map<string, (key: string) => void>());
 
+  // Same-field saves run strictly one after another so a slow earlier PUT can't land last.
   const runPending = React.useCallback((key: string) => {
     const run = pending.current.get(key);
     if (!run) return;
     pending.current.delete(key);
-    const p = run().finally(() => inflight.current.delete(p));
-    inflight.current.add(p);
+    const tail = (tails.current.get(key) ?? Promise.resolve()).then(run);
+    tails.current.set(key, tail);
+    void tail.finally(() => {
+      if (tails.current.get(key) === tail) tails.current.delete(key);
+    });
   }, []);
 
   const queueSave = React.useCallback(
@@ -86,7 +107,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
 
   const flushSaves = React.useCallback(async () => {
     for (const key of [...pending.current.keys()]) runPending(key);
-    await Promise.all([...inflight.current]);
+    await Promise.all([...tails.current.values()]);
   }, [runPending]);
 
   React.useEffect(
@@ -98,6 +119,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   );
 
   function updateAnswer(questionId: string, patch: Partial<Pick<AnswerView, "answer" | "notRelevant">>) {
+    bumpRevision();
     setAnswers((prev) => ({ ...prev, [questionId]: { ...(prev[questionId] ?? answerFor(questionId)), ...patch } }));
     const field = "answer" in patch ? "answer" : "notRelevant";
     queueSave(`answer:${questionId}:${field}`, async () => {
@@ -108,6 +130,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
   }
 
   function updateBasePrompt(value: string) {
+    bumpRevision();
     setBasePrompt(value);
     if (!value.trim()) return;
     queueSave("basePrompt", async () => {
@@ -121,6 +144,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
     await flushSaves();
     const result = await patchSession(view.id, { taskMatrixId });
     if (!result.ok) return toast.error(result.message);
+    bumpRevision();
     setView(result.data);
     setAnswers((prev) => ({ ...Object.fromEntries(result.data.answers.map((a) => [a.questionId, a])), ...prev }));
     scheduleScore();
@@ -132,18 +156,74 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
     setEnhanceError(null);
     setEnhanced("");
     await flushSaves();
+    let streamed = "";
+    const restore = () => {
+      setEnhanced(lastGood.current.content);
+      setVersion(lastGood.current.version);
+    };
     try {
       const res = await fetch(`/api/v1/prompt-bot/sessions/${view.id}/enhance`, { method: "POST", credentials: "include" });
-      const result = await readEnhanceStream(res, (text) => setEnhanced((prev) => prev + text));
+      const result = await readEnhanceStream(res, (text) => {
+        streamed += text;
+        setEnhanced((prev) => prev + text);
+      });
       if ("error" in result) {
         setEnhanceError(result.error);
-        setEnhanced(initial.latestEnhancement?.content ?? "");
-      } else setVersion(result.version);
+        restore();
+      } else {
+        lastGood.current = { content: streamed, version: result.version };
+        setVersion(result.version);
+        setHistory((prev) => [{ version: result.version, content: streamed }, ...prev.filter((h) => h.version !== result.version)]);
+      }
     } catch {
       setEnhanceError("Couldn't reach the server. Check your connection.");
-      setEnhanced(initial.latestEnhancement?.content ?? "");
+      restore();
     } finally {
       setStreaming(false);
+    }
+  }
+
+  function selectVersion(next: number) {
+    const entry = history.find((h) => h.version === next);
+    if (!entry || streaming) return;
+    lastGood.current = { content: entry.content, version: entry.version };
+    setEnhanced(entry.content);
+    setVersion(entry.version);
+  }
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/v1/prompt-bot/sessions/${initial.id}/enhancements`, { credentials: "include" });
+        const body = await res.json().catch(() => null);
+        if (cancelled || !res.ok || !body?.success || !Array.isArray(body.data)) return;
+        const loaded = (body.data as { version: number; content: string }[]).map((e) => ({ version: e.version, content: e.content }));
+        setHistory((prev) => {
+          const seen = new Set(prev.map((h) => h.version));
+          return [...prev, ...loaded.filter((e) => !seen.has(e.version))].sort((x, y) => y.version - x.version);
+        });
+      } catch {
+        // The switcher is a convenience; the latest version is already shown.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.id]);
+
+  React.useEffect(() => {
+    if (focusAnswer.current) {
+      focusAnswer.current = false;
+      answerRef.current?.focus();
+    }
+  }, [activeId]);
+
+  function selectQuestion(id: string) {
+    if (id === activeId) answerRef.current?.focus();
+    else {
+      focusAnswer.current = true;
+      setActiveId(id);
     }
   }
 
@@ -178,7 +258,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
                     reason={a.reason}
                     notRelevant={a.notRelevant}
                     active={q.id === activeId}
-                    onSelect={() => setActiveId(q.id)}
+                    onSelect={() => selectQuestion(q.id)}
                     onToggleRelevant={() => updateAnswer(q.id, { notRelevant: !a.notRelevant })}
                   />
                 );
@@ -213,6 +293,7 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
               <label htmlFor="answer" className="text-sm font-medium">{active.text}</label>
               <Textarea
                 id="answer"
+                ref={answerRef}
                 value={answerFor(active.id).answer}
                 onChange={(e) => updateAnswer(active.id, { answer: e.target.value })}
                 placeholder={active.guidance}
@@ -221,7 +302,19 @@ export function Workspace({ initial, taskMatrices }: { initial: SessionView; tas
             </div>
           )}
         </section>
-        <EnhancePanel content={enhanced} streaming={streaming} version={version} error={enhanceError} onEnhance={() => void enhance()} unansweredCount={gaps.length} />
+        <EnhancePanel
+          content={enhanced}
+          streaming={streaming}
+          version={version}
+          versions={history.map((h) => h.version)}
+          onSelectVersion={selectVersion}
+          error={enhanceError}
+          onEnhance={() => void enhance()}
+          unansweredCount={gaps.length}
+        />
+        <p className="text-center text-xs text-muted-foreground">
+          Your prompts are stored in the LMS and sent to Anthropic&apos;s API to analyse them.
+        </p>
       </div>
     </div>
   );

@@ -7,12 +7,14 @@ type Props = {
   content: string;
   streaming: boolean;
   version: number | null;
+  versions: number[];
+  onSelectVersion(version: number): void;
   error: string | null;
   onEnhance(): void;
   unansweredCount: number;
 };
 
-export function EnhancePanel({ content, streaming, version, error, onEnhance, unansweredCount }: Props) {
+export function EnhancePanel({ content, streaming, version, versions, onSelectVersion, error, onEnhance, unansweredCount }: Props) {
   const [copied, setCopied] = React.useState(false);
   const copiedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
@@ -40,6 +42,21 @@ export function EnhancePanel({ content, streaming, version, error, onEnhance, un
           )}
         </div>
         <div className="flex gap-2">
+          {versions.length > 1 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Version
+              <select
+                value={version ?? ""}
+                disabled={streaming}
+                onChange={(e) => onSelectVersion(Number(e.target.value))}
+                className="rounded-xl border border-border bg-white/60 py-1.5 pl-3 pr-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-50 dark:bg-white/5"
+              >
+                {versions.map((v) => (
+                  <option key={v} value={v}>{`v${v}`}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {content && !streaming && (
             <Button variant="outline" size="sm" onClick={copy}>
               {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
