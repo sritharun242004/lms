@@ -23,9 +23,9 @@ export type SessionView = {
   latestEnhancement: { version: number; content: string; createdAt: string } | null;
 };
 
-export function titleFrom(basePrompt: string): string {
+export function titleFrom(basePrompt: string, fallback = "Untitled prompt"): string {
   const first = basePrompt.trim().split("\n")[0]?.trim() ?? "";
-  return first ? first.slice(0, 80) : "Untitled prompt";
+  return first ? first.slice(0, 80) : fallback;
 }
 
 export async function matricesForSession(taskMatrixId: string | null): Promise<MatrixView[]> {

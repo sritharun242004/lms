@@ -38,4 +38,8 @@ describe("titleFrom", () => {
     expect(titleFrom("x".repeat(100))).toHaveLength(80);
     expect(titleFrom("   ")).toBe("Untitled prompt");
   });
+
+  it("uses the caller's fallback for blank text", () => {
+    expect(titleFrom("   ", "My skills")).toBe("My skills");
+  });
 });
