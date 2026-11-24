@@ -77,3 +77,7 @@ export class DuplicateNameError extends NamedError {
     super(`A skill named "${skillName}" already exists`);
   }
 }
+
+/** A Prisma unique-index violation (P2002): a concurrent request won the race the app-level check lost. */
+export const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";
