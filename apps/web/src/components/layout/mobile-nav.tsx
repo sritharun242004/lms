@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Library, LayoutDashboard, Menu, UserPlus } from "lucide-react";
+import { Library, LayoutDashboard, Menu, Sparkles, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ export function MobileNav({ isMentee, isSuperAdmin }: { isMentee: boolean; isSup
   const pathname = usePathname();
 
   const links = [
+    { href: "/prompt-bot", label: "Prompt Bot", icon: Sparkles },
     ...(!isMentee ? [{ href: "/questions", label: "Question repository", icon: Library }] : []),
     ...(!isMentee ? [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
     ...(isSuperAdmin ? [{ href: "/admin/coaches", label: "Coach account management", icon: UserPlus }] : []),

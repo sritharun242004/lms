@@ -49,4 +49,23 @@ describe("mobile navigation", () => {
       .toBe("/questions");
     expect(screen.queryByText("Quiz repository")).toBeNull();
   });
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+  ])("offers Prompt Bot first for isMentee=%s isSuperAdmin=%s", (isMentee, isSuperAdmin) => {
+    render(createElement(MobileNav, { isMentee, isSuperAdmin }));
+
+    const links = screen.getAllByRole("link");
+    expect(links[0].textContent).toBe("Prompt Bot");
+    expect(links[0].getAttribute("href")).toBe("/prompt-bot");
+  });
+
+  it("renders the sheet for a mentee with only the Prompt Bot link", () => {
+    render(createElement(MobileNav, { isMentee: true, isSuperAdmin: false }));
+
+    expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/prompt-bot"]);
+  });
 });

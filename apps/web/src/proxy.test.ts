@@ -65,6 +65,12 @@ describe("portal-aware proxy redirects", () => {
     expect(response.headers.get("location")).toBe(`http://localhost${expected}`);
   });
 
+  it.each(["ADMIN", "MENTOR", "MENTEE"] as const)("lets an authenticated %s user reach /prompt-bot", async (role) => {
+    const response = await proxy(request("/prompt-bot/abc", role));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("refuses silent refresh for an inactive account and clears the stale session", async () => {
     const req = request("/admin/coaches");
     req.cookies.set("refresh_token", "stored-refresh-token");

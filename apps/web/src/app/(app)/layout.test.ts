@@ -55,4 +55,14 @@ describe("desktop shared navigation", () => {
     expect(markup).toContain("Question repository");
     expect(markup).not.toContain("Quiz repository");
   });
+
+  it.each(["ADMIN", "MENTOR", "MENTEE"])("offers Prompt Bot to %s users", async (role) => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "user-1", role, name: "Portal User" });
+
+    const tree = await AppLayout({ children: createElement("main", null, "Content") });
+    const markup = renderToStaticMarkup(tree);
+
+    expect(markup).toContain('href="/prompt-bot"');
+    expect(markup).toContain("Prompt Bot");
+  });
 });
