@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   enhancementCreate: vi.fn(),
   enhancementFindMany: vi.fn(),
   isAiConfigured: vi.fn(),
+  sessionFindFirst: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
 vi.mock("@/lib/ai/config", async (orig) => ({ ...(await orig()), isAiConfigured: mocks.isAiConfigured }));
@@ -20,12 +21,14 @@ vi.mock("@/lib/ai/claude", () => ({ streamEnhancement: mocks.streamEnhancement }
 vi.mock("@/lib/prompt-bot/sessions", () => ({ runScoring: mocks.runScoring, loadSessionView: mocks.loadSessionView }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
+    promptBotSession: { findFirst: mocks.sessionFindFirst },
     promptBotEnhancement: { findFirst: mocks.enhancementFindFirst, create: mocks.enhancementCreate, findMany: mocks.enhancementFindMany },
   },
 }));
 
 import * as score from "./[id]/score/route";
 import * as enhance from "./[id]/enhance/route";
+import * as versions from "./[id]/enhancements/route";
 
 const req = (body?: unknown) =>
   new NextRequest("http://localhost/x", { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -113,5 +116,33 @@ describe("enhance route", () => {
     mocks.loadSessionView.mockResolvedValue(null);
     expect((await enhance.POST(req(), ctx)).status).toBe(404);
     expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
+  });
+});
+
+describe("enhancements route", () => {
+  const get = () => versions.GET(new NextRequest("http://localhost/x"), ctx);
+
+  it("returns 401 when signed out", async () => {
+    mocks.getCurrentUser.mockResolvedValue(null);
+    expect((await get()).status).toBe(401);
+  });
+
+  it("returns 404 for a missing or foreign session without listing versions", async () => {
+    mocks.sessionFindFirst.mockResolvedValue(null);
+    expect((await get()).status).toBe(404);
+    expect(mocks.sessionFindFirst).toHaveBeenCalledWith({ where: { id: "s1", userId: "u1" }, select: { id: true } });
+    expect(mocks.enhancementFindMany).not.toHaveBeenCalled();
+  });
+
+  it("lists versions with ISO createdAt for an owned session", async () => {
+    mocks.sessionFindFirst.mockResolvedValue({ id: "s1" });
+    mocks.enhancementFindMany.mockResolvedValue([
+      { version: 2, content: "c", unansweredQuestionIds: ["q2"], createdAt: new Date("2026-11-24T00:00:00Z") },
+    ]);
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual([
+      { version: 2, content: "c", unansweredQuestionIds: ["q2"], createdAt: "2026-11-24T00:00:00.000Z" },
+    ]);
   });
 });
