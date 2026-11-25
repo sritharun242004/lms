@@ -65,81 +65,82 @@ enum QuestionLibraryType {
 // ============================================================================
 
 model User {
-  id                 String     @id @default(cuid())
-  name               String
+  id                  String     @id @default(cuid())
+  name                String
   // Guest mentees (joined via name + invite code, no account) have no
   // email or password — only mentors/admins and legacy full mentee
   // signups do. Postgres allows multiple NULLs in a unique column, so
   // any number of guest mentees can coexist.
-  email              String?    @unique
-  phone              String?    @unique
-  password           String?
-  role               UserRole   @default(MENTEE)
-  isActive           Boolean    @default(true) @map("is_active")
-  authVersion        Int        @default(0) @map("auth_version")
-  disabledAt         DateTime?  @map("disabled_at")
+  email               String?    @unique
+  phone               String?    @unique
+  password            String?
+  role                UserRole   @default(MENTEE)
+  isActive            Boolean    @default(true) @map("is_active")
+  authVersion         Int        @default(0) @map("auth_version")
+  disabledAt          DateTime?  @map("disabled_at")
   // Set only for guest mentees, from the request IP at join time. Used
   // server-side to avoid creating a duplicate mentee record when the same
   // device re-submits the join form for a group it's already in — never
   // selected into any client-facing response.
-  ipAddress          String?    @map("ip_address")
-  bio                String?
-  avatarUrl          String?    @map("avatar_url")
-  status             UserStatus @default(OFFLINE)
-  lastSeenAt         DateTime?  @map("last_seen_at")
-  emailVerified      Boolean    @default(false) @map("email_verified")
-  emailVerifyToken   String?    @map("email_verify_token")
-  passwordResetToken String?    @map("password_reset_token")
-  passwordResetExpiry DateTime? @map("password_reset_expiry")
-  createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt          DateTime   @updatedAt @map("updated_at")
+  ipAddress           String?    @map("ip_address")
+  bio                 String?
+  avatarUrl           String?    @map("avatar_url")
+  status              UserStatus @default(OFFLINE)
+  lastSeenAt          DateTime?  @map("last_seen_at")
+  emailVerified       Boolean    @default(false) @map("email_verified")
+  emailVerifyToken    String?    @map("email_verify_token")
+  passwordResetToken  String?    @map("password_reset_token")
+  passwordResetExpiry DateTime?  @map("password_reset_expiry")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  groups             GroupMember[]
-  sentMessages       Message[]        @relation("MessageSender")
-  deletedMessages    Message[]        @relation("MessageDeleter")
-  refreshTokens      RefreshToken[]
-  sessions           Session[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
-  createdGroups      Group[]
-  createdInviteCodes InviteCode[]
-  messageEdits       MessageHistory[]
-  pollVotes          PollVote[]
-  openAnswers        OpenAnswer[]
+  groups               GroupMember[]
+  sentMessages         Message[]              @relation("MessageSender")
+  deletedMessages      Message[]              @relation("MessageDeleter")
+  refreshTokens        RefreshToken[]
+  sessions             Session[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  createdGroups        Group[]
+  createdInviteCodes   InviteCode[]
+  messageEdits         MessageHistory[]
+  pollVotes            PollVote[]
+  openAnswers          OpenAnswer[]
   wordCloudSubmissions WordCloudSubmission[]
-  scaleResponses     ScaleResponse[]
-  approvedCoachEmails CoachEmailApproval[] @relation("CoachApprovalAdmin")
-  claimedCoachApproval CoachEmailApproval? @relation("CoachApprovalClaim")
-  savedQuestions      QuestionLibraryItem[]
-  profilePhoto       UserProfilePhoto?
-  promptMatrices     PromptMatrix[]     @relation("PromptMatrixCreator")
-  promptBotSessions  PromptBotSession[] @relation("PromptBotSessionOwner")
-  aiUsage            AiUsageDaily[]     @relation("AiUsageOwner")
-  skillPacks         SkillPack[]         @relation("SkillPackOwner")
-  skillCatalogEntries SkillCatalogEntry[] @relation("SkillCatalogCreator")
-  skillJobs          SkillJob[]          @relation("SkillJobOwner")
-  themePreference    String?    @map("theme_preference")
-  createdForms        Form[]
-  questionTemplates   FormQuestionTemplate[]
-  formInvitations     FormInvitation[]
-  formResponses       FormResponse[]
+  scaleResponses       ScaleResponse[]
+  approvedCoachEmails  CoachEmailApproval[]   @relation("CoachApprovalAdmin")
+  claimedCoachApproval CoachEmailApproval?    @relation("CoachApprovalClaim")
+  savedQuestions       QuestionLibraryItem[]
+  profilePhoto         UserProfilePhoto?
+  promptMatrices       PromptMatrix[]         @relation("PromptMatrixCreator")
+  promptBotSessions    PromptBotSession[]     @relation("PromptBotSessionOwner")
+  aiUsage              AiUsageDaily[]         @relation("AiUsageOwner")
+  skillPacks           SkillPack[]            @relation("SkillPackOwner")
+  skillCatalogEntries  SkillCatalogEntry[]    @relation("SkillCatalogCreator")
+  skillJobs            SkillJob[]             @relation("SkillJobOwner")
+  themePreference      String?                @map("theme_preference")
+  createdForms         Form[]
+  questionTemplates    FormQuestionTemplate[]
+  formInvitations      FormInvitation[]
+  formResponses        FormResponse[]
 
   @@map("users")
 }
 
 model QuestionLibraryItem {
-  id          String        @id @default(cuid())
-  name        String        @default("Untitled quiz")
-  question    String
-  type        QuestionLibraryType @default(MULTIPLE_CHOICE)
-  chartType   PollChartType @default(BAR) @map("chart_type")
-  createdById String        @map("created_by_id")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  options     QuestionLibraryOption[]
+  id              String                          @id @default(cuid())
+  name            String                          @default("Untitled quiz")
+  question        String
+  type            QuestionLibraryType             @default(MULTIPLE_CHOICE)
+  chartType       PollChartType                   @default(BAR) @map("chart_type")
+  createdById     String                          @map("created_by_id")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+  updatedAt       DateTime                        @updatedAt @map("updated_at")
+  createdBy       User                            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  options         QuestionLibraryOption[]
   scaleStatements QuestionLibraryScaleStatement[]
+
   @@index([createdById])
   @@index([name])
   @@index([type])
@@ -152,6 +153,7 @@ model QuestionLibraryOption {
   text       String
   order      Int
   question   QuestionLibraryItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@unique([questionId, order])
   @@map("question_library_options")
 }
@@ -165,19 +167,20 @@ model QuestionLibraryScaleStatement {
   order      Int
   max        Int                 @default(5)
   question   QuestionLibraryItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@unique([questionId, order])
   @@map("question_library_scale_statements")
 }
 
 model CoachEmailApproval {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  approvedById String   @map("approved_by_id")
-  claimedById  String?  @unique @map("claimed_by_id")
+  id           String    @id @default(cuid())
+  email        String    @unique
+  approvedById String    @map("approved_by_id")
+  claimedById  String?   @unique @map("claimed_by_id")
   claimedAt    DateTime? @map("claimed_at")
-  createdAt    DateTime @default(now()) @map("created_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  approvedBy User @relation("CoachApprovalAdmin", fields: [approvedById], references: [id], onDelete: Restrict)
+  approvedBy User  @relation("CoachApprovalAdmin", fields: [approvedById], references: [id], onDelete: Restrict)
   claimedBy  User? @relation("CoachApprovalClaim", fields: [claimedById], references: [id], onDelete: SetNull)
 
   @@index([approvedById])
@@ -239,10 +242,10 @@ model Group {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  members     GroupMember[]
-  messages    Message[]
-  inviteCodes InviteCode[]
+  createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  members      GroupMember[]
+  messages     Message[]
+  inviteCodes  InviteCode[]
   profilePhoto GroupProfilePhoto?
 
   @@index([createdById])
@@ -281,6 +284,7 @@ model GroupProfilePhoto {
 
   @@map("group_profile_photos")
 }
+
 // 5. GroupMember
 // ============================================================================
 
@@ -323,15 +327,15 @@ model Message {
   updatedAt      DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  group       Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  sender      User             @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
-  deletedBy   User?            @relation("MessageDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
-  editHistory  MessageHistory[]
-  poll         Poll?
-  openQuestion OpenQuestion?
-  wordCloud    WordCloud?
-  scale        Scale?
-  attachment   MessageAttachment?
+  group           Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender          User               @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  deletedBy       User?              @relation("MessageDeleter", fields: [deletedById], references: [id], onDelete: SetNull)
+  editHistory     MessageHistory[]
+  poll            Poll?
+  openQuestion    OpenQuestion?
+  wordCloud       WordCloud?
+  scale           Scale?
+  attachment      MessageAttachment?
   formInvitations FormInvitation[]
 
   @@index([groupId, createdAt])
@@ -570,14 +574,14 @@ model Scale {
 }
 
 model ScaleStatement {
-  id         String   @id @default(cuid())
-  scaleId    String   @map("scale_id")
+  id         String @id @default(cuid())
+  scaleId    String @map("scale_id")
   text       String
   order      Int
-  min        Int      @default(0)
-  max        Int      @default(5)
-  leftLabel  String   @default("Strongly disagree") @map("left_label")
-  rightLabel String   @default("Strongly agree") @map("right_label")
+  min        Int    @default(0)
+  max        Int    @default(5)
+  leftLabel  String @default("Strongly disagree") @map("left_label")
+  rightLabel String @default("Strongly agree") @map("right_label")
 
   scale     Scale           @relation(fields: [scaleId], references: [id], onDelete: Cascade)
   responses ScaleResponse[]
@@ -689,53 +693,56 @@ enum PromptMatrixKind {
 }
 
 model PromptMatrix {
-  id          String           @id @default(cuid())
-  slug        String           @unique
+  id          String                 @id @default(cuid())
+  slug        String                 @unique
   name        String
   description String?
   kind        PromptMatrixKind
-  isBuiltIn   Boolean          @default(false) @map("is_built_in")
-  isActive    Boolean          @default(true) @map("is_active")
-  createdById String?          @map("created_by_id")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  createdBy   User?            @relation("PromptMatrixCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  isBuiltIn   Boolean                @default(false) @map("is_built_in")
+  isActive    Boolean                @default(true) @map("is_active")
+  createdById String?                @map("created_by_id")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  createdBy   User?                  @relation("PromptMatrixCreator", fields: [createdById], references: [id], onDelete: SetNull)
   questions   PromptMatrixQuestion[]
   sessions    PromptBotSession[]
+
   @@index([kind, isActive])
   @@map("prompt_matrices")
 }
 
 model PromptMatrixQuestion {
-  id       String          @id @default(cuid())
-  matrixId String          @map("matrix_id")
-  order    Int
-  text     String
-  guidance String
-  element  String?
-  isActive Boolean         @default(true) @map("is_active")
-  matrix   PromptMatrix    @relation(fields: [matrixId], references: [id], onDelete: Cascade)
-  answers  PromptBotAnswer[]
-  skillAnswers SkillItemAnswer[]
+  id              String            @id @default(cuid())
+  matrixId        String            @map("matrix_id")
+  order           Int
+  text            String
+  guidance        String
+  element         String?
+  isActive        Boolean           @default(true) @map("is_active")
+  matrix          PromptMatrix      @relation(fields: [matrixId], references: [id], onDelete: Cascade)
+  answers         PromptBotAnswer[]
+  skillAnswers    SkillItemAnswer[]
   skillJobAnswers SkillJobAnswer[]
+
   @@index([matrixId, order])
   @@map("prompt_matrix_questions")
 }
 
 model PromptBotSession {
-  id            String        @id @default(cuid())
-  userId        String        @map("user_id")
-  title         String        @default("Untitled prompt")
-  basePrompt    String        @map("base_prompt")
-  taskMatrixId  String?       @map("task_matrix_id")
-  taskDetected  Boolean       @default(true) @map("task_detected")
-  scoreRevision Int           @default(0) @map("score_revision")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-  user          User          @relation("PromptBotSessionOwner", fields: [userId], references: [id], onDelete: Cascade)
-  taskMatrix    PromptMatrix? @relation(fields: [taskMatrixId], references: [id], onDelete: SetNull)
+  id            String                 @id @default(cuid())
+  userId        String                 @map("user_id")
+  title         String                 @default("Untitled prompt")
+  basePrompt    String                 @map("base_prompt")
+  taskMatrixId  String?                @map("task_matrix_id")
+  taskDetected  Boolean                @default(true) @map("task_detected")
+  scoreRevision Int                    @default(0) @map("score_revision")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+  user          User                   @relation("PromptBotSessionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  taskMatrix    PromptMatrix?          @relation(fields: [taskMatrixId], references: [id], onDelete: SetNull)
   answers       PromptBotAnswer[]
   enhancements  PromptBotEnhancement[]
+
   @@index([userId, updatedAt])
   @@map("prompt_bot_sessions")
 }
@@ -751,6 +758,7 @@ model PromptBotAnswer {
   scoredAt    DateTime?            @map("scored_at")
   session     PromptBotSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@unique([sessionId, questionId])
   @@map("prompt_bot_answers")
 }
@@ -765,6 +773,7 @@ model PromptBotEnhancement {
   instructionsVersion   String           @map("instructions_version")
   createdAt             DateTime         @default(now()) @map("created_at")
   session               PromptBotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
   @@unique([sessionId, version])
   @@map("prompt_bot_enhancements")
 }
@@ -775,6 +784,7 @@ model AiUsageDaily {
   feature String
   count   Int    @default(0)
   user    User   @relation("AiUsageOwner", fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([userId, day, feature])
   @@map("ai_usage_daily")
 }
@@ -783,6 +793,7 @@ model AiSettings {
   id        String   @id @default("singleton")
   limits    Json
   updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("ai_settings")
 }
 
@@ -812,6 +823,7 @@ model SkillPack {
   updatedAt   DateTime        @updatedAt @map("updated_at")
   user        User            @relation("SkillPackOwner", fields: [userId], references: [id], onDelete: Cascade)
   items       SkillPackItem[]
+
   @@index([userId, updatedAt])
   @@map("skill_packs")
 }
@@ -835,6 +847,7 @@ model SkillPackItem {
   pack                SkillPack          @relation(fields: [packId], references: [id], onDelete: Cascade)
   catalogEntry        SkillCatalogEntry? @relation(fields: [catalogEntryId], references: [id], onDelete: SetNull)
   answers             SkillItemAnswer[]
+
   @@index([packId, order])
   @@map("skill_pack_items")
 }
@@ -850,6 +863,7 @@ model SkillItemAnswer {
   scoredAt    DateTime?            @map("scored_at")
   item        SkillPackItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
   question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@unique([itemId, questionId])
   @@map("skill_item_answers")
 }
@@ -871,6 +885,7 @@ model SkillCatalogEntry {
   updatedAt    DateTime        @updatedAt @map("updated_at")
   createdBy    User?           @relation("SkillCatalogCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items        SkillPackItem[]
+
   @@map("skill_catalog_entries")
 }
 
@@ -894,18 +909,24 @@ enum SkillAnalysisStatus {
 }
 
 model SkillJob {
-  id            String           @id @default(cuid())
-  userId        String           @map("user_id")
-  title         String           @default("Untitled job")
-  description   String           @default("")
-  scoreRevision Int              @default(0) @map("score_revision")
-  suggestedAt   DateTime?        @map("suggested_at")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
-  user          User             @relation("SkillJobOwner", fields: [userId], references: [id], onDelete: Cascade)
-  answers       SkillJobAnswer[]
-  files         SkillJobFile[]
-  skills        SkillJobSkill[]
+  id                   String             @id @default(cuid())
+  userId               String             @map("user_id")
+  title                String             @default("Untitled job")
+  description          String             @default("")
+  scoreRevision        Int                @default(0) @map("score_revision")
+  suggestedAt          DateTime?          @map("suggested_at")
+  /// When the task's questions were last written (null until then; migrated jobs: their creation time).
+  questionsGeneratedAt DateTime?          @map("questions_generated_at")
+  /// The output type inferred when questions were last written, e.g. "Instagram carousel" (<= 60 chars).
+  outputType           String?            @map("output_type")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  user                 User               @relation("SkillJobOwner", fields: [userId], references: [id], onDelete: Cascade)
+  /// Read only by the tasks data migration; nothing writes it any more.
+  answers              SkillJobAnswer[]
+  questions            SkillJobQuestion[]
+  files                SkillJobFile[]
+  skills               SkillJobSkill[]
 
   @@index([userId, updatedAt])
   @@map("skill_jobs")
@@ -954,10 +975,66 @@ model SkillJobFile {
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
   job               SkillJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// The FIXED question this file answers; null = a general file.
+  questionId        String?             @map("question_id")
+  question          SkillJobQuestion?   @relation(fields: [questionId], references: [id], onDelete: SetNull)
 
   @@unique([jobId, assetName])
   @@index([jobId, createdAt])
+  @@index([questionId])
   @@map("skill_job_files")
+}
+
+enum SkillQuestionSource {
+  AI
+  USER
+}
+
+enum SkillQuestionKind {
+  /// Same every time: answered now (text + files) and baked into the skill.
+  FIXED
+  /// Varies each run: not answered now; the skill asks for it at the start of every run.
+  PER_USE
+}
+
+enum SkillFileHint {
+  /// Reference or past example.
+  REFERENCE
+  /// Typical input data.
+  INPUT
+  /// Template or design system.
+  TEMPLATE
+  /// Brand assets.
+  BRAND
+}
+
+model SkillJobQuestion {
+  id               String              @id @default(cuid())
+  jobId            String              @map("job_id")
+  order            Int
+  text             String
+  guidance         String              @default("")
+  wantsFiles       Boolean             @default(false) @map("wants_files")
+  fileHint         SkillFileHint?      @map("file_hint")
+  /// A specific upload prompt when the question asks for files, e.g. "Upload your logo and brand colours".
+  fileNote         String              @default("") @map("file_note")
+  source           SkillQuestionSource @default(AI)
+  kind             SkillQuestionKind   @default(FIXED)
+  /// PER_USE only: Claude must have this before it starts (false = ask, but it may proceed without it).
+  required         Boolean             @default(true)
+  /// The skill-definition question this row was migrated from (jobs made before tasks), else null.
+  legacyQuestionId String?             @map("legacy_question_id")
+  answer           String              @default("")
+  score            Int                 @default(0)
+  reason           String?
+  scoredAt         DateTime?           @map("scored_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  job              SkillJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  files            SkillJobFile[]
+
+  @@index([jobId, order])
+  @@map("skill_job_questions")
 }
 
 model SkillJobSkill {
@@ -1123,21 +1200,21 @@ enum FormInvitationStatus {
 }
 
 model Form {
-  id                     String       @id @default(cuid())
-  title                  String
-  description            String?
-  headerImageUrl         String?      @map("header_image_url")
-  themeColor             String?      @map("theme_color")
-  category               FormCategory @default(GENERIC)
-  status                 FormStatus   @default(DRAFT)
-  createdById            String       @map("created_by_id")
-  opensAt                DateTime?    @map("opens_at")
-  closesAt               DateTime?    @map("closes_at")
-  allowMultipleSubmissions Boolean    @default(false) @map("allow_multiple_submissions")
-  feedbackTargetType     String?      @map("feedback_target_type")
-  feedbackTargetLabel    String?      @map("feedback_target_label")
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
+  id                       String       @id @default(cuid())
+  title                    String
+  description              String?
+  headerImageUrl           String?      @map("header_image_url")
+  themeColor               String?      @map("theme_color")
+  category                 FormCategory @default(GENERIC)
+  status                   FormStatus   @default(DRAFT)
+  createdById              String       @map("created_by_id")
+  opensAt                  DateTime?    @map("opens_at")
+  closesAt                 DateTime?    @map("closes_at")
+  allowMultipleSubmissions Boolean      @default(false) @map("allow_multiple_submissions")
+  feedbackTargetType       String?      @map("feedback_target_type")
+  feedbackTargetLabel      String?      @map("feedback_target_label")
+  createdAt                DateTime     @default(now()) @map("created_at")
+  updatedAt                DateTime     @updatedAt @map("updated_at")
 
   createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
   sections    FormSection[]
@@ -1180,8 +1257,8 @@ model FormQuestion {
   // minimal conditional-display support described in the design doc.
   config      Json             @default("{}")
 
-  section  FormSection            @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  template FormQuestionTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  section  FormSection           @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  template FormQuestionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   answers  FormAnswer[]
 
   @@unique([sectionId, order])
@@ -1233,17 +1310,17 @@ model FormInvitation {
 }
 
 model FormResponse {
-  id                String   @id @default(cuid())
-  formId            String   @map("form_id")
-  invitationId      String?  @unique @map("invitation_id")
-  respondentUserId  String?  @map("respondent_user_id")
-  anonymous         Boolean  @default(false)
-  submittedAt       DateTime @default(now()) @map("submitted_at")
+  id               String   @id @default(cuid())
+  formId           String   @map("form_id")
+  invitationId     String?  @unique @map("invitation_id")
+  respondentUserId String?  @map("respondent_user_id")
+  anonymous        Boolean  @default(false)
+  submittedAt      DateTime @default(now()) @map("submitted_at")
 
-  form        Form            @relation(fields: [formId], references: [id], onDelete: Cascade)
-  invitation  FormInvitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
-  respondent  User?           @relation(fields: [respondentUserId], references: [id], onDelete: SetNull)
-  answers     FormAnswer[]
+  form       Form            @relation(fields: [formId], references: [id], onDelete: Cascade)
+  invitation FormInvitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  respondent User?           @relation(fields: [respondentUserId], references: [id], onDelete: SetNull)
+  answers    FormAnswer[]
 
   @@index([formId])
   @@index([respondentUserId])
