@@ -5,6 +5,7 @@ import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm
 import type { SaveOptions } from "@/lib/prompt-bot/client";
 import { patchJobSkill, removeJobSkill } from "@/lib/skills/jobs/client";
 import type { JobFileView, JobSkillView } from "@/lib/skills/jobs/types";
+import { cn } from "@/lib/utils";
 import { HowToCall } from "./how-to-call";
 import { SkillCardFields, SkillCardFooter, SkillCardHeader, type TextField } from "./skill-card-parts";
 import { SkillFileChips } from "./skill-file-chips";
@@ -100,7 +101,7 @@ export function SkillCard(props: Props) {
 
   const label = isMain ? `Main skill ${skill.name}` : `Sub-skill ${position}: ${skill.name}`;
   return (
-    <article className="glass rounded-[1.75rem] p-4 sm:p-5" aria-label={label}>
+    <article className={cn("glass rounded-[1.75rem] p-4 sm:p-5", isMain && "ring-1 ring-primary/25")} aria-label={label}>
       <SkillCardHeader skill={skill} position={position} locked={locked} onMoveUp={props.onMoveUp} onMoveDown={props.onMoveDown} />
       <SkillCardFields
         skill={skill}

@@ -17,13 +17,15 @@ export function HowToCall({ plugin, skill, role }: Props) {
   const phrase = chatPhrase(role, skill);
   const command = slashCommand(plugin, skill);
   return (
-    <section aria-label={`How to call ${skill}`} className="mt-4 border-t border-border/60 pt-3">
-      <h4 className="text-xs font-medium text-muted-foreground">How to call it</h4>
-      <ul className="mt-1.5 flex flex-col gap-1">
+    <div className="mt-4 border-t border-border/60 pt-3">
+      <p id={`how-to-call-${skill}`} className="text-xs font-medium text-muted-foreground">
+        How to call it
+      </p>
+      <ul aria-labelledby={`how-to-call-${skill}`} className="mt-1.5 flex flex-col gap-1">
         <CallLine where="In Claude chat: say" value={`“${phrase}”`} copy={phrase} copyLabel={`Copy chat phrase: ${skill}`} />
         <CallLine where="Claude Code / Cowork:" value={command} copy={command} copyLabel={`Copy command: ${skill}`} mono />
       </ul>
-    </section>
+    </div>
   );
 }
 

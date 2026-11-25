@@ -26,8 +26,12 @@ const detail = (version: number): VersionDetail => ({
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1",
   order: 0,
+  role: "MAIN",
   name: "board-update",
+  label: "",
   purpose: "Writes it.",
+  focus: "",
+  step: "",
   fileIds: [],
   status: "READY",
   validationErrors: [],
