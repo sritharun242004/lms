@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowDownToLine, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AnswerCheck, checkOnShortcut } from "@/components/prompt-bot/answer-check";
@@ -20,14 +20,13 @@ type Props = {
   files: JobFileView[];
   aiConfigured: boolean;
   onEdit(): void;
-  onMove(): void;
   onDelete(): void;
   onFileChange(file: JobFileView): void;
   onFileRemoved(fileId: string): void;
 };
 
 /** The selected "Answer now" question: its answer, the check, and the files that answer it. */
-export function AnswerCard({ jobId, question, state, answerRef, files, aiConfigured, onEdit, onMove, onDelete, onFileChange, onFileRemoved }: Props) {
+export function AnswerCard({ jobId, question, state, answerRef, files, aiConfigured, onEdit, onDelete, onFileChange, onFileRemoved }: Props) {
   const answerId = React.useId();
   const helpId = `${answerId}-help`;
   // The visible tooltip names the action; the question keeps each button's name unique.
@@ -42,17 +41,6 @@ export function AnswerCard({ jobId, question, state, answerRef, files, aiConfigu
         <div className="-mr-2 -mt-1 flex shrink-0 items-center">
           <Button type="button" variant="ghost" size="icon" className={ICON_BUTTON} aria-label={named("Edit question")} title="Edit question" onClick={onEdit}>
             <Pencil className="size-4" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={ICON_BUTTON}
-            aria-label={named('Move to "Claude will ask each time"')}
-            title='Move to "Claude will ask each time"'
-            onClick={onMove}
-          >
-            <ArrowDownToLine className="size-4" aria-hidden />
           </Button>
           <Button
             type="button"

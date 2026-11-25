@@ -29,7 +29,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 
 import { KINDS, TASK_DESCRIPTIONS } from "../../../../../../scripts/fake-anthropic-shapes.mjs";
-import { FALLBACK_QUESTIONS } from "@/lib/skills/jobs/questions";
+import { CONTEXT_QUESTION, FALLBACK_QUESTIONS } from "@/lib/skills/jobs/questions";
 import type { JobView } from "@/lib/skills/jobs/types";
 import * as generate from "./[id]/questions/generate/route";
 
@@ -86,7 +86,8 @@ describe("POST /:id/questions/generate across task types", () => {
     expect(perUse.every((q) => !q.wantsFiles && q.fileHint === null)).toBe(true);
     expect(fixed.some((q) => q.wantsFiles && q.fileHint)).toBe(true);
     expect(view.questions.filter((q) => q.fileHint).every((q) => q.wantsFiles)).toBe(true);
-    expect(fixed.at(-1)?.text).toBe(FALLBACK_QUESTIONS.avoid.text);
+    expect(fixed[0].text).toBe(CONTEXT_QUESTION.text);
+    expect(fixed.map((q) => q.text)).not.toContain(FALLBACK_QUESTIONS.avoid.text);
     expect(view.answers.map((a) => a.questionId)).toEqual(fixed.map((q) => q.id));
     expect(view.questions.map((q) => q.order)).toEqual(view.questions.map((_, i) => i));
   });

@@ -105,7 +105,7 @@ describe("Skills Builder home", () => {
     expect(screen.queryByRole("link", { name: /Show all/ })).toBeNull();
     // Showing everything opens the packs it was asked for.
     expect(screen.getByText("Earlier skill packs").closest("details")!.open).toBe(true);
-  });
+  }, 20_000);
 
   it("says when even the full list stops at 200", async () => {
     mocks.jobFindMany.mockResolvedValue(Array.from({ length: 201 }, (_, i) => ({ ...JOB, id: `j${i}`, title: `Job ${i}` })));

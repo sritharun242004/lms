@@ -119,12 +119,6 @@ export function QuestionsPanel(props: Props) {
     return null;
   }
 
-  async function moveToPerUse(question: TaskQuestionView) {
-    const result = await patchQuestion(job.id, question.id, { kind: "PER_USE" });
-    if (!result.ok) return void toast.error(result.message);
-    onQuestionChange(result.data);
-  }
-
   async function remove(question: TaskQuestionView) {
     const confirmed = await confirmRef.current?.open({
       title: "Delete this question?",
@@ -237,7 +231,6 @@ export function QuestionsPanel(props: Props) {
                 files={job.files.filter((f) => f.questionId === active.id)}
                 aiConfigured={aiConfigured}
                 onEdit={() => openEditor("edit")}
-                onMove={() => void moveToPerUse(active)}
                 onDelete={() => void remove(active)}
                 onFileChange={onFileChange}
                 onFileRemoved={onFileRemoved}

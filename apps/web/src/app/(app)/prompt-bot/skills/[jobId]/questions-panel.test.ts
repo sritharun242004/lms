@@ -198,19 +198,9 @@ describe("QuestionsPanel editing", () => {
     expect(props.onQuestionChange).toHaveBeenCalledWith(expect.objectContaining({ text: "Which deck template do you start from?" }));
   });
 
-  it("moves the selected question to the ask-each-time list", async () => {
-    mocks.patchQuestion.mockResolvedValue(ok(q({ kind: "PER_USE" })));
-    const { props } = mount();
-    await click('Move to "Claude will ask each time": Which template do you start from?');
-    expect(mocks.patchQuestion).toHaveBeenCalledWith("j1", "q1", { kind: "PER_USE" });
-    expect(props.onQuestionChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "PER_USE" }));
-  });
-
-  it("shows why a move failed", async () => {
-    mocks.patchQuestion.mockResolvedValue({ ok: false, code: "TOO_MANY_QUESTIONS", message: "A task can have at most 15 inputs Claude asks for each time. Remove one to add another." });
+  it("offers no button to move a question to the ask-each-time list", () => {
     mount();
-    await click('Move to "Claude will ask each time": Which template do you start from?');
-    expect(mocks.toastError).toHaveBeenCalledWith("A task can have at most 15 inputs Claude asks for each time. Remove one to add another.");
+    expect(screen.queryByRole("button", { name: /Claude will ask each time/ })).toBeNull();
   });
 
   it("deletes the selected question after a destructive confirm", async () => {

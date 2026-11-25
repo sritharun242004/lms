@@ -24,6 +24,7 @@ vi.mock("./jobs", () => ({ loadJobView: mocks.loadJobView, questionOrder: [{ ord
 
 import { AiResponseError } from "@/lib/ai/errors";
 import { DescriptionTooShortError, JobNotFoundError } from "./errors";
+import { CONTEXT_QUESTION } from "./questions";
 import { generateQuestionsForTask } from "./task-questions";
 
 const LONG = "I write a client SLA every time we sign a new client. ".repeat(12);
@@ -73,14 +74,15 @@ describe("generateQuestionsForTask", () => {
     expect(ops.map((o) => o.op)).toEqual(["q.deleteMany", "q.createMany", "job.update"]);
     const rows = ops[1].args.data as Record<string, unknown>[];
     expect(rows.map((r) => [r.order, r.kind, r.text])).toEqual([
-      [0, "FIXED", "Which SLA template do you start from?"],
-      [1, "FIXED", "When is it used?"],
-      [2, "FIXED", "What are the steps?"],
-      [3, "FIXED", "What does great look like?"],
-      [4, "FIXED", "What should it never do?"],
+      [0, "FIXED", CONTEXT_QUESTION.text],
+      [1, "FIXED", "Which SLA template do you start from?"],
+      [2, "FIXED", "When is it used?"],
+      [3, "FIXED", "What are the steps?"],
+      [4, "FIXED", "What does great look like?"],
       [5, "PER_USE", "Client name"],
     ]);
-    expect(rows[0]).toMatchObject({ jobId: "j1", source: "AI", wantsFiles: true, fileHint: "TEMPLATE", fileNote: "Upload your SLA template.", required: true });
+    expect(rows[0]).toMatchObject({ jobId: "j1", source: "AI", wantsFiles: false, fileHint: null, required: true });
+    expect(rows[1]).toMatchObject({ jobId: "j1", source: "AI", wantsFiles: true, fileHint: "TEMPLATE", fileNote: "Upload your SLA template.", required: true });
     expect(rows[5]).toMatchObject({ guidance: "e.g. Acme Ltd", wantsFiles: false, fileHint: null, fileNote: "" });
     expect(ops[2].args).toEqual({ where: { id: "j1" }, data: { questionsGeneratedAt: expect.any(Date), outputType: "client SLA document" } });
     expect(mocks.loadJobView).toHaveBeenCalledWith("j1", "u1");
@@ -105,7 +107,7 @@ describe("generateQuestionsForTask", () => {
     expect(ops[0].args).toEqual({ where: { jobId: "j1", id: { in: ["q2"] } } });
     expect(ops[1].args).toEqual({
       where: { id: "q1", jobId: "j1" },
-      data: { order: 1, guidance: "g", wantsFiles: false, fileHint: null, fileNote: "" },
+      data: { order: 2, guidance: "g", wantsFiles: false, fileHint: null, fileNote: "" },
     });
     expect(ops[2].args).toEqual({ where: { id: "u1", jobId: "j1" }, data: { order: 6 } });
   });

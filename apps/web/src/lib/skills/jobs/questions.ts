@@ -30,6 +30,19 @@ export const FALLBACK_QUESTIONS: Record<Essential, { text: string; guidance: str
   avoid: { text: "What should it never do?", guidance: "List the mistakes, claims, words or formats to stay away from." },
 };
 
+/**
+ * Always asked first, for every task: one combined question for the background, the audience and the do's and
+ * don'ts (product decision 2026-11-25). It covers "avoid"; the model is told not to ask these separately.
+ */
+export const CONTEXT_QUESTION: CleanQuestion = {
+  text: "What's the context, who is it for (target audience), and what are the do's and don'ts?",
+  guidance: "Give the background, describe the audience and what they care about, then list what to always do and never do.",
+  wantsFiles: false,
+  fileHint: null,
+  fileNote: "",
+  covers: ["avoid"],
+};
+
 /** Lower case, collapsed spaces, trailing ?.!: removed: the key for duplicates and for keeping rows on regenerate. */
 export function normalizeQuestionText(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim().replace(/[?.!:]+$/, "").trim();
@@ -76,7 +89,8 @@ function coverEssentials(fixed: CleanQuestion[], seen: Set<string>, byDescriptio
   const missing = () => ESSENTIALS.filter((e) => !byDescription.has(e) && !coveredBy(kept).has(e));
   while (kept.length + missing().length > JOB_LIMITS.aiQuestionsMax) {
     let dropped = false;
-    for (let i = kept.length - 1; i >= 0; i--) {
+    // Index 0 is CONTEXT_QUESTION: always kept.
+    for (let i = kept.length - 1; i >= 1; i--) {
       const others = coveredBy(kept.filter((_, j) => j !== i));
       if (kept[i].covers.every((e) => others.has(e))) {
         kept.splice(i, 1);
@@ -121,6 +135,7 @@ function cleanPerUse(raw: RawTaskQuestions, seen: Set<string>): PerUseInput[] {
 export function cleanQuestionSet(raw: RawTaskQuestions): { outputType: string | null; fixed: CleanQuestion[]; perUse: PerUseInput[] } {
   const seen = new Set<string>();
   const byDescription = new Set((raw.coveredByDescription ?? []).filter(isEssential));
-  const fixed = coverEssentials(cleanFixed(raw.questions, seen), seen, byDescription);
+  seen.add(normalizeQuestionText(CONTEXT_QUESTION.text));
+  const fixed = coverEssentials([{ ...CONTEXT_QUESTION, covers: [...CONTEXT_QUESTION.covers] }, ...cleanFixed(raw.questions, seen)], seen, byDescription);
   return { outputType: cleanOutputType(raw.outputType), fixed, perUse: cleanPerUse(raw, seen) };
 }

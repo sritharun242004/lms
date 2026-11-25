@@ -86,19 +86,9 @@ describe("PerUseList", () => {
     expect(props.onQuestionChange).toHaveBeenCalledWith(expect.objectContaining({ required: false }));
   });
 
-  it("moves an input to Answer now, and shows why when that list is full", async () => {
-    mocks.patchQuestion.mockResolvedValueOnce(ok(input({ kind: "FIXED" }))).mockResolvedValueOnce(fail);
-    const props = mount();
-    const move = screen.getByRole("button", { name: 'Move Client name to "Answer now"' });
-    await act(async () => {
-      fireEvent.click(move);
-    });
-    expect(mocks.patchQuestion).toHaveBeenCalledWith("j1", "p1", { kind: "FIXED" });
-    expect(props.onQuestionChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "FIXED" }));
-    await act(async () => {
-      fireEvent.click(move);
-    });
-    expect(screen.getByRole("alert").textContent).toBe(fail.message);
+  it("offers no button to move an input to Answer now", () => {
+    mount();
+    expect(screen.queryByRole("button", { name: /to "Answer now"/ })).toBeNull();
   });
 
   it("removes an input without asking", async () => {

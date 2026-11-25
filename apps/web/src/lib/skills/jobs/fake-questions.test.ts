@@ -3,7 +3,7 @@ import { enhanceReply, JOB_DRAFT, KINDS, questionsReply, TASK_DESCRIPTIONS, task
 import { TaskQuestionsReply } from "@/lib/ai/claude";
 import { assembleJobSkill, planAssets, validateJobSkill } from "./assemble";
 import { buildEnhanceTaskMessage, buildQuestionsMessage } from "./instructions";
-import { cleanQuestionSet, ESSENTIALS } from "./questions";
+import { CONTEXT_QUESTION, cleanQuestionSet, ESSENTIALS } from "./questions";
 
 const message = (kind: keyof typeof TASK_DESCRIPTIONS, existing = false) =>
   buildQuestionsMessage({
@@ -30,7 +30,9 @@ describe("fake Anthropic task shapes", () => {
     expect(reply.questions.some((q) => q.covers.includes("avoid"))).toBe(false);
     expect(reply.coveredByDescription).not.toContain("avoid");
     const clean = cleanQuestionSet(reply);
-    expect(clean.fixed.at(-1)?.text).toBe("What should it never do?");
+    expect(clean.fixed[0].text).toBe(CONTEXT_QUESTION.text);
+    expect(clean.fixed.filter((q) => q.covers.includes("avoid"))).toHaveLength(1);
+    expect(clean.fixed.map((q) => q.text)).not.toContain("What should it never do?");
     for (const e of ESSENTIALS) expect(clean.fixed.some((q) => q.covers.includes(e)) || reply.coveredByDescription.includes(e)).toBe(true);
   });
 

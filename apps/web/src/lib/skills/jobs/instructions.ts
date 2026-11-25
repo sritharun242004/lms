@@ -95,6 +95,7 @@ Also list in perUseInputs the per-use inputs you can infer from the description,
 - output: what great looks like.
 - quality: the bar it must meet.
 - avoid: what it must never do.
+One question is always asked first for you, so never ask it or split it up: "What's the context, who is it for (target audience), and what are the do's and don'ts?" It covers background, audience and what to always or never do (the avoid essential). Your questions are on top of it.
 First list in coveredByDescription every essential the description already answers fully. Never ask about those: it would make the person repeat themselves. Where the description covers something only in part, ask only for the missing part, for example "You mentioned the logo: upload the logo file."
 
 Each question: text is one sentence ending in "?"; guidance is one sentence saying what a strong answer includes.

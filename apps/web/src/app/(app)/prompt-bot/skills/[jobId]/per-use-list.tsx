@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowUpToLine, Loader2, MessageCircleQuestion, Plus, X } from "lucide-react";
+import { Loader2, MessageCircleQuestion, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addQuestion, deleteQuestion, patchQuestion } from "@/lib/skills/jobs/client";
@@ -153,9 +153,6 @@ function PerUseRow({ jobId, input, onChange, onRemoved }: RowProps) {
             />
             Required<span className="sr-only">: {input.text}</span>
           </label>
-          <Button type="button" variant="ghost" size="icon" className={ICON_BUTTON} disabled={busy} aria-label={`Move ${input.text} to "Answer now"`} title='Move to "Answer now"' onClick={() => void save({ kind: "FIXED" }, () => {})}>
-            <ArrowUpToLine className="size-4" aria-hidden />
-          </Button>
           <Button type="button" variant="ghost" size="icon" className={`${ICON_BUTTON} hover:text-destructive`} disabled={busy} aria-label={`Remove ${input.text}`} title="Remove" onClick={() => void remove()}>
             {busy ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <X className="size-4" aria-hidden />}
           </Button>
