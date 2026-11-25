@@ -3,7 +3,10 @@ import * as React from "react";
 import { toast } from "sonner";
 import { patchJobSkill } from "@/lib/skills/jobs/client";
 import type { JobSkillView, JobView } from "@/lib/skills/jobs/types";
+import { JOB_LIMITS } from "@/lib/skills/limits";
 import { SkillCard, type QueueSave } from "./skill-card";
+
+export const SUB_SKILLS_MIN_NOTE = `A plugin needs at least ${JOB_LIMITS.subSkillsMin} sub-skills.`;
 
 type Props = {
   job: JobView;
@@ -24,6 +27,7 @@ export function splitSkills(skills: JobSkillView[]): { main: JobSkillView | null
 export function PluginOverview({ job, queueSave, onSkillChange, onSkillRemoved, registerFileSaves }: Props) {
   const { main, subs } = splitSkills(job.skills);
   const locked = job.plugin.status === "GENERATING";
+  const removeBlocked = subs.length <= JOB_LIMITS.subSkillsMin ? SUB_SKILLS_MIN_NOTE : null;
   const [moving, setMoving] = React.useState(false);
 
   // Swaps a sub-skill with its neighbour: the moved one takes the neighbour's order, the neighbour its old one.
@@ -52,7 +56,7 @@ export function PluginOverview({ job, queueSave, onSkillChange, onSkillRemoved, 
               skill={s}
               position={i + 1}
               locked={locked}
-              removeBlocked={null}
+              removeBlocked={removeBlocked}
               onMoveUp={i > 0 ? () => void move(s, subs[i - 1]) : null}
               onMoveDown={i < subs.length - 1 ? () => void move(s, subs[i + 1]) : null}
             />
