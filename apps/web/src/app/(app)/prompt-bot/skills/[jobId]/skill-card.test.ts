@@ -15,7 +15,7 @@ vi.mock("./version-preview", () => ({ VersionPreview: () => null }));
 
 import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import type { SaveOptions } from "@/lib/prompt-bot/client";
-import { SkillCard, unansweredPhrase } from "./skill-card";
+import { FILE_SAVE_FAILED_MESSAGE, SkillCard, unansweredPhrase } from "./skill-card";
 
 const FILES: JobFileView[] = [
   { id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "x", analysisEdited: false, analysisError: null, bundlable: true },
@@ -37,6 +37,7 @@ const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = 
     flushSaves: vi.fn(() => saves.current!.flushSaves()),
     queueSave: vi.fn((key: string, run: (options: SaveOptions) => Promise<void>) => saves.current!.queueSave(key, run)),
     onChange: vi.fn(), onRemoved: vi.fn(),
+    registerFileSaves: vi.fn((_id: string, _pending: () => Promise<void>) => vi.fn()),
   };
   function Harness() {
     saves.current = useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: async () => ok({}), score: null });
@@ -262,6 +263,49 @@ describe("SkillCard editing", () => {
     });
     expect(mocks.toastError).toHaveBeenCalledWith("That file is not in this job.");
     expect(screen.getByRole("button", { name: "numbers.xlsx" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("goes back to the saved files when a file save throws, and keeps saving and generating afterwards", async () => {
+    mocks.patchJobSkill.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const props = await mount();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "numbers.xlsx" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.toastError).toHaveBeenCalledWith(FILE_SAVE_FAILED_MESSAGE);
+    expect(screen.getByRole("button", { name: "numbers.xlsx" }).getAttribute("aria-pressed")).toBe("false");
+    // The queue is not stuck: the next click is sent, and Generate (which waits for it) runs.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "numbers.xlsx" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.patchJobSkill).toHaveBeenCalledTimes(2);
+    expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ fileIds: ["f1", "f2"] }));
+    await click(/^Generate/);
+    expect(mocks.generateJobSkill).toHaveBeenCalledWith("j1", "s1");
+  });
+
+  it("lets the page wait for its file saves (Suggest does), and stops on unmount", async () => {
+    const replies: ((value: unknown) => void)[] = [];
+    mocks.patchJobSkill.mockImplementation(() => new Promise((resolve) => replies.push(resolve)));
+    const props = await mount();
+    expect(props.registerFileSaves).toHaveBeenCalledWith("s1", expect.any(Function));
+    const pending = props.registerFileSaves.mock.calls[0][1];
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "numbers.xlsx" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    let done = false;
+    void pending().then(() => (done = true));
+    await settle();
+    expect(done).toBe(false);
+    await act(async () => {
+      replies[0](ok(skill({ fileIds: ["f1", "f2"] })));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(done).toBe(true);
+    cleanup();
+    expect(props.registerFileSaves.mock.results[0].value).toHaveBeenCalled();
   });
 
   it("removes the skill and its versions after a destructive confirm", async () => {

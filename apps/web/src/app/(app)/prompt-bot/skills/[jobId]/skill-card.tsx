@@ -16,6 +16,8 @@ import { VersionPreview } from "./version-preview";
 
 const INLINE_NAME_ERRORS = new Set(["DUPLICATE_NAME", "ALREADY_GENERATING", "VALIDATION_ERROR"]);
 
+export const FILE_SAVE_FAILED_MESSAGE = "We couldn't save the files for this skill. Check your connection and choose them again.";
+
 export const unansweredPhrase = (gaps: number) => `${gaps} question${gaps === 1 ? "" : "s"} unanswered`;
 
 /** The workspace's save queue (useMatrixAnswers): debounced per key, sent on Suggest, Generate and when the page is left. */
@@ -31,10 +33,12 @@ type Props = {
   queueSave: QueueSave;
   onChange(skill: JobSkillView): void;
   onRemoved(skillId: string): void;
+  /** Lets the page wait for this card's file-chip saves (Suggest reads the skills' files). Returns the unregister. */
+  registerFileSaves(skillId: string, pending: () => Promise<void>): () => void;
 };
 
 /** One skill: name, purpose, files, status, Generate, then its versions. */
-export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves, queueSave, onChange, onRemoved }: Props) {
+export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves, queueSave, onChange, onRemoved, registerFileSaves }: Props) {
   const [name, setName] = React.useState(skill.name);
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [purpose, setPurpose] = React.useState(skill.purpose);
@@ -46,6 +50,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
   const chosenRef = React.useRef<string[] | null>(null);
   const fileSaves = React.useRef<{ tail: Promise<void>; ticket: number; saved: JobSkillView | null }>({ tail: Promise.resolve(), ticket: 0, saved: null });
   const fileIds = chosenFiles ?? skill.fileIds;
+  React.useEffect(() => registerFileSaves(skill.id, () => fileSaves.current.tail), [registerFileSaves, skill.id]);
   const generating = skill.status === "GENERATING";
   const latest = skill.versions[0] ?? null;
   const renamed = skill.latestVersion > 0 && latest !== null && latest.name !== skill.name;
@@ -95,9 +100,14 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
     const saves = fileSaves.current;
     const ticket = ++saves.ticket;
     saves.tail = saves.tail.then(async () => {
-      const result = await patchJobSkill(jobId, skill.id, { fileIds: next });
-      if (result.ok) saves.saved = result.data;
-      else toast.error(result.message);
+      try {
+        const result = await patchJobSkill(jobId, skill.id, { fileIds: next });
+        if (result.ok) saves.saved = result.data;
+        else toast.error(result.message);
+      } catch {
+        // A thrown save (offline) is a refusal too: the tail stays resolved, so later clicks, Generate and Suggest go on.
+        toast.error(FILE_SAVE_FAILED_MESSAGE);
+      }
       if (ticket !== saves.ticket) return;
       // The last click has its reply: show what the server kept (the last accepted change).
       chosenRef.current = null;

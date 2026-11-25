@@ -11,6 +11,9 @@ import { JOB_LIMITS } from "@/lib/skills/limits";
 
 const WHEN = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
+/** A version past the last versionsKept is deleted; the list on screen can still offer it until the page reloads. */
+export const VERSION_PRUNED_MESSAGE = `This version is no longer kept (only the last ${JOB_LIMITS.versionsKept} are kept).`;
+
 /** "25 Nov 14:02" (spec): built from parts so no locale adds a comma between date and time. */
 function when(iso: string): string {
   const part = Object.fromEntries(WHEN.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
@@ -28,7 +31,7 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
     setSelected(newest);
   }
   const [details, setDetails] = React.useState<Record<number, VersionDetail>>({});
-  const [failed, setFailed] = React.useState<number | null>(null);
+  const [failed, setFailed] = React.useState<{ version: number; pruned: boolean } | null>(null);
   const [attempt, setAttempt] = React.useState(0);
   const [downloading, setDownloading] = React.useState<"upload" | "pack" | null>(null);
   const detail = details[selected] ?? null;
@@ -40,7 +43,7 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
     void getVersion(jobId, skill.id, selected).then((result) => {
       if (cancelled) return;
       if (result.ok) setDetails((prev) => ({ ...prev, [selected]: result.data }));
-      else setFailed(selected);
+      else setFailed({ version: selected, pruned: result.code === "NOT_FOUND" });
     });
     return () => {
       cancelled = true;
@@ -96,7 +99,11 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
             <p className="mb-3 font-mono text-xs text-muted-foreground">{detail.name}/</p>
             <SkillFilesView files={detail.files} assets={detail.assets} />
           </>
-        ) : failed === selected ? (
+        ) : failed?.version === selected && failed.pruned ? (
+          <p role="alert" className="py-6 text-center text-sm text-muted-foreground">
+            {VERSION_PRUNED_MESSAGE}
+          </p>
+        ) : failed?.version === selected ? (
           <div role="alert" className="flex flex-col items-center gap-3 py-6 text-center text-sm">
             <p>We couldn&apos;t load this version. Check your connection.</p>
             <Button

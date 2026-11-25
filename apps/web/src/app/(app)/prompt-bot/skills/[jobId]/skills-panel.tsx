@@ -54,6 +54,14 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
   const [addError, setAddError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const confirmRef = React.useRef<ConfirmDialogHandle>(null);
+  // Each card's file-chip saves, so Suggest reads the files the user chose, not the ones before a click.
+  const fileSaves = React.useRef(new Map<string, () => Promise<void>>());
+  const registerFileSaves = React.useCallback((skillId: string, pending: () => Promise<void>) => {
+    fileSaves.current.set(skillId, pending);
+    return () => {
+      if (fileSaves.current.get(skillId) === pending) fileSaves.current.delete(skillId);
+    };
+  }, []);
   const drafts = job.skills.filter((s) => s.latestVersion === 0).length;
   const full = job.skills.length >= JOB_LIMITS.skillsPerJob;
   const hasSkills = job.skills.length > 0;
@@ -63,6 +71,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
     if (question && !(await confirmRef.current?.open(question))) return;
     setSuggesting(true);
     await flushSaves();
+    await Promise.all([...fileSaves.current.values()].map((pending) => pending()));
     const result = await suggestSkills(job.id);
     setSuggesting(false);
     if (!result.ok) return void toast.error(result.message);
@@ -139,6 +148,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
                 queueSave={queueSave}
                 onChange={onSkillChange}
                 onRemoved={onSkillRemoved}
+                registerFileSaves={registerFileSaves}
               />
             </li>
           ))}

@@ -151,6 +151,23 @@ describe("SkillsPanel saves", () => {
   });
 });
 
+describe("SkillsPanel file saves", () => {
+  it("waits for a file choice still saving before suggesting", async () => {
+    const replies: ((value: unknown) => void)[] = [];
+    mocks.patchJobSkill.mockImplementation(() => new Promise((resolve) => replies.push(resolve)));
+    const file = { id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX" as const, size: 10, createdAt: JOB.updatedAt, analysisStatus: "READY" as const, analysis: "x", analysisEdited: false, analysisError: null, bundlable: true };
+    mount({ ...JOB, files: [file], skills: [skill({ latestVersion: 1, status: "READY" as const })] });
+    await press(/^deck\.pptx/);
+    await press(/^Suggest again/);
+    expect(mocks.suggestSkills).not.toHaveBeenCalled();
+    await act(async () => {
+      replies[0](ok(skill({ fileIds: ["f1"], latestVersion: 1, status: "READY" as const })));
+    });
+    expect(mocks.suggestSkills).toHaveBeenCalledWith("j1");
+    expect(mocks.patchJobSkill.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
+  });
+});
+
 describe("SkillsPanel skills", () => {
   it("lists a card per skill", () => {
     mount({ ...JOB, skills: [skill(), skill({ id: "s2", name: "weekly-report" })] });

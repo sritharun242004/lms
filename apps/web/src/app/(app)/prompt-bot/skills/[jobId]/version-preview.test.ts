@@ -12,7 +12,7 @@ vi.mock("@/lib/skills/jobs/client", () => ({
 vi.mock("@/lib/skills/client", () => ({ downloadZip: mocks.downloadZip }));
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 
-import { VersionPreview } from "./version-preview";
+import { VERSION_PRUNED_MESSAGE, VersionPreview } from "./version-preview";
 
 const detail = (version: number): VersionDetail => ({
   skillId: "s1",
@@ -133,5 +133,14 @@ describe("VersionPreview", () => {
     fireEvent.click(screen.getByRole("button", { name: /Load again/ }));
     await flush();
     expect(screen.getByRole("heading", { name: "Version 2" })).toBeTruthy();
+  });
+
+  it("says a pruned version is no longer kept, with nothing to retry", async () => {
+    mocks.getVersion.mockResolvedValueOnce({ ok: false, code: "NOT_FOUND", message: "Version not found" });
+    render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
+    await flush();
+    expect(screen.getByRole("alert").textContent).toBe(VERSION_PRUNED_MESSAGE);
+    expect(VERSION_PRUNED_MESSAGE).toBe("This version is no longer kept (only the last 20 are kept).");
+    expect(screen.queryByRole("button", { name: /Load again/ })).toBeNull();
   });
 });
