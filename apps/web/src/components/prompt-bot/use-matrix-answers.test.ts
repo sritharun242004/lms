@@ -114,4 +114,15 @@ describe("useMatrixAnswers", () => {
     await tick(1500);
     expect(result.current.scoreState).toBe("failed");
   });
+
+  it("never scores when the caller has no scorer, so there is no failure to report", async () => {
+    const saveAnswer = vi.fn(() => ok({}));
+    const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer, score: null }));
+    act(() => result.current.updateAnswer("q1", { answer: "draft" }));
+    await tick(600 + 1500);
+    act(() => result.current.scheduleScore());
+    await tick(1500);
+    expect(saveAnswer).toHaveBeenCalledTimes(1);
+    expect(result.current.scoreState).toBe("idle");
+  });
 });

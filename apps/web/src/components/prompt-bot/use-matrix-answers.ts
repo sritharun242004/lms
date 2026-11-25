@@ -16,7 +16,8 @@ type Options = {
   initialAnswers: AnswerView[];
   initialRevision: number;
   saveAnswer(questionId: string, patch: AnswerPatch, options: SaveOptions): Promise<CallResult<unknown>>;
-  score(revision: number): Promise<CallResult<ScoreReply>>;
+  /** Null when there is nothing to score with (no AI key): edits still save, and no score is requested or reported as failed. */
+  score: ((revision: number) => Promise<CallResult<ScoreReply>>) | null;
 };
 
 /**
@@ -48,10 +49,13 @@ export function useMatrixAnswers({ initialAnswers, initialRevision, saveAnswer, 
 
   const scheduleScore = React.useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
+    if (!calls.current.score) return;
     timer.current = setTimeout(async () => {
+      const score = calls.current.score;
+      if (!score) return;
       const sent = revision.current;
       setScoreState("scoring");
-      const result = await calls.current.score(sent);
+      const result = await score(sent);
       if (!result.ok) {
         setScoreState("failed");
         if (result.code === "LIMIT_REACHED") toast.error(result.message);
