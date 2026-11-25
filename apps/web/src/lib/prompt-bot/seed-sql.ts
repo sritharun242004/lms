@@ -28,3 +28,16 @@ export function retirementSql(matrices: BuiltinMatrix[]): string[] {
       .map((q) => `UPDATE "prompt_matrix_questions" SET "is_active" = false WHERE "id" = ${sqlLiteral(q.id)};`),
   ]);
 }
+
+/**
+ * UPDATE statements that switch questions back on, with the source's text and position, for rows a
+ * data migration once retired. The question must be active in the source; unknown ids throw.
+ */
+export function restorationSql(m: BuiltinMatrix, questionIds: string[]): string[] {
+  return questionIds.map((id) => {
+    const order = m.questions.findIndex((q) => q.id === id);
+    const question = m.questions[order];
+    if (!question || question.isActive === false) throw new Error(`${id} is not an active question of ${m.id}`);
+    return `UPDATE "prompt_matrix_questions" SET "is_active" = true, "text" = ${sqlLiteral(question.text)}, "order" = ${order} WHERE "id" = ${sqlLiteral(id)};`;
+  });
+}

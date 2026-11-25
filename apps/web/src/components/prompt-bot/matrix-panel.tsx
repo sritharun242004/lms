@@ -6,7 +6,14 @@ import { QuestionRow } from "./question-row";
 import { ReadinessMeter } from "./readiness-meter";
 import type { ScoreState } from "./use-matrix-answers";
 
-export type MatrixGroup = { id: string; title: string; questions: { id: string; text: string }[] };
+export type MatrixGroup = {
+  id: string;
+  title: string;
+  /** In display order. */
+  questions: { id: string; text: string }[];
+  /** Lead-in shown before the group's last question, as the deck writes "Finally: …". Needs two or more questions. */
+  closingLead?: string;
+};
 
 type Props = {
   heading: string;
@@ -22,7 +29,7 @@ type Props = {
 
 /**
  * The left column of a matrix workspace: heading and overall progress, then numbered question rows
- * with 3-slice bars. Sized so seven rows fit a laptop screen; on large screens it stays in view and
+ * with 3-slice bars. Sized so eight rows fit a laptop screen; on large screens it stays in view and
  * scrolls on its own if a matrix is longer.
  */
 export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, activeId, scoreState, onSelect, onToggleRelevant, children }: Props) {
@@ -62,6 +69,7 @@ export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, a
                   key={q.id}
                   index={offsets[gi] + qi + 1}
                   text={q.text}
+                  lead={group.closingLead && group.questions.length > 1 && qi === group.questions.length - 1 ? group.closingLead : undefined}
                   score={a.score}
                   reason={a.reason}
                   notRelevant={a.notRelevant}

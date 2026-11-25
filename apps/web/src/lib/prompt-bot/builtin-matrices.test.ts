@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { activeQuestions, BUILTIN_MATRICES, CORE_MATRIX_ID } from "./builtin-matrices";
-import { retirementSql } from "./seed-sql";
+import { restorationSql, retirementSql } from "./seed-sql";
 
 const CORE_VERBATIM = [
   "Why are we doing this?",
@@ -12,6 +12,7 @@ const CORE_VERBATIM = [
   "What are the goals and objectives & How do we measure them?",
   "What are the different ways we can approach this?",
   "What does success look like?",
+  "What is the systematic plan to work on this?",
 ];
 const IMAGE_VERBATIM = [
   "Why do we need this image?",
@@ -23,7 +24,7 @@ const IMAGE_VERBATIM = [
 ];
 
 describe("built-in matrices", () => {
-  it("asks exactly the seven Design Think questions, verbatim and in deck order", () => {
+  it("asks exactly the eight Design Think questions, verbatim and in deck order, the plan last", () => {
     const core = BUILTIN_MATRICES.find((m) => m.id === CORE_MATRIX_ID)!;
     expect(core.slug).toBe("core");
     expect(core.kind).toBe("CORE");
@@ -31,10 +32,10 @@ describe("built-in matrices", () => {
     expect(activeQuestions(core).map((q) => q.text)).toEqual(CORE_VERBATIM);
   });
 
-  it("keeps the retired plan question as an inactive row instead of deleting it", () => {
+  it("retires no core question", () => {
     const core = BUILTIN_MATRICES.find((m) => m.id === CORE_MATRIX_ID)!;
-    const retired = core.questions.filter((q) => q.isActive === false);
-    expect(retired.map((q) => q.id)).toEqual(["pbq_core_8"]);
+    expect(core.questions.filter((q) => q.isActive === false)).toEqual([]);
+    expect(core.questions.at(-1)).toMatchObject({ id: "pbq_core_8", element: "plan" });
   });
 
   it("keeps the task add-on matrices but switches every one of them off", () => {
@@ -76,12 +77,31 @@ describe("built-in matrices", () => {
     expect(sql).toContain(`'singleton'`);
   });
 
-  it("is switched to the core seven by the follow-up data migration, with updates only", () => {
-    const sql = readFileSync(
-      path.join(__dirname, "../../../prisma/migrations/20261125090000_prompt_bot_core_seven/migration.sql"),
-      "utf8",
-    );
+  it("switches the task matrices off with updates only (core_seven)", () => {
+    const sql = migration("20261125090000_prompt_bot_core_seven");
     for (const line of retirementSql(BUILTIN_MATRICES)) expect(sql).toContain(line);
     expect(sql).not.toMatch(/\b(DELETE|DROP|TRUNCATE|INSERT|ALTER)\b/i);
   });
+
+  it("restores the plan question core_seven retired by mistake, so all eight core questions end up active", () => {
+    const seven = migration("20261125090000_prompt_bot_core_seven");
+    const eighth = migration("20261125090500_prompt_bot_core_eighth");
+    const core = BUILTIN_MATRICES.find((m) => m.id === CORE_MATRIX_ID)!;
+    for (const line of restorationSql(core, ["pbq_core_8"])) expect(eighth).toContain(line);
+    expect(eighth).not.toMatch(/\b(DELETE|DROP|TRUNCATE|INSERT|ALTER)\b/i);
+    expect(eighth).not.toContain("prompt_matrices\"");
+
+    // Replay both migrations' question switches in order: the final state matches the source.
+    const state = new Map<string, boolean>();
+    for (const sql of [seven, eighth]) {
+      for (const [, value, id] of sql.matchAll(/UPDATE "prompt_matrix_questions" SET "is_active" = (true|false)[^;]*WHERE "id" = '([^']+)'/g)) {
+        state.set(id, value === "true");
+      }
+    }
+    for (const q of core.questions) expect(state.get(q.id) ?? true).toBe(true);
+  });
 });
+
+function migration(name: string) {
+  return readFileSync(path.join(__dirname, `../../../prisma/migrations/${name}/migration.sql`), "utf8");
+}

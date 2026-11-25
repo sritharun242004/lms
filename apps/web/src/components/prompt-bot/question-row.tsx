@@ -6,6 +6,8 @@ import { StatusBar } from "./status-bar";
 type Props = {
   index: number;
   text: string;
+  /** Short lead-in before the question, such as "Finally". */
+  lead?: string;
   score: number;
   reason: string | null;
   notRelevant: boolean;
@@ -32,7 +34,7 @@ function Tick({ ticked, label }: { ticked: boolean; label: string }) {
   );
 }
 
-export function QuestionRow({ index, text, score, reason, notRelevant, active, onSelect, onToggleRelevant }: Props) {
+export function QuestionRow({ index, text, lead, score, reason, notRelevant, active, onSelect, onToggleRelevant }: Props) {
   const ticked = !notRelevant && score >= 3;
   // A 3/3 note is collapsed to one faded line beside the bar (shown on hover or focus, full text in
   // its title) until the row is selected; other notes stay visible, clamped to two lines.
@@ -56,6 +58,7 @@ export function QuestionRow({ index, text, score, reason, notRelevant, active, o
         >
           <span className="block text-sm font-medium leading-snug text-foreground">
             <span className="mr-1 tabular-nums text-muted-foreground">{index}.</span>
+            {lead && <span className="mr-1 font-semibold text-primary dark:text-brand-400">{lead}:</span>}
             {text}
           </span>
           {notRelevant ? (

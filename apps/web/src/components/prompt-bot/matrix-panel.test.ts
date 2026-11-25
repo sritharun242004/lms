@@ -32,6 +32,18 @@ describe("MatrixPanel", () => {
     expect(screen.getAllByRole("meter")).toHaveLength(2);
   });
 
+  it("shows no lead-in unless the group asks for one", () => {
+    render(createElement(MatrixPanel, props));
+    expect(screen.queryByText(/Finally/)).toBeNull();
+  });
+
+  it("puts the group's closing lead-in before its last question only", () => {
+    const groups = [{ ...props.groups[0], closingLead: "Finally" }];
+    render(createElement(MatrixPanel, { ...props, groups }));
+    expect(screen.getByRole("button", { name: /^2\.\s*Finally:\s*Context\?/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1\.\s*When\?/ }).textContent).not.toContain("Finally");
+  });
+
   it("says when the bars could not update", () => {
     render(createElement(MatrixPanel, { ...props, scoreState: "failed" as const }));
     expect(screen.getByText(/Couldn't update the bars/)).toBeTruthy();
