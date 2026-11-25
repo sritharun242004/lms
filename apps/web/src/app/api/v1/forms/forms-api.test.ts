@@ -82,6 +82,15 @@ describe("GET/PATCH /api/v1/forms/[id]", () => {
   });
 });
 
+describe("PATCH /api/v1/forms/[id] with a broken body", () => {
+  it("answers 400 instead of crashing when the body is cut off", async () => {
+    getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTOR" });
+    const req = new NextRequest("http://localhost", { method: "PATCH", body: '{"publicLinkEnabled": tr' });
+    const res = await patchRoute(req, { params: Promise.resolve({ id: "f1" }) });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("PUT /api/v1/forms/[id]/structure", () => {
   it("saves the sections tree", async () => {
     getCurrentUser.mockResolvedValue({ id: "u1", role: "MENTOR" });

@@ -1,9 +1,10 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { QuestionSummary } from "@/lib/forms/analytics";
+import { answerFilePath } from "@/lib/forms/file-links";
 
 export type FormAnalyticsData = {
   formId: string;
@@ -11,6 +12,7 @@ export type FormAnalyticsData = {
   totalResponses: number;
   invitationsSent: number;
   completionRate: number | null;
+  publicLinkResponses: number;
   questionSummaries: QuestionSummary[];
 };
 
@@ -34,6 +36,9 @@ export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Total responses</p>
             <p className="text-2xl font-bold">{analytics.totalResponses}</p>
+            {analytics.publicLinkResponses > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">{analytics.publicLinkResponses} via public link</p>
+            ) : null}
           </CardContent>
         </Card>
         <Card>
@@ -44,7 +49,7 @@ export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Completion rate</p>
+            <p className="text-xs text-muted-foreground">Answered in chat</p>
             <p className="text-2xl font-bold">
               {analytics.completionRate === null ? "—" : `${Math.round(analytics.completionRate * 100)}%`}
             </p>
@@ -78,6 +83,26 @@ export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
                 <p className="text-sm">
                   Average: <span className="font-semibold">{summary.average.toFixed(1)}</span>
                 </p>
+              ) : summary.type === "FILES" ? (
+                summary.files.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No files yet.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2 text-sm">
+                    {summary.files.map((file) => (
+                      <li key={file.fileId}>
+                        <a
+                          href={answerFilePath(file.fileId)}
+                          target="_blank"
+                          rel="noopener"
+                          className="inline-flex items-center gap-2 text-primary hover:underline"
+                        >
+                          <FileText className="size-4" aria-hidden="true" />
+                          {file.fileName}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )
               ) : (
                 <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                   {summary.answers.length === 0 ? <li>No answers yet.</li> : summary.answers.map((answer, i) => <li key={i}>{answer}</li>)}

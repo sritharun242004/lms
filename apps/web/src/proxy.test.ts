@@ -261,6 +261,21 @@ describe("portal-aware proxy redirects", () => {
     }
   );
 
+  it.each(["/forms", "/forms/abc/edit", "/feedback"])(
+    "sends a signed-out visit to the staff section %s to staff login, remembering the page",
+    async (path) => {
+      const response = await proxy(request(path));
+      const location = new URL(response.headers.get("location") ?? "", "http://localhost");
+      expect(location.pathname).toBe("/admin/login");
+      expect(location.searchParams.get("redirect")).toBe(path);
+    }
+  );
+
+  it("keeps a participant opening a form from chat on the participant login", async () => {
+    const response = await proxy(request("/forms/fill/inv1"));
+    expect(new URL(response.headers.get("location") ?? "", "http://localhost").pathname).toBe("/login");
+  });
+
   it("lets an anonymous visitor submit to a public form", async () => {
     const response = await proxy(request("/api/v1/public/forms/form123/responses"));
     expect(response.status).not.toBe(401);
