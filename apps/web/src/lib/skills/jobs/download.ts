@@ -2,12 +2,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { JOB_LIMITS } from "../limits";
 import { normalizeSkillName } from "../names";
+import { parseStoredFiles } from "../stored-files";
 import { buildPackZip, buildSkillZip, DuplicateSkillNameError, packZipSize, PackTooLargeError, type ZipAsset, type ZipSkill } from "../zip";
 import { AssetMissingError, JobNotFoundError, NothingToDownloadError, SkillNotFoundError, VersionNotFoundError } from "./errors";
 import type { VersionDetail } from "./types";
 
 /** Versions are written only by the server, but stored JSON is still parsed before it reaches a zip. */
-const StoredFiles = z.array(z.object({ path: z.string(), content: z.string() }));
 const StoredAssets = z.array(z.object({ fileId: z.string(), path: z.string(), fileName: z.string(), bytes: z.number().int().nonnegative() }));
 
 type Download = { bytes: Uint8Array; filename: string };
@@ -29,16 +29,16 @@ export async function loadVersionDetail(jobId: string, skillId: string, version:
     select: { version: true, name: true, description: true, createdAt: true, files: true, assets: true },
   });
   if (!row) return null;
-  const files = StoredFiles.safeParse(row.files);
+  const files = parseStoredFiles(row.files);
   const assets = StoredAssets.safeParse(row.assets);
-  if (!files.success || !assets.success) return null;
+  if (!files || !assets.success) return null;
   return {
     skillId,
     version: row.version,
     name: row.name,
     description: row.description,
     createdAt: row.createdAt.toISOString(),
-    files: files.data,
+    files,
     assets: assets.data,
   };
 }

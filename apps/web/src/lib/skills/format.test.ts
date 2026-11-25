@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSkillPath, validateSkillFiles, validateSkillMd, withinStorageLimits, withSkillName } from "./format";
+import { checkSkillPath, validateSkillFiles, validateSkillMd } from "./format";
 
 const NAME = "board-update";
 const VALID = `name: ${NAME}\ndescription: "Writes the monthly board update. Use when asked for a board update."`;
@@ -110,36 +110,14 @@ describe("validateSkillFiles", () => {
     expect(validateSkillFiles([skillMd, part(0), part(1), part(2)], NAME)).toEqual([expect.stringMatching(/512 KB limit/)]);
   });
 
-  it("knows when a draft is too big to store at all (count, per-file or per-skill bytes)", () => {
-    expect(withinStorageLimits([skillMd])).toBe(true);
-    expect(withinStorageLimits([skillMd, { path: "references/a.md", content: "x".repeat(200 * 1024 + 1) }])).toBe(false);
-    expect(withinStorageLimits(Array.from({ length: 3 }, (_, i) => ({ path: `references/${i}.md`, content: "x".repeat(180 * 1024) })))).toBe(false);
-    expect(withinStorageLimits(Array.from({ length: 101 }, (_, i) => ({ path: `references/${i}.md`, content: "" })))).toBe(false);
-  });
-
   it("allows at most 100 files", () => {
     const many = Array.from({ length: 100 }, (_, i) => ({ path: `references/n-${i}.md`, content: "" }));
     expect(validateSkillFiles([skillMd, ...many], NAME)).toEqual([expect.stringMatching(/at most 100 files/)]);
   });
 });
 
-describe("withSkillName", () => {
-  it("renames the skill and keeps every other key and the body", () => {
-    const original = md(`${VALID}\nmetadata:\n  owner: me`, "Body stays.");
-    const renamed = withSkillName(original, "weekly-report");
-    expect(renamed).toContain("\nname: weekly-report\n");
-    expect(renamed).toContain('description: "Writes the monthly board update. Use when asked for a board update."');
-    expect(renamed).toContain("owner: me");
-    expect(renamed.endsWith("\n\nBody stays.\n")).toBe(true);
-    expect(validateSkillMd(renamed, "weekly-report")).toEqual([]);
-  });
-
-  it.each(["yes", "off", "null", "2024", "2024-01-01"])("renames to %s as text that the validator accepts", (name) => {
-    expect(validateSkillMd(withSkillName(md(VALID), name), name)).toEqual([]);
-  });
-
-  it("leaves content without valid frontmatter untouched", () => {
-    expect(withSkillName("no frontmatter", "x")).toBe("no frontmatter");
-    expect(withSkillName(md("name: [unclosed"), "x")).toBe(md("name: [unclosed"));
+describe("module", () => {
+  it("keeps only the validator", async () => {
+    expect(Object.keys(await import("./format")).sort()).toEqual(["SKILL_FOLDERS", "checkSkillPath", "validateSkillFiles", "validateSkillMd"]);
   });
 });

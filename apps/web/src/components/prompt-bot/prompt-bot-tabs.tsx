@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export function isSkillsPath(pathname: string): boolean {
-  return pathname === "/prompt-bot/skills" || pathname.startsWith("/prompt-bot/skills/") || pathname === "/prompt-bot/catalog";
+  return pathname === "/prompt-bot/skills" || pathname.startsWith("/prompt-bot/skills/");
 }
 
 const TABS = [

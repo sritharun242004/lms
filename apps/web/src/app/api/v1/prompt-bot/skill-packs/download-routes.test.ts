@@ -4,7 +4,11 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({ getCurrentUser: vi.fn(), loadPackView: vi.fn(), loadItemDetail: vi.fn(), loadReadySkillFiles: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
-vi.mock("@/lib/skills/packs", () => ({ loadPackView: mocks.loadPackView, loadItemDetail: mocks.loadItemDetail, loadReadySkillFiles: mocks.loadReadySkillFiles }));
+vi.mock("@/lib/skills/packs", () => ({
+  loadPackView: mocks.loadPackView,
+  loadItemDetail: mocks.loadItemDetail,
+  loadReadySkillFiles: mocks.loadReadySkillFiles,
+}));
 
 import * as packDownload from "./[id]/download/route";
 import * as itemDownload from "./[id]/items/[itemId]/download/route";
@@ -13,7 +17,7 @@ const get = () => new NextRequest("http://localhost/x");
 const packCtx = { params: Promise.resolve({ id: "p1" }) };
 const itemCtx = { params: Promise.resolve({ id: "p1", itemId: "i1" }) };
 const FILES = [{ path: "SKILL.md", content: '---\nname: board-update\ndescription: "x"\n---\n\nBody\n' }];
-const item = (over: { id: string; name: string; status: string; kind?: string; files?: null }) => ({
+const item = (over: { id: string; name: string; status: string; files?: null }) => ({
   kind: "CUSTOM",
   purpose: "Writes it.",
   files: FILES as { path: string; content: string }[] | null,
@@ -74,11 +78,12 @@ describe("legacy single skill download", () => {
     expect(Object.keys(unzipSync(new Uint8Array(await res.arrayBuffer())))).toEqual(["board-update/SKILL.md"]);
   });
 
-  it("returns 409 for a skill that is not ready and 404 for a catalog item or someone else's", async () => {
-    mocks.loadItemDetail.mockResolvedValueOnce(item({ id: "i3", name: "broken", status: "FAILED" }));
-    expect((await itemDownload.GET(get(), itemCtx)).status).toBe(409);
-    mocks.loadItemDetail.mockResolvedValueOnce(item({ id: "i4", name: "pptx", status: "DRAFT", kind: "CATALOG", files: null }));
-    expect((await itemDownload.GET(get(), itemCtx)).status).toBe(404);
+  it("returns 409 when the stored files can't be read and 404 for anything the loader doesn't return", async () => {
+    // loadItemDetail only returns the owner's finished custom skills; unreadable files come back as FAILED with no files.
+    mocks.loadItemDetail.mockResolvedValueOnce(item({ id: "i3", name: "broken", status: "FAILED", files: null }));
+    const res = await itemDownload.GET(get(), itemCtx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("NOTHING_TO_DOWNLOAD");
     mocks.loadItemDetail.mockResolvedValueOnce(null);
     expect((await itemDownload.GET(get(), itemCtx)).status).toBe(404);
   });

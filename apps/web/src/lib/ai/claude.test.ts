@@ -11,7 +11,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 
-import { analyseFile, generateJobSkillDraft, generateSkillDraft, scoreQuestions, splitWork, suggestJobSkills } from "./claude";
+import { analyseFile, generateJobSkillDraft, scoreQuestions, suggestJobSkills } from "./claude";
 import { AiNotConfiguredError } from "./config";
 import { AiResponseError } from "./errors";
 
@@ -76,35 +76,6 @@ describe("claude client", () => {
     await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
     mocks.create.mockResolvedValueOnce(reply({ wrong: true }));
     await expect(scoreQuestions("p", q)).rejects.toBeInstanceOf(AiResponseError);
-  });
-});
-
-describe("skills builder calls", () => {
-  it("splits with Opus 5.5, structured output, the server-side fallback and a request-scoped timeout", async () => {
-    mocks.betaCreate.mockResolvedValue(reply({ customSkills: [{ name: "a", purpose: "b" }], catalogMatches: [] }));
-    const result = await splitWork({ description: "I write reports.", role: null, catalog: [] });
-    expect(result).toEqual({ customSkills: [{ name: "a", purpose: "b" }], catalogMatches: [] });
-    const [args, options] = mocks.betaCreate.mock.calls[0];
-    expect(args.model).toBe("claude-opus-5-5");
-    expect(args.betas).toEqual(["server-side-fallback-2026-07-01"]);
-    expect(args.fallbacks).toBe("default");
-    expect(args.output_config.format.type).toBe("json_schema");
-    expect(options).toEqual({ timeout: 100_000, maxRetries: 0 });
-    expect(mocks.create).not.toHaveBeenCalled();
-  });
-
-  it("generates a draft with a long, non-retrying request and rejects a reply that does not match the schema", async () => {
-    const draft = { name: "x", description: "d", compatibility: "", body: "b", references: [], scripts: [], assets: [] };
-    mocks.betaCreate.mockResolvedValueOnce(reply(draft));
-    await expect(generateSkillDraft("message")).resolves.toEqual(draft);
-    expect(mocks.betaCreate.mock.calls[0][1]).toEqual({ timeout: 240_000, maxRetries: 0 });
-    mocks.betaCreate.mockResolvedValueOnce(reply({ name: "x" }));
-    await expect(generateSkillDraft("message")).rejects.toThrow();
-  });
-
-  it.each(["max_tokens", "refusal"])("throws when a skills reply stopped with %s", async (stop) => {
-    mocks.betaCreate.mockResolvedValue({ content: [{ type: "text", text: "{" }], stop_reason: stop });
-    await expect(generateSkillDraft("m")).rejects.toThrow(stop);
   });
 });
 
@@ -197,5 +168,13 @@ describe("skills builder job calls", () => {
     expect(options).toEqual({ timeout: 240_000, maxRetries: 0 });
     mocks.betaCreate.mockResolvedValueOnce({ content: [{ type: "text", text: "{" }], stop_reason: "max_tokens" });
     await expect(generateJobSkillDraft("m")).rejects.toThrow("max_tokens");
+  });
+});
+
+describe("old Skills Builder calls", () => {
+  it("are gone", async () => {
+    const mod = await import("./claude");
+    expect("splitWork" in mod).toBe(false);
+    expect("generateSkillDraft" in mod).toBe(false);
   });
 });

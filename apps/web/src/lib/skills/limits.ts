@@ -4,7 +4,7 @@
 export const SKILL_LIMITS = {
   /** The spec's per-file limit. */
   fileBytes: 200 * 1024,
-  /** Tighter than the spec's 1 MB ceiling: a pack of PACK_LIMITS.items skills stays near 10 MB in memory. */
+  /** Tighter than the spec's 1 MB ceiling, so a pack of many skills stays small in memory. */
   skillBytes: 512 * 1024,
   files: 100,
   pathChars: 200,
@@ -12,14 +12,6 @@ export const SKILL_LIMITS = {
   descriptionChars: 1024,
   compatibilityChars: 500,
 } as const;
-
-/** Items (custom and catalog) per pack; the split's own caps fit inside it. */
-export const PACK_LIMITS = { items: 20 } as const;
-export const MAX_CUSTOM_SKILLS = 8;
-export const MAX_CATALOG_MATCHES = 6;
-
-/** PATCH /files body: one skill's bytes plus JSON escaping headroom, checked before the body is parsed. */
-export const FILES_REQUEST_BYTES = 2 * 1024 * 1024;
 
 /** One generation call (run in after()); a run makes at most two. */
 export const GENERATION_TIMEOUT_MS = 240_000;

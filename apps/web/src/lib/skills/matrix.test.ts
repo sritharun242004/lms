@@ -4,7 +4,6 @@ const mocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { promptMatrix: { findFirst: mocks.findFirst } } }));
 
 import { loadSkillMatrix } from "./matrix";
-import { loadSkillMatrix as fromPacks } from "./packs";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -26,9 +25,8 @@ describe("loadSkillMatrix", () => {
     });
   });
 
-  it("returns an empty matrix when it is not seeded, and packs.ts still exposes the same function", async () => {
+  it("returns an empty matrix when it is not seeded", async () => {
     mocks.findFirst.mockResolvedValue(null);
     expect(await loadSkillMatrix()).toEqual({ id: "", name: "Skill definition", questions: [] });
-    expect(fromPacks).toBe(loadSkillMatrix);
   });
 });

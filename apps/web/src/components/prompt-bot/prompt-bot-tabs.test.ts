@@ -15,8 +15,10 @@ describe("PromptBotTabs", () => {
     ["/prompt-bot/cm123abc", "Prompt Bot"],
     ["/prompt-bot/matrices", "Prompt Bot"],
     ["/prompt-bot/skills", "Skills Builder"],
-    ["/prompt-bot/skills/p1", "Skills Builder"],
-    ["/prompt-bot/catalog", "Skills Builder"],
+    ["/prompt-bot/skills/j1", "Skills Builder"],
+    ["/prompt-bot/skills/legacy/p1", "Skills Builder"],
+    // The catalog is gone: its old path no longer belongs to the Skills Builder.
+    ["/prompt-bot/catalog", "Prompt Bot"],
   ])("marks the current area for %s", (pathname, current) => {
     nav.pathname = pathname;
     render(createElement(PromptBotTabs));

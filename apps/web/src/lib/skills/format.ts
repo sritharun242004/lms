@@ -1,4 +1,4 @@
-import { isMap, parse, parseDocument } from "yaml";
+import { parse } from "yaml";
 import { splitFrontmatter } from "./frontmatter";
 import { SKILL_LIMITS } from "./limits";
 import type { SkillFile } from "./types";
@@ -112,26 +112,4 @@ export function validateSkillFiles(files: SkillFile[], expectedName: string): st
   if (!skillMd) errors.push("SKILL.md is missing");
   else errors.push(...validateSkillMd(skillMd.content, expectedName));
   return errors;
-}
-
-/** The size and count limits alone: a draft outside them is never stored, not even as a FAILED draft to fix. */
-export function withinStorageLimits(files: SkillFile[]): boolean {
-  if (files.length > SKILL_LIMITS.files) return false;
-  let total = 0;
-  for (const file of files) {
-    const bytes = utf8Bytes(file.content);
-    if (bytes > SKILL_LIMITS.fileBytes) return false;
-    total += bytes;
-  }
-  return total <= SKILL_LIMITS.skillBytes;
-}
-
-/** Sets the frontmatter `name` (the item name owns it); leaves unparseable content unchanged for the validator to report. */
-export function withSkillName(content: string, name: string): string {
-  const parts = splitFrontmatter(content);
-  if (!parts) return content;
-  const doc = parseDocument(parts.frontmatter, YAML_OPTIONS);
-  if (doc.errors.length > 0 || !isMap(doc.contents)) return content;
-  doc.set("name", name);
-  return `---\n${doc.toString({ lineWidth: 0 }).replace(/\n+$/, "")}\n---${parts.rest}`;
 }
