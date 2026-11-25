@@ -13,3 +13,10 @@ describe("PageMotion layout", () => {
     expect(element.props.className).toContain("min-w-0");
   });
 });
+
+describe("PageMotion animation", () => {
+  it("does not fade pages in from invisible (it read as a flicker)", () => {
+    const element = PageMotion({ children: createElement("div", null, "x") }) as ReactElement<{ className?: string }>;
+    expect(element.props.className).not.toContain("animate-fade-in");
+  });
+});
