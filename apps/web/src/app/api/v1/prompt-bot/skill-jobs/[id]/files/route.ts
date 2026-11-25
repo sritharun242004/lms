@@ -5,7 +5,7 @@ import { errorResponse, successResponse } from "@/lib/api/response";
 import { AiNotConfiguredError, isAiConfigured } from "@/lib/ai/config";
 import { aiErrorResponse } from "@/lib/prompt-bot/http";
 import { JobNotFoundError, TooManyFilesError } from "@/lib/skills/jobs/errors";
-import { countActiveFiles, runFileAnalysis, storeJobFile } from "@/lib/skills/jobs/files";
+import { assertTaskQuestion, countActiveFiles, runFileAnalysis, storeJobFile } from "@/lib/skills/jobs/files";
 import { jobErrorResponse, unauthorized } from "@/lib/skills/jobs/http";
 import { findOwnedJob } from "@/lib/skills/jobs/jobs";
 import { JOB_LIMITS } from "@/lib/skills/limits";
@@ -21,7 +21,8 @@ function uploadName(raw: string | null): string | null {
 }
 
 /**
- * Uploads one resource file as the raw request body (`?name=` carries the file name). Every cheap check runs
+ * Uploads one resource file as the raw request body (`?name=` carries the file name; optional `?questionId=` the
+ * FIXED question it answers, else it is a general file). Every cheap check runs
  * before the body is read and before a unit is spent; the row is inserted only after the whole body arrived.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,9 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!fileName) {
     return errorResponse("Add the file's name to the upload (up to 255 characters).", "VALIDATION_ERROR", 400, { name: ["Required"] });
   }
+  const questionId = req.nextUrl.searchParams.get("questionId") || null;
   const { id } = await params;
   try {
     if (!(await findOwnedJob(id, user.id))) throw new JobNotFoundError();
+    if (questionId) await assertTaskQuestion(id, questionId);
     if ((await countActiveFiles(id)) >= JOB_LIMITS.filesPerJob) throw new TooManyFilesError();
     const body = await readBytesWithin(req, JOB_LIMITS.fileBytes);
     if (!body.ok) {
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         : errorResponse("The upload didn't finish. Try again.", "UPLOAD_INCOMPLETE", 400);
     }
     if (body.bytes.byteLength === 0) return errorResponse("This file is empty.", "VALIDATION_ERROR", 400);
-    const view = await storeJobFile({ jobId: id, userId: user.id, fileName, bytes: body.bytes });
+    const view = await storeJobFile({ jobId: id, userId: user.id, fileName, bytes: body.bytes, questionId });
     after(() => runFileAnalysis(id, view.id, user.id));
     return successResponse(view, undefined, 201);
   } catch (error) {

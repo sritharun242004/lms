@@ -4,9 +4,16 @@ import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./
 import { AiBadRequestError, AiResponseError } from "./errors";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
-import { ANALYSIS_TIMEOUT_MS, GENERATION_TIMEOUT_MS, JOB_LIMITS, SUGGEST_TIMEOUT_MS } from "@/lib/skills/limits";
-import { ANALYSE_SYSTEM, GENERATE_JOB_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
-import type { JobSkillDraft, RawSuggestions } from "@/lib/skills/jobs/types";
+import {
+  ANALYSIS_TIMEOUT_MS,
+  ENHANCE_TIMEOUT_MS,
+  GENERATION_TIMEOUT_MS,
+  JOB_LIMITS,
+  QUESTIONS_TIMEOUT_MS,
+  SUGGEST_TIMEOUT_MS,
+} from "@/lib/skills/limits";
+import { ANALYSE_SYSTEM, ENHANCE_TASK_SYSTEM, GENERATE_JOB_SYSTEM, QUESTIONS_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
+import type { JobSkillDraft, RawSuggestions, RawTaskQuestions } from "@/lib/skills/jobs/types";
 
 let client: Anthropic | null = null;
 
@@ -28,13 +35,16 @@ async function structured<T>(args: {
   fallback?: boolean;
   /** Per-request SDK options; the shared client keeps its own defaults for everything else. */
   requestOptions?: { timeout: number; maxRetries: number };
+  /** output_config.effort; omitted = the model's default. */
+  effort?: "low" | "medium" | "high";
 }): Promise<T> {
+  const format = { type: "json_schema" as const, schema: args.schema };
   const request = {
     model: args.model,
     max_tokens: args.maxTokens,
     system: args.system,
     messages: [{ role: "user" as const, content: args.user }],
-    output_config: { format: { type: "json_schema" as const, schema: args.schema } },
+    output_config: args.effort ? { format, effort: args.effort } : { format },
   };
   const response = args.fallback
     ? await getClient().beta.messages.create(
@@ -226,5 +236,86 @@ export async function generateJobSkillDraft(message: string): Promise<JobSkillDr
     }),
     parse: JobDraftReply,
     maxTokens: 16000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Skills Builder tasks (spec 2026-11-25 tasks): Enhance and Write questions, both inside the request
+// ---------------------------------------------------------------------------
+
+/** Two 45 s attempts stay under App Runner's 120 s request cap. */
+const ENHANCE_REQUEST = { timeout: ENHANCE_TIMEOUT_MS, maxRetries: 1 };
+/** One 90 s attempt. */
+const QUESTIONS_REQUEST = { timeout: QUESTIONS_TIMEOUT_MS, maxRetries: 0 };
+
+const BriefReply = z.object({ brief: z.string() });
+
+/** Rewrites a task description into a brief (Haiku). Nothing is stored. */
+export async function enhanceTaskBrief(message: string): Promise<string> {
+  const result = await structured({
+    model: FAST_MODEL,
+    requestOptions: ENHANCE_REQUEST,
+    system: ENHANCE_TASK_SYSTEM,
+    user: message,
+    schema: object({ brief: STRING }),
+    parse: BriefReply,
+    maxTokens: 3000,
+  });
+  const brief = result.brief.trim();
+  if (!brief) throw new AiResponseError("Claude returned an empty brief");
+  return brief.slice(0, JOB_LIMITS.descriptionChars);
+}
+
+export const ESSENTIAL_NAMES = ["triggers", "inputs", "steps", "output", "quality", "avoid"] as const;
+const QUESTION_FILE_HINTS = ["REFERENCE", "INPUT", "TEMPLATE", "BRAND", "NONE"] as const;
+
+/** The questions reply as zod validates it (exported for the fake API's shape tests). */
+export const TaskQuestionsReply = z.object({
+  outputType: z.string(),
+  coveredByDescription: z.array(z.string()),
+  perUseInputs: z.array(z.object({ label: z.string(), hint: z.string(), required: z.boolean() })),
+  questions: z.array(
+    z.object({
+      text: z.string(),
+      guidance: z.string(),
+      kind: z.enum(["fixed", "per_use"]),
+      wantsFiles: z.boolean(),
+      fileHint: z.enum(QUESTION_FILE_HINTS),
+      fileNote: z.string(),
+      covers: z.array(z.string()),
+    }),
+  ),
+}) satisfies z.ZodType<RawTaskQuestions>;
+
+const enumOf = (values: readonly string[]) => ({ type: "string", enum: [...values] });
+
+/** Writes the task's questions and per-use inputs (Opus, low effort). The caller applies cleanQuestionSet. */
+export async function writeTaskQuestions(message: string): Promise<RawTaskQuestions> {
+  return structured({
+    model: BEST_MODEL,
+    fallback: true,
+    effort: "low",
+    requestOptions: QUESTIONS_REQUEST,
+    system: QUESTIONS_SYSTEM,
+    user: message,
+    schema: object({
+      outputType: STRING,
+      coveredByDescription: { type: "array", items: enumOf(ESSENTIAL_NAMES) },
+      perUseInputs: { type: "array", items: object({ label: STRING, hint: STRING, required: { type: "boolean" } }) },
+      questions: {
+        type: "array",
+        items: object({
+          text: STRING,
+          guidance: STRING,
+          kind: enumOf(["fixed", "per_use"]),
+          wantsFiles: { type: "boolean" },
+          fileHint: enumOf(QUESTION_FILE_HINTS),
+          fileNote: STRING,
+          covers: { type: "array", items: enumOf(ESSENTIAL_NAMES) },
+        }),
+      },
+    }),
+    parse: TaskQuestionsReply,
+    maxTokens: 8000,
   });
 }

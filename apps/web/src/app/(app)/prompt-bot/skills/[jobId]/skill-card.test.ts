@@ -18,8 +18,8 @@ import type { SaveOptions } from "@/lib/prompt-bot/client";
 import { FILE_SAVE_FAILED_MESSAGE, SkillCard, unansweredPhrase } from "./skill-card";
 
 const FILES: JobFileView[] = [
-  { id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "x", analysisEdited: false, analysisError: null, bundlable: true },
-  { id: "f2", fileName: "numbers.xlsx", assetName: "numbers.xlsx", kind: "XLSX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "y", analysisEdited: false, analysisError: null, bundlable: true },
+  { id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "x", analysisEdited: false, analysisError: null, bundlable: true, questionId: null },
+  { id: "f2", fileName: "numbers.xlsx", assetName: "numbers.xlsx", kind: "XLSX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "y", analysisEdited: false, analysisError: null, bundlable: true, questionId: null },
 ];
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes the board update.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
@@ -30,10 +30,10 @@ const settle = (ms = 0) =>
     await vi.advanceTimersByTimeAsync(ms);
   });
 /** The card with the workspace's real save queue, so autosaves behave as on the page. */
-const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = true) => {
+const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = true, files: JobFileView[] = FILES) => {
   const saves = { current: null as null | ReturnType<typeof useMatrixAnswers> };
   const props = {
-    jobId: "j1", skill: skill(over), files: FILES, gaps, aiConfigured,
+    jobId: "j1", skill: skill(over), files, gaps, aiConfigured,
     flushSaves: vi.fn(() => saves.current!.flushSaves()),
     queueSave: vi.fn((key: string, run: (options: SaveOptions) => Promise<void>) => saves.current!.queueSave(key, run)),
     onChange: vi.fn(), onRemoved: vi.fn(),
@@ -67,6 +67,11 @@ afterEach(() => {
 });
 
 describe("unansweredPhrase", () => {
+  it("points to the questions when the task has no files yet", async () => {
+    await mount({}, 0, true, []);
+    expect(screen.getByText("No files in this task yet. Add them to your questions.")).toBeTruthy();
+  });
+
   it("counts questions in words", () => {
     expect(unansweredPhrase(1)).toBe("1 question unanswered");
     expect(unansweredPhrase(3)).toBe("3 questions unanswered");

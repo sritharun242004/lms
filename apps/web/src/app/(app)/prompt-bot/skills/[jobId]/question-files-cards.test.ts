@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { JobFileView } from "@/lib/skills/jobs/types";
+import type { JobFileView, TaskQuestionView } from "@/lib/skills/jobs/types";
 
 const mocks = vi.hoisted(() => ({ uploadJobFile: vi.fn(), saveAnalysis: vi.fn(), analyseAgain: vi.fn(), removeJobFile: vi.fn(), toastError: vi.fn() }));
 vi.mock("@/lib/skills/jobs/client", () => ({
@@ -13,16 +13,22 @@ vi.mock("@/lib/skills/jobs/client", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: vi.fn() } }));
 
-import { FILE_ACCEPT, FilesPanel } from "./files-panel";
+import { FILE_ACCEPT } from "./file-card";
+import { QuestionFiles } from "./question-files";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 4_404_019, createdAt: "2026-11-25T10:00:00.000Z",
-  analysisStatus: "READY", analysis: "## Colours\n\nNavy #1F4E79 for titles.", analysisEdited: false, analysisError: null, bundlable: true, ...over,
+  analysisStatus: "READY", analysis: "## Colours\n\nNavy #1F4E79 for titles.", analysisEdited: false, analysisError: null, bundlable: true, questionId: null, ...over,
 });
 const ok = <T,>(data: T) => ({ ok: true as const, data });
+// The old Files step's cards and upload queue, now under one "Answer now" question.
+const Q1: TaskQuestionView = {
+  id: "q1", order: 0, kind: "FIXED", text: "Which deck do you start from?", guidance: "", required: true,
+  wantsFiles: true, fileHint: "TEMPLATE", fileNote: "", source: "AI",
+};
 const mount = (files: JobFileView[], aiConfigured = true) => {
-  const props = { jobId: "j1", files, aiConfigured, onFileChange: vi.fn(), onFileRemoved: vi.fn() };
-  render(createElement(FilesPanel, props));
+  const props = { jobId: "j1", question: Q1, files, aiConfigured, onFileChange: vi.fn(), onFileRemoved: vi.fn() };
+  render(createElement(QuestionFiles, props));
   return props;
 };
 const flush = () => act(async () => {});
@@ -36,7 +42,7 @@ const pick = async (files: File[]) => {
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
-describe("FilesPanel cards", () => {
+describe("QuestionFiles cards", () => {
   it("shows the kind, size and an analysing state for a pending file", () => {
     mount([file({ analysisStatus: "PENDING", analysis: null })]);
     expect(screen.getByText("PowerPoint · 4.2 MB")).toBeTruthy();
@@ -146,13 +152,12 @@ describe("FilesPanel cards", () => {
   });
 });
 
-describe("FilesPanel uploads", () => {
+describe("QuestionFiles uploads", () => {
   it("accepts only the supported types and states the limits", () => {
     mount([]);
     expect((screen.getByLabelText("Choose files to upload") as HTMLInputElement).accept).toBe(FILE_ACCEPT);
     expect(FILE_ACCEPT).toBe(".pptx,.docx,.xlsx,.pdf,.png,.jpg,.jpeg");
     expect(screen.getByText(/PowerPoint, Word, Excel, PDF, PNG or JPG · up to 20 MB each · 10 files/)).toBeTruthy();
-    expect(screen.getByText("No files yet. Add the decks, documents and sheets you use for this job. Skip this step if you have none.")).toBeTruthy();
   });
 
   it("uploads one file at a time and shows a failure on its row", async () => {
@@ -165,7 +170,7 @@ describe("FilesPanel uploads", () => {
     const pdf = new File([new Uint8Array([37, 80, 68, 70])], "locked.pdf");
     await pick([deck, pdf]);
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(1);
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", deck);
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", deck, "q1");
     expect(screen.getByText("Uploading…")).toBeTruthy();
     expect(screen.getByText("Waiting…")).toBeTruthy();
     await act(async () => {
@@ -174,7 +179,7 @@ describe("FilesPanel uploads", () => {
     await flush();
     expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f9" }));
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(2);
-    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", pdf);
+    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", pdf, "q1");
     const row = screen.getByText("locked.pdf").closest("li")!;
     expect(within(row).getByText("This PDF is password-protected. Remove the password, then upload it again.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Dismiss/ }));
@@ -199,7 +204,7 @@ describe("FilesPanel uploads", () => {
     await pick([deck, brief]);
     await flush();
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(2);
-    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", brief);
+    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", brief, "q1");
     expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f9" }));
     const row = screen.getByText("deck.pptx").closest("li")!;
     expect(within(row).getByRole("alert").textContent).toMatch(/couldn.t upload/i);
@@ -234,13 +239,13 @@ describe("FilesPanel uploads", () => {
       fireEvent.drop(screen.getByTestId("file-drop-zone"), { dataTransfer: { files: [dropped] } });
     });
     await flush();
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped);
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped, "q1");
     expect(props.onFileChange).toHaveBeenCalled();
   });
 
   it("disables uploads and re-analysis without the AI, but keeps editing", () => {
     mount([file()], false);
-    expect((screen.getByRole("button", { name: /Upload files/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Add files/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText("Choose files to upload") as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /^Analyse again/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /^Edit/ }) as HTMLButtonElement).disabled).toBe(false);
@@ -258,7 +263,7 @@ describe("FilesPanel uploads", () => {
   });
 });
 
-describe("FilesPanel analysis states", () => {
+describe("QuestionFiles analysis states", () => {
   it("keeps a queued analysis calm and still lets the file be removed", () => {
     mount([file({ analysisStatus: "PENDING", analysis: null })]);
     const status = screen.getByRole("status");

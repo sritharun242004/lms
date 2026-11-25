@@ -8,7 +8,16 @@ import { imageForClaude } from "../files/image";
 import { assetFileName } from "../files/safe-name";
 import type { FileFacts, SkillFileKind } from "../files/types";
 import { JOB_LIMITS } from "../limits";
-import { AlreadyAnalysingError, AlreadyGeneratingError, FileNameTakenError, FileNotFoundError, isUniqueViolation, JobNotFoundError, TooManyFilesError } from "./errors";
+import {
+  AlreadyAnalysingError,
+  AlreadyGeneratingError,
+  FileNameTakenError,
+  FileNotFoundError,
+  isUniqueViolation,
+  JobNotFoundError,
+  QuestionNotFoundError,
+  TooManyFilesError,
+} from "./errors";
 import { buildAnalysisText } from "./instructions";
 import { fileViewOmit, findOwnedJob, toFileView } from "./jobs";
 import { analysisCutoff, generationCutoff, isAnalysing } from "./staleness";
@@ -31,12 +40,23 @@ async function takenAssetNames(jobId: string): Promise<string[]> {
   return (await prisma.skillJobFile.findMany({ where: { jobId }, select: { assetName: true } })).map((r) => r.assetName);
 }
 
+/** A file can answer only a FIXED question of its own task (spec, route 12). */
+export async function assertTaskQuestion(jobId: string, questionId: string): Promise<void> {
+  const row = await prisma.skillJobQuestion.findFirst({ where: { id: questionId, jobId, kind: "FIXED" }, select: { id: true } });
+  if (!row) throw new QuestionNotFoundError();
+}
+
 /**
- * Checks the bytes first (a refused file spends nothing), then the count, then one skill_analyze unit
+ * Checks the question (when given) and the bytes first (a refused file spends nothing), then the count, then one skill_analyze unit
  * (handed back if the file cannot be stored), and stores the file as PENDING. The route runs runFileAnalysis in after().
  */
-export async function storeJobFile(input: { jobId: string; userId: string; fileName: string; bytes: Uint8Array }, now = new Date()): Promise<JobFileView> {
+export async function storeJobFile(
+  input: { jobId: string; userId: string; fileName: string; bytes: Uint8Array; questionId?: string | null },
+  now = new Date(),
+): Promise<JobFileView> {
   if (!(await findOwnedJob(input.jobId, input.userId))) throw new JobNotFoundError();
+  const questionId = input.questionId ?? null;
+  if (questionId) await assertTaskQuestion(input.jobId, questionId);
   const read = await readUpload(input.bytes);
   if ((await countActiveFiles(input.jobId)) >= JOB_LIMITS.filesPerJob) throw new TooManyFilesError();
   await consumeAiUsage(input.userId, "skill_analyze", now);
@@ -53,6 +73,7 @@ export async function storeJobFile(input: { jobId: string; userId: string; fileN
     facts: read.facts as unknown as Prisma.InputJsonValue,
     analysisStatus: "PENDING",
     analysisStartedAt: now,
+    questionId,
   });
   const create = async () =>
     prisma.skillJobFile.create({ data: data(assetFileName(input.fileName, read.kind, await takenAssetNames(input.jobId))), omit: fileViewOmit });

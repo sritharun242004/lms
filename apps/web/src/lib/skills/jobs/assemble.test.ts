@@ -22,6 +22,7 @@ const file = (over: Partial<PlanInputFile> = {}): PlanInputFile => ({
   kind: "PPTX",
   size: 2 * MB,
   analysis: "## Colours\n\n- Navy #1F4E79 for titles",
+  questionId: null,
   ...over,
 });
 const DRAFT: JobSkillDraft = {
@@ -102,7 +103,7 @@ describe("buildStyleGuide", () => {
     expect(buildStyleGuide([])).toBeNull();
   });
 
-  it("uses each analysis as stored (headings one level down), with how the file ships, and says when none exists", () => {
+  it("uses each analysis as stored (headings demoted under its file), with how the file ships, and says when none exists", () => {
     const edited = "## Colours\n\n- Brand red #C00000 (edited by hand)\n";
     const guide = buildStyleGuide(
       planAssets([file({ analysis: edited }), file({ id: "f2", fileName: "Brand book.pdf", assetName: "brand-book.pdf", kind: "PDF", size: 12 * MB, analysis: null })]),
@@ -111,15 +112,17 @@ describe("buildStyleGuide", () => {
       [
         "# Style guide",
         "",
-        "Taken from the files uploaded for this job. Analyses edited by hand are used exactly as written.",
+        "Taken from the files uploaded for this task, grouped by the question each file answers. Analyses edited by hand are used exactly as written.",
         "",
-        "## Q3 board deck.pptx",
+        "## General files",
+        "",
+        "### Q3 board deck.pptx",
         "",
         "Bundled as assets/q3-board-deck.pptx.",
         "",
-        "### Colours\n\n- Brand red #C00000 (edited by hand)",
+        "#### Colours\n\n- Brand red #C00000 (edited by hand)",
         "",
-        "## Brand book.pdf",
+        "### Brand book.pdf",
         "",
         "Not bundled (too large).",
         "",
@@ -140,13 +143,13 @@ describe("buildStyleGuide", () => {
     expect(guide.startsWith("# Style guide\n")).toBe(true);
   });
 
-  it("demotes the analysis's own headings so each file's section stays the only level-2 heading", () => {
+  it("demotes the analysis's own headings so the file's ### heading stays above them", () => {
     const usual = buildStyleGuide(planAssets([file({ analysis: "## Colours\n\n### Accents\n\n```md\n## not a heading\n```\n#hashtag" })]))!;
-    expect(usual).toContain("### Colours\n\n#### Accents\n\n```md\n## not a heading\n```\n#hashtag");
+    expect(usual).toContain("#### Colours\n\n##### Accents\n\n```md\n## not a heading\n```\n#hashtag");
     const titled = buildStyleGuide(planAssets([file({ analysis: "# Overview\n\n## Colours\n\n###### Deep" })]))!;
-    expect(titled).toContain("### Overview\n\n#### Colours\n\n###### Deep");
-    expect(usual.match(/^## .*/gm)).toEqual(["## Q3 board deck.pptx", "## not a heading"]);
-    expect(titled.match(/^## .*/gm)).toEqual(["## Q3 board deck.pptx"]);
+    expect(titled).toContain("#### Overview\n\n##### Colours\n\n###### Deep");
+    expect(usual.match(/^### .*/gm)).toEqual(["### Q3 board deck.pptx"]);
+    expect(titled.match(/^##? .*/gm)).toEqual(["# Style guide", "## General files"]);
   });
 });
 

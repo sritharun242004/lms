@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!user) return unauthorized();
   const { id } = await params;
   const view = await loadJobView(id, user.id);
-  return view ? successResponse(view) : notFound("Job");
+  return view ? successResponse(view) : notFound("Task");
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {

@@ -1,19 +1,37 @@
 import { unansweredQuestionIds } from "@/lib/prompt-bot/scoring";
 import type { AnswerView } from "@/lib/prompt-bot/sessions";
-import type { JobView } from "@/lib/skills/jobs/types";
+import { descriptionLength } from "@/lib/skills/jobs/task-text";
+import type { JobView, TaskQuestionView } from "@/lib/skills/jobs/types";
+import { JOB_LIMITS } from "@/lib/skills/limits";
 
-export type JobStep = "job" | "files" | "questions" | "skills";
+export type JobStep = "task" | "questions" | "skills";
 export const JOB_STEPS: { id: JobStep; label: string }[] = [
-  { id: "job", label: "Job" },
-  { id: "files", label: "Files" },
+  { id: "task", label: "Task" },
   { id: "questions", label: "Questions" },
   { id: "skills", label: "Skills" },
 ];
+/** Hashes from before tasks (Job · Files · Questions · Skills) keep opening the step that replaced them. */
+const HASH_ALIASES: Record<string, JobStep> = { job: "task", files: "questions" };
 
 export function stepFromHash(hash: string): JobStep {
   const id = hash.replace(/^#/, "");
-  return JOB_STEPS.some((s) => s.id === id) ? (id as JobStep) : "job";
+  if (HASH_ALIASES[id]) return HASH_ALIASES[id];
+  return JOB_STEPS.some((s) => s.id === id) ? (id as JobStep) : "task";
 }
+
+/**
+ * Questions and Skills open once the description is long enough to write questions from, or as soon
+ * as the task has questions (every migrated job does), so a short old description never locks it.
+ */
+export function canLeaveTask(description: string, questionCount: number): boolean {
+  return questionCount > 0 || descriptionLength(description) >= JOB_LIMITS.descriptionMinChars;
+}
+
+const byOrder = (a: TaskQuestionView, b: TaskQuestionView) => a.order - b.order;
+/** "Answer now (same every time)": the questions that are answered, scored and take files. */
+export const fixedQuestions = (questions: TaskQuestionView[]) => questions.filter((q) => q.kind === "FIXED").sort(byOrder);
+/** "Claude will ask each time": never answered here. */
+export const perUseQuestions = (questions: TaskQuestionView[]) => questions.filter((q) => q.kind === "PER_USE").sort(byOrder);
 
 export const POLL_FIRST_MS = 3000;
 export const POLL_MAX_MS = 15_000;

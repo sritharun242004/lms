@@ -7,14 +7,14 @@ export type ReadmeInput = {
   hasAssets: boolean;
 };
 
-/** README.md at the pack root (spec: Versions and Downloads). Used for job packs and legacy packs. */
+/** README.md at the pack root (spec: Versions and Downloads). Used for task packs and legacy packs. */
 export function renderReadme(input: ReadmeInput): string {
   return [
     `# ${input.title}`,
     "",
     "Agent Skills built with Prompt Bot's Skills Builder.",
     "",
-    "## What this job is",
+    "## What this task is",
     "",
     input.description.trim(),
     ...(input.role ? ["", `Role: ${input.role}`] : []),
@@ -31,7 +31,7 @@ export function renderReadme(input: ReadmeInput): string {
     "",
     "## Use it",
     "",
-    "Just ask Claude for the job in your own words and attach your latest files — Claude picks the skill up automatically from its description. To be sure, name it: \"Use my <skill> skill\". In Claude Code you can also type `/<skill>`.",
+    "Just ask Claude for the task in your own words and attach your latest files — Claude picks the skill up automatically from its description. To be sure, name it: \"Use my <skill> skill\". In Claude Code you can also type `/<skill>`.",
     "",
     "### Claude Code",
     "",

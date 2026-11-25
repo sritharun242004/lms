@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
-import type { JobFileView, JobSkillView, JobView } from "@/lib/skills/jobs/types";
+import type { JobFileView, JobSkillView, JobView, TaskQuestionView } from "@/lib/skills/jobs/types";
 
 const mocks = vi.hoisted(() => ({
   getJob: vi.fn(),
@@ -28,30 +28,25 @@ vi.mock("@/lib/skills/jobs/client", () => ({
 vi.mock("@/lib/skills/client", () => ({ downloadZip: mocks.downloadZip }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
-vi.mock("./describe-panel", async () => {
+vi.mock("./task-panel", async () => {
   const { createElement: h } = await import("react");
   return {
-    DescribePanel: (props: Record<string, unknown>) => {
-      mocks.panels.describe = props;
-      return h("p", null, `description:${props.description as string}`);
+    taskShortMessageId: (jobId: string) => `short-${jobId}`,
+    TaskPanel: (props: Record<string, unknown>) => {
+      mocks.panels.task = props;
+      return h("p", { id: "short-j1" }, `description:${props.description as string}`);
     },
   };
 });
-vi.mock("./files-panel", async () => {
+vi.mock("./questions-panel", async () => {
   const { createElement: h } = await import("react");
   return {
-    FilesPanel: (props: { files: JobFileView[] } & Record<string, unknown>) => {
-      mocks.panels.files = props;
-      return h("ul", null, props.files.map((f) => h("li", { key: f.id }, `${f.fileName}:${f.analysisStatus}`)));
+    QuestionsPanel: (props: { job: JobView } & Record<string, unknown>) => {
+      mocks.panels.questions = props;
+      return h("ul", null, props.job.files.map((f) => h("li", { key: f.id }, `${f.fileName}:${f.analysisStatus}`)));
     },
   };
 });
-vi.mock("./questions-panel", () => ({
-  QuestionsPanel: (props: Record<string, unknown>) => {
-    mocks.panels.questions = props;
-    return null;
-  },
-}));
 vi.mock("./skills-panel", async () => {
   const { createElement: h } = await import("react");
   return {
@@ -66,18 +61,27 @@ import { JobWorkspace } from "./job-workspace";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z",
-  analysisStatus: "READY", analysis: "## Colours", analysisEdited: false, analysisError: null, bundlable: true, ...over,
+  analysisStatus: "READY", analysis: "## Colours", analysisEdited: false, analysisError: null, bundlable: true, questionId: "q1", ...over,
 });
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
 });
+const question = (over: Partial<TaskQuestionView> = {}): TaskQuestionView => ({
+  id: "q1", order: 0, kind: "FIXED", text: "When should this skill be used?", guidance: "Triggers", required: true,
+  wantsFiles: false, fileHint: null, fileNote: "", source: "AI", ...over,
+});
+const QUESTIONS = [
+  question(),
+  question({ id: "q2", order: 1, text: "What context does it need to know?", guidance: "Background" }),
+  question({ id: "p1", order: 2, kind: "PER_USE", text: "Month", guidance: "e.g. March" }),
+];
 const JOB: JobView = {
   id: "j1",
   title: "Monthly board update",
   description: "Every month I write the board update.",
   scoreRevision: 2,
   updatedAt: "2026-11-25T10:00:00.000Z",
-  suggestedAt: null,
+  suggestedAt: null, questionsGeneratedAt: "2026-11-25T10:00:00.000Z", outputType: "board update", questions: QUESTIONS,
   matrix: {
     id: "m",
     name: "Skill definition",
@@ -124,24 +128,34 @@ afterEach(() => {
 
 describe("JobWorkspace steps", () => {
   it("opens the step named in the URL hash and keeps the hash in sync", async () => {
-    window.location.hash = "#files";
+    window.location.hash = "#questions";
     await mount();
-    expect(steps().getByRole("button", { name: /Files/ }).getAttribute("aria-current")).toBe("step");
+    expect(steps().getByRole("button", { name: /Questions/ }).getAttribute("aria-current")).toBe("step");
     fireEvent.click(steps().getByRole("button", { name: /Skills/ }));
     expect(steps().getByRole("button", { name: /Skills/ }).getAttribute("aria-current")).toBe("step");
     expect(window.location.hash).toBe("#skills");
   });
 
-  it("moves between steps with Back and Next buttons at the bottom", async () => {
+  it("opens the old #job and #files links on Task and Questions", async () => {
+    window.location.hash = "#job";
+    await mount();
+    expect(steps().getByRole("button", { name: /Task/ }).getAttribute("aria-current")).toBe("step");
+    cleanup();
+    window.location.hash = "#files";
+    await mount();
+    expect(steps().getByRole("button", { name: /Questions/ }).getAttribute("aria-current")).toBe("step");
+    expect(steps().queryByRole("button", { name: /Files/ })).toBeNull();
+  });
+
+  it("moves between the three steps with Back and Next buttons at the bottom", async () => {
     window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
     window.matchMedia = vi.fn(() => ({ matches: false })) as unknown as typeof window.matchMedia;
     await mount();
     const nav = () => within(screen.getByRole("navigation", { name: "Step navigation" }));
     expect(nav().queryByRole("button", { name: /Back/ })).toBeNull();
-    fireEvent.click(nav().getByRole("button", { name: "Next: Files" }));
-    expect(window.location.hash).toBe("#files");
-    expect(window.scrollTo).toHaveBeenCalled();
     fireEvent.click(nav().getByRole("button", { name: "Next: Questions" }));
+    expect(window.location.hash).toBe("#questions");
+    expect(window.scrollTo).toHaveBeenCalled();
     fireEvent.click(nav().getByRole("button", { name: "Next: Skills" }));
     expect(window.location.hash).toBe("#skills");
     expect(nav().queryByRole("button", { name: /Next/ })).toBeNull();
@@ -149,11 +163,37 @@ describe("JobWorkspace steps", () => {
     expect(window.location.hash).toBe("#questions");
   });
 
-  it("shows counts on the steps and the number of unanswered questions to the skills panel", async () => {
+  it("counts answer-now questions only on the step and for the skills panel", async () => {
     await mount();
-    expect(steps().getByRole("button", { name: /Files/ }).textContent).toContain("1");
     expect(steps().getByRole("button", { name: /Questions/ }).textContent).toContain("1 of 2");
     expect(screen.getByText(/gaps:1/)).toBeTruthy();
+  });
+
+  it("locks Questions and Skills while a new task's description is short", async () => {
+    window.location.hash = "#skills";
+    await mount({ ...JOB, questions: [], answers: [], files: [], questionsGeneratedAt: null });
+    expect(steps().getByRole("button", { name: /Task/ }).getAttribute("aria-current")).toBe("step");
+    for (const name of [/Questions/, /Skills/]) {
+      const button = steps().getByRole("button", { name }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      expect(button.getAttribute("aria-describedby")).toBe("short-j1");
+    }
+    const next = screen.getByRole("button", { name: "Next: Questions" }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    expect(next.getAttribute("aria-describedby")).toBe("short-j1");
+    await act(async () => {
+      (mocks.panels.task.onDescriptionChange as (v: string) => void)("x".repeat(500));
+    });
+    // Long enough now: the step in the URL opens.
+    expect(steps().getByRole("button", { name: /Skills/ }).getAttribute("aria-current")).toBe("step");
+    expect((steps().getByRole("button", { name: /Questions/ }) as HTMLButtonElement).disabled).toBe(false);
+    await settle(600);
+  });
+
+  it("never locks an old task that already has questions, however short", async () => {
+    await mount({ ...JOB, description: "Board" });
+    expect((screen.getByRole("button", { name: "Next: Questions" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((steps().getByRole("button", { name: /Skills/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("never asks with window.confirm, even on the paths that ask", async () => {
@@ -161,10 +201,10 @@ describe("JobWorkspace steps", () => {
     await mount();
     // Delete asks first; the answer comes from the in-app dialog.
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Delete job" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete task" }));
     });
     await act(async () => {
-      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete job" }));
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete task" }));
     });
     expect(mocks.deleteJob).toHaveBeenCalledWith("j1");
     expect(window.confirm).not.toHaveBeenCalled();
@@ -234,7 +274,7 @@ describe("JobWorkspace polling", () => {
     expect(mocks.getJob).toHaveBeenCalledTimes(1);
     // The user re-analyses deck.pptx; the in-flight reply still has it READY.
     await act(async () => {
-      (mocks.panels.files.onFileChange as (f: JobFileView) => void)(file({ analysisStatus: "PENDING", analysis: null }));
+      (mocks.panels.questions.onFileChange as (f: JobFileView) => void)(file({ analysisStatus: "PENDING", analysis: null }));
       answer(ok({ ...JOB, files: [file(), file({ id: "f2", fileName: "brief.docx" })] }));
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -246,11 +286,11 @@ describe("JobWorkspace polling", () => {
   });
 
   it("stops polling and says so when the job was deleted elsewhere", async () => {
-    mocks.getJob.mockResolvedValue({ ok: false, code: "NOT_FOUND", message: "Job not found" });
+    mocks.getJob.mockResolvedValue({ ok: false, code: "NOT_FOUND", message: "Task not found" });
     await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
     await settle(3000);
-    expect(screen.getByRole("heading", { name: "This job was deleted" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Back to your jobs/ }).getAttribute("href")).toBe("/prompt-bot/skills");
+    expect(screen.getByRole("heading", { name: "This task was deleted" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Back to your tasks/ }).getAttribute("href")).toBe("/prompt-bot/skills");
     await settle(60_000);
     expect(mocks.getJob).toHaveBeenCalledTimes(1);
   });
@@ -277,7 +317,7 @@ describe("JobWorkspace description", () => {
   it("saves the description after the save delay and flags the bars for a check without scoring", async () => {
     await mount();
     await act(async () => {
-      (mocks.panels.describe.onDescriptionChange as (v: string) => void)("Weekly board update");
+      (mocks.panels.task.onDescriptionChange as (v: string) => void)("Weekly board update");
     });
     expect(screen.getByText("description:Weekly board update")).toBeTruthy();
     expect(mocks.patchJob).not.toHaveBeenCalled();
@@ -291,7 +331,7 @@ describe("JobWorkspace description", () => {
   it("flags the bars when a file's analysis becomes ready or a file is removed, and drops a removed file from skills", async () => {
     await mount();
     await act(async () => {
-      (mocks.panels.files.onFileChange as (f: JobFileView) => void)(file({ id: "f2", fileName: "brief.docx", analysis: "## Tone" }));
+      (mocks.panels.questions.onFileChange as (f: JobFileView) => void)(file({ id: "f2", fileName: "brief.docx", analysis: "## Tone" }));
     });
     expect(screen.getByText("brief.docx:READY")).toBeTruthy();
     await settle(1500);
@@ -303,7 +343,7 @@ describe("JobWorkspace description", () => {
     expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
     expect(questionsState().contextStale).toBe(false);
     await act(async () => {
-      (mocks.panels.files.onFileRemoved as (id: string) => void)("f1");
+      (mocks.panels.questions.onFileRemoved as (id: string) => void)("f1");
     });
     expect(screen.queryByText("deck.pptx:READY")).toBeNull();
     expect((mocks.panels.skills.job as JobView).skills[0].fileIds).toEqual([]);
@@ -322,16 +362,56 @@ describe("JobWorkspace description", () => {
   });
 });
 
-describe("JobWorkspace checks", () => {
-  it("scores a never-scored job once on open, then only when asked", async () => {
+describe("JobWorkspace questions", () => {
+  const fresh = { ...JOB, questions: [], answers: [], questionsGeneratedAt: null, outputType: null };
+  const written = (over: Partial<JobView> = {}): JobView => ({ ...JOB, files: [file({ questionId: null })], ...over });
+
+  it("never scores on open; the first questions written get their bars once", async () => {
     mocks.scoreJob.mockResolvedValue(ok({ applied: true, revision: 3, answers: [{ questionId: "q1", answer: "", score: 1, reason: "Hinted", notRelevant: false }] }));
-    await mount({ ...JOB, answers: [] });
+    await mount(fresh);
+    await settle(60_000);
+    expect(mocks.scoreJob).not.toHaveBeenCalled();
+    await act(async () => {
+      (mocks.panels.questions.onQuestionsWritten as (v: JobView) => void)(written());
+    });
     expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
-    expect(mocks.scoreJob).toHaveBeenCalledWith("j1", 3);
     expect(questionsState().answerFor("q1").reason).toBe("Hinted");
-    expect(questionsState().contextStale).toBe(false);
+    const job = mocks.panels.questions.job as JobView;
+    expect(job.outputType).toBe("board update");
+    expect(job.questions).toHaveLength(3);
+    expect(job.files[0].questionId).toBeNull();
+    await act(async () => {
+      (mocks.panels.questions.onQuestionsWritten as (v: JobView) => void)(written());
+    });
     await settle(60_000);
     expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
+    expect(questionsState().contextStale).toBe(true);
+  });
+
+  it("makes a moved question's files general and flags the bars", async () => {
+    await mount();
+    await act(async () => {
+      (mocks.panels.questions.onQuestionChange as (q: TaskQuestionView) => void)(question({ kind: "PER_USE" }));
+    });
+    const job = mocks.panels.questions.job as JobView;
+    expect(job.questions.find((q) => q.id === "q1")?.kind).toBe("PER_USE");
+    expect(job.files[0].questionId).toBeNull();
+    expect(questionsState().contextStale).toBe(true);
+    expect(steps().getByRole("button", { name: /Questions/ }).textContent).toContain("0 of 1");
+  });
+
+  it("adds a question and removes one, its files becoming general", async () => {
+    await mount();
+    await act(async () => {
+      (mocks.panels.questions.onQuestionChange as (q: TaskQuestionView) => void)(question({ id: "q3", order: 3, text: "Who signs it off?", source: "USER" }));
+    });
+    expect((mocks.panels.questions.job as JobView).questions.map((q) => q.id)).toEqual(["q1", "q2", "p1", "q3"]);
+    await act(async () => {
+      (mocks.panels.questions.onQuestionRemoved as (id: string) => void)("q1");
+    });
+    const job = mocks.panels.questions.job as JobView;
+    expect(job.questions.map((q) => q.id)).toEqual(["q2", "p1", "q3"]);
+    expect(job.files[0].questionId).toBeNull();
   });
 });
 
@@ -346,8 +426,8 @@ describe("JobWorkspace header", () => {
   it("renames the job", async () => {
     mocks.patchJob.mockResolvedValue(ok({ ...JOB, title: "Board pack" }));
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Rename job" }));
-    const input = screen.getByLabelText("Job title");
+    fireEvent.click(screen.getByRole("button", { name: "Rename task" }));
+    const input = screen.getByLabelText("Task title");
     fireEvent.change(input, { target: { value: "Board pack" } });
     await act(async () => {
       fireEvent.submit(input.closest("form")!);
@@ -359,8 +439,8 @@ describe("JobWorkspace header", () => {
   it("saves a rename once when Enter is followed by blur", async () => {
     mocks.patchJob.mockResolvedValue(ok({ ...JOB, title: "Board pack" }));
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Rename job" }));
-    const input = screen.getByLabelText("Job title");
+    fireEvent.click(screen.getByRole("button", { name: "Rename task" }));
+    const input = screen.getByLabelText("Task title");
     fireEvent.change(input, { target: { value: "Board pack" } });
     // Both handlers run before React re-renders, as when Enter unmounts the focused input.
     await act(async () => {
@@ -373,10 +453,10 @@ describe("JobWorkspace header", () => {
 
   it("keeps the title and sends nothing when the rename is blank or unchanged", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Rename job" }));
-    fireEvent.change(screen.getByLabelText("Job title"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename task" }));
+    fireEvent.change(screen.getByLabelText("Task title"), { target: { value: "   " } });
     await act(async () => {
-      fireEvent.blur(screen.getByLabelText("Job title"));
+      fireEvent.blur(screen.getByLabelText("Task title"));
     });
     expect(mocks.patchJob).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { level: 1, name: "Monthly board update" })).toBeTruthy();
@@ -397,7 +477,7 @@ describe("JobWorkspace header", () => {
     mocks.deleteJob.mockResolvedValue(ok({ deleted: true }));
     await mount();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Delete job" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete task" }));
     });
     const dialog = screen.getByRole("alertdialog");
     expect(dialog.textContent).toContain("It can't be undone");
@@ -406,10 +486,10 @@ describe("JobWorkspace header", () => {
     });
     expect(mocks.deleteJob).not.toHaveBeenCalled();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Delete job" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete task" }));
     });
     await act(async () => {
-      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete job" }));
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete task" }));
     });
     expect(mocks.deleteJob).toHaveBeenCalledWith("j1");
     expect(mocks.push).toHaveBeenCalledWith("/prompt-bot/skills");
@@ -424,12 +504,12 @@ describe("JobWorkspace header", () => {
     await mount({ ...JOB, answers: [] }, false);
     for (const value of ["Weekly", "Weekly board"]) {
       await act(async () => {
-        (mocks.panels.describe.onDescriptionChange as (v: string) => void)(value);
+        (mocks.panels.task.onDescriptionChange as (v: string) => void)(value);
       });
       await settle(600 + 1500);
     }
     await act(async () => {
-      (mocks.panels.files.onFileChange as (f: JobFileView) => void)(file({ id: "f2", analysis: "## Tone" }));
+      (mocks.panels.questions.onFileChange as (f: JobFileView) => void)(file({ id: "f2", analysis: "## Tone" }));
     });
     await settle(1500);
     expect(mocks.patchJob).toHaveBeenCalledTimes(2);

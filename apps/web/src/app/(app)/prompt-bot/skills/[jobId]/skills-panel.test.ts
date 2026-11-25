@@ -30,7 +30,7 @@ const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: [], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
 });
 const JOB: JobView = {
-  id: "j1", title: "Board", description: "Every month…", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null,
+  id: "j1", title: "Board", description: "Every month…", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null, questionsGeneratedAt: null, outputType: null, questions: [],
   matrix: { id: "m", name: "Skill definition", questions: [] }, answers: [], files: [], skills: [],
 };
 const ok = <T,>(data: T) => ({ ok: true as const, data });
@@ -57,7 +57,7 @@ afterEach(() => {
 describe("SkillsPanel suggest", () => {
   it("invites a suggestion when there are no skills, and suggests at once with no gaps", async () => {
     const props = mount();
-    expect(screen.getByText("Turn this job into your own skills.")).toBeTruthy();
+    expect(screen.getByText("Turn this task into your own skills.")).toBeTruthy();
     await press(/^Create my skills/);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(props.flushSaves.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
@@ -155,7 +155,7 @@ describe("SkillsPanel file saves", () => {
   it("waits for a file choice still saving before suggesting", async () => {
     const replies: ((value: unknown) => void)[] = [];
     mocks.patchJobSkill.mockImplementation(() => new Promise((resolve) => replies.push(resolve)));
-    const file = { id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX" as const, size: 10, createdAt: JOB.updatedAt, analysisStatus: "READY" as const, analysis: "x", analysisEdited: false, analysisError: null, bundlable: true };
+    const file = { id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX" as const, size: 10, createdAt: JOB.updatedAt, analysisStatus: "READY" as const, analysis: "x", analysisEdited: false, analysisError: null, bundlable: true, questionId: null };
     mount({ ...JOB, files: [file], skills: [skill({ latestVersion: 1, status: "READY" as const })] });
     await press(/^deck\.pptx/);
     await press(/^Redraft my skills/);
@@ -203,6 +203,6 @@ describe("SkillsPanel skills", () => {
   it("stops offering Add at five skills", () => {
     mount({ ...JOB, skills: [1, 2, 3, 4, 5].map((n) => skill({ id: `s${n}`, name: `skill-${n}` })) });
     expect((screen.getByRole("button", { name: /^Add skill/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("A job can have at most 5 skills.")).toBeTruthy();
+    expect(screen.getByText("A task can have at most 5 skills.")).toBeTruthy();
   });
 });

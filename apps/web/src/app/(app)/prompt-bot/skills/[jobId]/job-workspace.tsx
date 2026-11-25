@@ -12,14 +12,25 @@ import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { readiness } from "@/lib/prompt-bot/scoring";
 import { downloadZip } from "@/lib/skills/client";
 import { deleteJob, getJob, jobDownloadUrl, patchJob, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
-import type { JobFileView, JobSkillView, JobView } from "@/lib/skills/jobs/types";
+import type { JobFileView, JobSkillView, JobView, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { cn } from "@/lib/utils";
-import { DescribePanel } from "./describe-panel";
-import { FilesPanel } from "./files-panel";
-import { JOB_STEPS, mergePolled, nextPollDelay, POLL_CAP_MS, POLL_FIRST_MS, pollKey, stepFromHash, unansweredCount, type JobStep } from "./job-steps";
+import {
+  canLeaveTask,
+  fixedQuestions,
+  JOB_STEPS,
+  mergePolled,
+  nextPollDelay,
+  POLL_CAP_MS,
+  POLL_FIRST_MS,
+  pollKey,
+  stepFromHash,
+  unansweredCount,
+  type JobStep,
+} from "./job-steps";
 import { QuestionsPanel } from "./questions-panel";
 import { SkillsPanel } from "./skills-panel";
+import { TaskPanel, taskShortMessageId } from "./task-panel";
 
 type Props = { initial: JobView; aiConfigured: boolean; isAdmin: boolean };
 
@@ -35,7 +46,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const [editingTitle, setEditingTitle] = React.useState(false);
   /** Set once a rename is committed, so Enter followed by the input's blur saves it only once. */
   const titleCommitted = React.useRef(false);
-  const [step, setStep] = React.useState<JobStep>("job");
+  const [step, setStep] = React.useState<JobStep>("task");
   const [stalledFor, setStalledFor] = React.useState("");
   /** Set when a poll finds the job gone (deleted in another tab): polling stops and the page says so. */
   const [deleted, setDeleted] = React.useState(false);
@@ -57,17 +68,6 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   // against (description, file analyses) flags the bars as out of date instead of rescoring.
   const { markStale, check, queueSave } = state;
 
-  // A job that was never scored (fresh from the home page) gets its bars once. The ref keeps a
-  // development double-run of this effect from paying for a second check.
-  const [neverScored] = React.useState(initial.answers.length === 0 && initial.description.trim() !== "");
-  const firstCheck = React.useRef(false);
-  React.useEffect(() => {
-    if (!neverScored || !aiConfigured || firstCheck.current) return;
-    firstCheck.current = true;
-    markStale();
-    void check();
-  }, [neverScored, aiConfigured, markStale, check]);
-
   // The step lives in the URL hash, so reload and Back keep it.
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the hash is browser-only state, read after hydration
@@ -85,7 +85,11 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     go(next);
     window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
-  const stepIndex = JOB_STEPS.findIndex((s) => s.id === step);
+  // Questions and Skills stay locked until the description is long enough or the task has questions;
+  // a locked step in the URL shows the task step instead.
+  const canLeave = canLeaveTask(description, job.questions.length);
+  const shown: JobStep = canLeave ? step : "task";
+  const stepIndex = JOB_STEPS.findIndex((s) => s.id === shown);
   const prevStep = stepIndex > 0 ? JOB_STEPS[stepIndex - 1] : null;
   const nextStep = stepIndex < JOB_STEPS.length - 1 ? JOB_STEPS[stepIndex + 1] : null;
 
@@ -169,6 +173,53 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     [markStale],
   );
 
+  // Writing questions replaces the question set; files of dropped questions came back as general files.
+  // The first set written gets its bars once; afterwards scoring runs only when asked.
+  const firstCheck = React.useRef(false);
+  const onQuestionsWritten = React.useCallback(
+    (view: JobView) => {
+      const first = jobRef.current.questions.length === 0 && view.questions.length > 0;
+      const fresh = new Map(view.files.map((f) => [f.id, f.questionId]));
+      setJob((j) => ({
+        ...j,
+        questions: view.questions,
+        outputType: view.outputType,
+        questionsGeneratedAt: view.questionsGeneratedAt,
+        files: j.files.map((f) => (fresh.has(f.id) ? { ...f, questionId: fresh.get(f.id) ?? null } : f)),
+      }));
+      markStale();
+      if (first && aiConfigured && !firstCheck.current) {
+        firstCheck.current = true;
+        void check();
+      }
+    },
+    [aiConfigured, check, markStale],
+  );
+
+  /** An added, edited or moved question. Moving one to "Claude will ask each time" makes its files general. */
+  const onQuestionChange = React.useCallback(
+    (question: TaskQuestionView) => {
+      setJob((j) => ({
+        ...j,
+        questions: j.questions.some((q) => q.id === question.id) ? j.questions.map((q) => (q.id === question.id ? question : q)) : [...j.questions, question],
+        files: question.kind === "PER_USE" ? j.files.map((f) => (f.questionId === question.id ? { ...f, questionId: null } : f)) : j.files,
+      }));
+      markStale();
+    },
+    [markStale],
+  );
+  const onQuestionRemoved = React.useCallback(
+    (questionId: string) => {
+      setJob((j) => ({
+        ...j,
+        questions: j.questions.filter((q) => q.id !== questionId),
+        files: j.files.map((f) => (f.questionId === questionId ? { ...f, questionId: null } : f)),
+      }));
+      markStale();
+    },
+    [markStale],
+  );
+
   const onSkillChange = React.useCallback((skill: JobSkillView) => {
     if (skill.status === "GENERATING") restarts.current += 1;
     setJob((j) => ({
@@ -207,9 +258,9 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
 
   async function remove() {
     const confirmed = await confirmRef.current?.open({
-      title: "Delete this job?",
+      title: "Delete this task?",
       description: "This deletes its files, answers, skills and every version. It can't be undone.",
-      confirmLabel: "Delete job",
+      confirmLabel: "Delete task",
       destructive: true,
     });
     if (!confirmed) return;
@@ -227,19 +278,19 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     if (!result.ok) toast.error(result.message);
   }
 
-  const answers = job.matrix.questions.map((q) => state.answerFor(q.id));
-  const ready = readiness(answers);
-  const gaps = unansweredCount(job.matrix.questions, state.answerFor);
+  // Only "Answer now" questions are answered and scored; per-use inputs never need answers.
+  const fixed = fixedQuestions(job.questions);
+  const ready = readiness(fixed.map((q) => state.answerFor(q.id)));
+  const gaps = unansweredCount(fixed, state.answerFor);
+  const shortId = taskShortMessageId(job.id);
   const canDownload = job.skills.some((s) => s.latestVersion > 0);
   const badges: Record<JobStep, { value: string; label: string } | null> = {
-    job: null,
-    files: { value: String(job.files.length), label: "files" },
+    task: null,
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
     skills: { value: String(job.skills.length), label: "skills" },
   };
   const done: Record<JobStep, boolean> = {
-    job: description.trim() !== "",
-    files: job.files.length > 0,
+    task: canLeave,
     questions: ready.answered > 0,
     skills: canDownload,
   };
@@ -247,14 +298,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   if (deleted) {
     return (
       <div className="glass mx-auto flex max-w-xl flex-col items-center gap-3 rounded-[1.75rem] px-5 py-10 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-balance">This job was deleted</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-balance">This task was deleted</h1>
         <p className="max-w-md text-sm text-pretty text-muted-foreground">
           It may have been deleted in another tab or window. Its files, answers and skills are gone too.
         </p>
         <Button asChild size="lg" className="mt-1">
           <Link href="/prompt-bot/skills">
             <ArrowLeft className="size-4" aria-hidden />
-            Back to your jobs
+            Back to your tasks
           </Link>
         </Button>
       </div>
@@ -268,7 +319,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           {editingTitle ? (
             <form onSubmit={saveTitle} className="max-w-xl">
               <label htmlFor="job-title" className="sr-only">
-                Job title
+                Task title
               </label>
               <Input
                 id="job-title"
@@ -285,7 +336,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
               <h1 className="truncate text-2xl font-semibold tracking-tight" title={job.title}>
                 {job.title}
               </h1>
-              <Button variant="ghost" size="icon" aria-label="Rename job" className="size-11 shrink-0 text-muted-foreground hover:text-foreground" onClick={startRename}>
+              <Button variant="ghost" size="icon" aria-label="Rename task" className="size-11 shrink-0 text-muted-foreground hover:text-foreground" onClick={startRename}>
                 <Pencil className="size-4" aria-hidden />
               </Button>
             </div>
@@ -299,7 +350,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Delete job"
+            aria-label="Delete task"
             className="size-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             onClick={() => void remove()}
           >
@@ -313,7 +364,8 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       <nav aria-label="Steps">
         <ol className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {JOB_STEPS.map((s, i) => {
-            const current = step === s.id;
+            const current = shown === s.id;
+            const locked = !canLeave && s.id !== "task";
             const badge = badges[s.id];
             const complete = done[s.id] && !current;
             return (
@@ -321,9 +373,11 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
                 <button
                   type="button"
                   onClick={() => go(s.id)}
+                  disabled={locked}
+                  aria-describedby={locked ? shortId : undefined}
                   aria-current={current ? "step" : undefined}
                   className={cn(
-                    "flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-55",
                     current ? "bg-primary text-primary-foreground" : "bg-white/55 text-muted-foreground hover:bg-white/80 hover:text-foreground dark:bg-white/5 dark:hover:bg-white/10",
                   )}
                 >
@@ -359,16 +413,25 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
         )}
       </div>
 
-      <div hidden={step !== "job"}>
-        <DescribePanel jobId={job.id} description={description} onDescriptionChange={updateDescription} />
+      <div hidden={shown !== "task"}>
+        <TaskPanel jobId={job.id} description={description} aiConfigured={aiConfigured} onDescriptionChange={updateDescription} />
       </div>
-      <div hidden={step !== "files"}>
-        <FilesPanel jobId={job.id} files={job.files} aiConfigured={aiConfigured} onFileChange={onFileChange} onFileRemoved={onFileRemoved} />
+      <div hidden={shown !== "questions"}>
+        <QuestionsPanel
+          job={job}
+          state={state}
+          aiConfigured={aiConfigured}
+          visible={shown === "questions"}
+          description={description}
+          flushSaves={state.flushSaves}
+          onQuestionsWritten={onQuestionsWritten}
+          onQuestionChange={onQuestionChange}
+          onQuestionRemoved={onQuestionRemoved}
+          onFileChange={onFileChange}
+          onFileRemoved={onFileRemoved}
+        />
       </div>
-      <div hidden={step !== "questions"}>
-        <QuestionsPanel matrix={job.matrix} state={state} />
-      </div>
-      <div hidden={step !== "skills"}>
+      <div hidden={shown !== "skills"}>
         <SkillsPanel
           job={job}
           gaps={gaps}
@@ -391,7 +454,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           <span />
         )}
         {nextStep && (
-          <Button type="button" onClick={() => goAndScroll(nextStep.id)}>
+          <Button
+            type="button"
+            disabled={!canLeave}
+            aria-describedby={canLeave ? undefined : shortId}
+            onClick={() => goAndScroll(nextStep.id)}
+          >
             Next: {nextStep.label}
             <ArrowRight className="size-4" aria-hidden />
           </Button>
@@ -399,7 +467,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       </nav>
 
       <p className="text-center text-xs text-muted-foreground">
-        Your job, files and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
+        Your task, files and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
       </p>
       <ConfirmDialog ref={confirmRef} />
     </div>

@@ -1,30 +1,54 @@
 import { describe, expect, it } from "vitest";
 import type { AnswerView } from "@/lib/prompt-bot/sessions";
 import type { JobFileView, JobSkillView, JobView } from "@/lib/skills/jobs/types";
-import { JOB_STEPS, mergePolled, nextPollDelay, POLL_CAP_MS, POLL_FIRST_MS, pollKey, stepFromHash, unansweredCount } from "./job-steps";
+import { canLeaveTask, fixedQuestions, JOB_STEPS, mergePolled, perUseQuestions, nextPollDelay, POLL_CAP_MS, POLL_FIRST_MS, pollKey, stepFromHash, unansweredCount } from "./job-steps";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z",
-  analysisStatus: "PENDING", analysis: null, analysisEdited: false, analysisError: null, bundlable: true, ...over,
+  analysisStatus: "PENDING", analysis: null, analysisEdited: false, analysisError: null, bundlable: true, questionId: null, ...over,
 });
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
 });
 const job = (over: Partial<JobView> = {}): JobView => ({
-  id: "j1", title: "Board", description: "d", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null,
+  id: "j1", title: "Board", description: "d", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null, questionsGeneratedAt: null, outputType: null, questions: [],
   matrix: { id: "m", name: "Skill definition", questions: [] }, answers: [], files: [], skills: [], ...over,
 });
 
 describe("steps", () => {
-  it("lists the four steps in order", () => {
-    expect(JOB_STEPS.map((s) => [s.id, s.label])).toEqual([["job", "Job"], ["files", "Files"], ["questions", "Questions"], ["skills", "Skills"]]);
+  it("lists the three task steps in order", () => {
+    expect(JOB_STEPS.map((s) => [s.id, s.label])).toEqual([["task", "Task"], ["questions", "Questions"], ["skills", "Skills"]]);
   });
 
-  it("reads the step from the URL hash, defaulting to job", () => {
-    expect(stepFromHash("#files")).toBe("files");
+  it("reads the step from the URL hash, mapping the old job and files hashes", () => {
+    expect(stepFromHash("#task")).toBe("task");
+    expect(stepFromHash("#questions")).toBe("questions");
     expect(stepFromHash("skills")).toBe("skills");
-    expect(stepFromHash("")).toBe("job");
-    expect(stepFromHash("#nope")).toBe("job");
+    expect(stepFromHash("#job")).toBe("task");
+    expect(stepFromHash("#files")).toBe("questions");
+    expect(stepFromHash("")).toBe("task");
+    expect(stepFromHash("#nope")).toBe("task");
+  });
+});
+
+describe("leaving the task step", () => {
+  it("needs 500 characters (trimmed) while the task has no questions", () => {
+    expect(canLeaveTask("x".repeat(499), 0)).toBe(false);
+    expect(canLeaveTask(`  ${"x".repeat(499)}  `, 0)).toBe(false);
+    expect(canLeaveTask("x".repeat(500), 0)).toBe(true);
+  });
+
+  it("never locks out a task that already has questions, however short", () => {
+    expect(canLeaveTask("Board update", 8)).toBe(true);
+    expect(canLeaveTask("", 1)).toBe(true);
+  });
+
+  it("picks the fixed questions in order", () => {
+    const q = (id: string, kind: "FIXED" | "PER_USE", order: number) => ({
+      id, kind, order, text: id, guidance: "", required: true, wantsFiles: false, fileHint: null, fileNote: "", source: "AI" as const,
+    });
+    expect(fixedQuestions([q("b", "FIXED", 2), q("p", "PER_USE", 0), q("a", "FIXED", 1)]).map((x) => x.id)).toEqual(["a", "b"]);
+    expect(perUseQuestions([q("b", "FIXED", 2), q("p", "PER_USE", 0)]).map((x) => x.id)).toEqual(["p"]);
   });
 });
 

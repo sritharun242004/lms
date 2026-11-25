@@ -6,6 +6,7 @@
 // FAKE_FIRST_INVALID=1 makes the first job-skill draft fail validation (exercises the retry).
 // Logs only which kind of call arrived, never request text.
 import http from "node:http";
+import { enhanceReply, JOB_DRAFT, questionsReply } from "./fake-anthropic-shapes.mjs";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
@@ -76,19 +77,8 @@ function scoreFor(user) {
   }));
 }
 
-const VALID_JOB_DRAFT = {
-  description:
-    'Writes the monthly board update from rough notes and this month\'s numbers, in the house style: numbers first, "no surprises". Use when asked for a board update, an investor update or a monthly summary deck.',
-  compatibility: "",
-  body:
-    "# Board update writer\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
-  references: [
-    { path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" },
-    // The server writes references/style-guide.md itself and must drop this one.
-    { path: "style-guide.md", content: "# A style guide the model should not have written\n" },
-  ],
-  scripts: [{ path: "scripts/word_count.py", content: "import sys\nprint(len(sys.stdin.read().split()))\n", purpose: "Counts the words in a draft read from standard input." }],
-};
+/** The job-skill draft (see fake-anthropic-shapes.mjs): its body carries its own "Before you start" section. */
+const VALID_JOB_DRAFT = JOB_DRAFT;
 
 /** Every block type in the first user message, so analysis calls can be told apart without reading their text. */
 function blockTypes(content) {
@@ -107,6 +97,15 @@ function userText(content) {
 
 // Skills Builder shapes, recognised by the JSON schema the app sends.
 function skillsStructured(props, user) {
+  if ("brief" in props) {
+    console.log("[fake] enhance-task");
+    return { brief: enhanceReply(user).brief };
+  }
+  if ("questions" in props && "perUseInputs" in props) {
+    const { kind, regenerate, reply } = questionsReply(user);
+    console.log(`[fake] questions ${kind}${regenerate ? " (regenerate)" : ""}`);
+    return reply;
+  }
   if ("skills" in props) {
     console.log("[fake] suggest");
     const ids = [...new Set([...user.matchAll(/- id: (\S+)/g)].map((m) => m[1]))];

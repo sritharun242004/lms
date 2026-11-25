@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   suggestJobSkills: vi.fn(),
   activeFiles: vi.fn(),
   jobQuestionContext: vi.fn(),
+  jobPerUseInputs: vi.fn(),
   loadJobView: vi.fn(),
   purgeUnreferencedFiles: vi.fn(),
 }));
@@ -41,6 +42,7 @@ vi.mock("./jobs", async (orig) => ({
   ...(await orig<typeof import("./jobs")>()),
   activeFiles: mocks.activeFiles,
   jobQuestionContext: mocks.jobQuestionContext,
+  jobPerUseInputs: mocks.jobPerUseInputs,
   loadJobView: mocks.loadJobView,
 }));
 vi.mock("./files", () => ({ purgeUnreferencedFiles: mocks.purgeUnreferencedFiles }));
@@ -110,6 +112,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.activeFiles.mockResolvedValue([fileRow("f1"), fileRow("f2")]);
   mocks.jobQuestionContext.mockResolvedValue([]);
+  mocks.jobPerUseInputs.mockResolvedValue([]);
   mocks.loadJobView.mockResolvedValue({ id: "j1", skills: [] });
   mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
 });

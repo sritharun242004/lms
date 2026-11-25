@@ -8,7 +8,7 @@ class NamedError extends Error {
 
 export class JobNotFoundError extends NamedError {
   constructor() {
-    super("Job not found");
+    super("Task not found");
   }
 }
 export class FileNotFoundError extends NamedError {
@@ -59,7 +59,7 @@ export class TooManySkillsError extends NamedError {
 }
 export class EmptyDescriptionError extends NamedError {
   constructor() {
-    super("The job has no description");
+    super("The task has no description");
   }
 }
 export class NothingToDownloadError extends NamedError {
@@ -81,6 +81,37 @@ export class PackTooLargeError extends NamedError {
 export class DuplicateNameError extends NamedError {
   constructor(readonly skillName: string) {
     super(`A skill named "${skillName}" already exists`);
+  }
+}
+
+export class QuestionNotFoundError extends NamedError {
+  constructor() {
+    super("Question not found");
+  }
+}
+/** The target list (FIXED "Answer now" or PER_USE "Claude will ask each time") is at its cap. */
+export class TooManyQuestionsError extends NamedError {
+  constructor(readonly kind: "FIXED" | "PER_USE") {
+    super(`Too many ${kind === "FIXED" ? "questions" : "per-use inputs"}`);
+  }
+}
+/** Writing questions needs a description of at least JOB_LIMITS.descriptionMinChars (trimmed). */
+export class DescriptionTooShortError extends NamedError {
+  constructor(readonly length: number) {
+    super("The task description is too short");
+  }
+}
+/** Enhance needs at least JOB_LIMITS.enhanceMinWords words. */
+export class EnhanceInputTooShortError extends NamedError {
+  constructor() {
+    super("Too few words to enhance");
+  }
+}
+
+/** A PATCH renamed a per-use input past JOB_LIMITS.perUseLabelChars (the body alone cannot know the row's kind). */
+export class PerUseLabelTooLongError extends NamedError {
+  constructor() {
+    super("Per-use label too long");
   }
 }
 

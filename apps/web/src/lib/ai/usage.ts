@@ -1,8 +1,16 @@
 import { prisma } from "@/lib/db/prisma";
 
-export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate" | "skill_analyze";
-export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate", "skill_analyze"];
-export const DEFAULT_LIMITS: Record<AiFeature, number> = { score: 300, enhance: 30, skill_split: 10, skill_generate: 20, skill_analyze: 40 };
+export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate" | "skill_analyze" | "skill_enhance" | "skill_questions";
+export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate", "skill_analyze", "skill_enhance", "skill_questions"];
+export const DEFAULT_LIMITS: Record<AiFeature, number> = {
+  score: 300,
+  enhance: 30,
+  skill_split: 10,
+  skill_generate: 20,
+  skill_analyze: 40,
+  skill_enhance: 30,
+  skill_questions: 20,
+};
 
 export class LimitReachedError extends Error {
   constructor(

@@ -62,7 +62,7 @@ export default async function SkillsBuilderPage({ searchParams }: { searchParams
       <header className="text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-balance">Skills Builder</h1>
         <p className="mt-2 text-pretty text-muted-foreground">
-          Turn a job you do every week into your own Agent Skills, built from your own files and templates.
+          Turn a task you do every week into your own Agent Skills, built from your own files and templates.
         </p>
       </header>
 
@@ -75,7 +75,7 @@ export default async function SkillsBuilderPage({ searchParams }: { searchParams
       {jobs.rows.length > 0 && (
         <section className="glass rounded-[1.75rem] p-5" aria-labelledby="your-jobs">
           <h2 id="your-jobs" className="text-sm font-medium text-muted-foreground">
-            Your jobs
+            Your tasks
           </h2>
           <ul className="mt-3 divide-y divide-border/60">
             {jobs.rows.map((job) => (
@@ -95,7 +95,7 @@ export default async function SkillsBuilderPage({ searchParams }: { searchParams
               </li>
             ))}
           </ul>
-          <ListEnd more={jobs.more} showAll={showAll} href={SHOW_ALL} noun="jobs" />
+          <ListEnd more={jobs.more} showAll={showAll} href={SHOW_ALL} noun="tasks" />
         </section>
       )}
 
@@ -127,7 +127,7 @@ export default async function SkillsBuilderPage({ searchParams }: { searchParams
       )}
 
       <p className="text-center text-xs text-muted-foreground">
-        Your job, files and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
+        Your task, files and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
       </p>
     </div>
   );
