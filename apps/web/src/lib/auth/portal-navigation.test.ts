@@ -5,6 +5,7 @@ import {
   portalForRole,
   safePortalDestination,
   sanitizeReturnPath,
+  staffLoginRedirect,
 } from "./portal-navigation";
 
 describe("portal navigation safety", () => {
@@ -61,5 +62,29 @@ describe("portal navigation safety", () => {
 describe("prompt bot access", () => {
   it.each(["participant", "coach", "super-admin", "admin"] as const)("allows %s to return to /prompt-bot", (portal) => {
     expect(safePortalDestination(portal, "/prompt-bot/abc")).toBe("/prompt-bot/abc");
+  });
+});
+
+describe("returning after sign-in", () => {
+  it("sends staff back to the form they were editing", () => {
+    expect(safePortalDestination("admin", "/forms/abc/edit")).toBe("/forms/abc/edit");
+    expect(safePortalDestination("coach", "/feedback")).toBe("/feedback");
+  });
+
+  it("sends a participant back to the form they were opening, but not to staff pages", () => {
+    expect(safePortalDestination("participant", "/forms/fill/inv1")).toBe("/forms/fill/inv1");
+    expect(safePortalDestination("participant", "/forms/abc/edit")).toBe("/");
+  });
+});
+
+describe("old staff login links", () => {
+  it("keeps where the person was headed", () => {
+    expect(staffLoginRedirect("/forms")).toBe("/admin/login?redirect=%2Fforms");
+  });
+
+  it("drops anything that would leave the site", () => {
+    expect(staffLoginRedirect("https://evil.example")).toBe("/admin/login");
+    expect(staffLoginRedirect("//evil.example")).toBe("/admin/login");
+    expect(staffLoginRedirect(undefined)).toBe("/admin/login");
   });
 });

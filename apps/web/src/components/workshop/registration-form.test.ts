@@ -137,6 +137,26 @@ describe("RegistrationForm", () => {
     expect(body).toMatchObject({ fullName: "Asha Rao", company: "Acme", workshopPackage: "DAY1" });
   });
 
+  it("sends one registration even when Continue is tapped twice in quick succession", async () => {
+    const onRegistered = vi.fn();
+    render(createElement(RegistrationForm, { onRegistered }));
+    await fillToCompanyStep();
+    await next();
+    await waitFor(() => expect(screen.getByLabelText(/day 1 only/i)).toBeTruthy());
+    fireEvent.click(screen.getByLabelText(/day 1 only/i));
+    await next();
+    await waitFor(() => expect(screen.getByLabelText(/16 or older/i)).toBeTruthy());
+    fireEvent.click(screen.getByLabelText(/16 or older/i));
+    const submit = screen.getByRole("button", { name: /continue to payment/i });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    await waitFor(() => expect(onRegistered).toHaveBeenCalled());
+    const posts = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([url]) => url === "/api/v1/workshop/registrations"
+    );
+    expect(posts).toHaveLength(1);
+  });
+
   it("defaults to Individual and shows the optional Company/organisation field", async () => {
     render(createElement(RegistrationForm, { onRegistered: () => {} }));
     await fillToCompanyStep();

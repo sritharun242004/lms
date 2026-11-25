@@ -159,7 +159,14 @@ export function RegistrationForm({
     if (fieldsOk && crossFieldOk) setStep((current) => current + 1);
   }
 
+  // The button only disables after a re-render, and validation runs first,
+  // so two quick taps (or Enter + tap) could both get here and create two
+  // registrations. A ref is set synchronously, so the second one stops here.
+  const submittingRef = React.useRef(false);
+
   async function onSubmit(values: FormValues) {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setServerError(null);
     try {
@@ -176,6 +183,7 @@ export function RegistrationForm({
     } catch (error) {
       setServerError(error instanceof Error ? error.message : "Unable to complete registration");
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
