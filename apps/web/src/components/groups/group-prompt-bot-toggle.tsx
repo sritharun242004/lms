@@ -14,10 +14,13 @@ export function GroupPromptBotToggle({
   groupId,
   groupName,
   initialEnabled,
+  variant = "card",
 }: {
   groupId: string;
   groupName: string;
   initialEnabled: boolean;
+  /** "compact": a small pill for the chat header, so an admin can flip it mid-session. */
+  variant?: "card" | "compact";
 }) {
   const [enabled, setEnabled] = React.useState(initialEnabled);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -37,6 +40,29 @@ export function GroupPromptBotToggle({
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (variant === "compact") {
+    return (
+      <div
+        data-state={enabled ? "on" : "off"}
+        title="Let participants in this group use Prompt Bot"
+        className="flex shrink-0 items-center gap-2 rounded-full border border-border/70 px-2.5 py-1 text-xs transition-colors data-[state=on]:border-primary/25 data-[state=on]:bg-primary/[.055]"
+      >
+        <Bot aria-hidden className="size-3.5 shrink-0 text-muted-foreground [[data-state=on]_&]:text-primary" />
+        <Label htmlFor={switchId} className="hidden cursor-pointer font-medium sm:inline">
+          Prompt Bot
+        </Label>
+        <Switch
+          id={switchId}
+          checked={enabled}
+          onCheckedChange={handleChange}
+          disabled={isSaving}
+          aria-label={`Prompt Bot for participants in ${groupName}`}
+          aria-busy={isSaving || undefined}
+        />
+      </div>
+    );
   }
 
   return (
