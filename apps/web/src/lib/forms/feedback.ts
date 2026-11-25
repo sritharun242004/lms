@@ -97,8 +97,9 @@ export type FeedbackAggregate = {
 };
 
 // Trainer-wise / session-wise / staff-wise feedback summaries: every
-// FEEDBACK-category form that has a feedbackTargetType/Label set groups
-// into one row here, with the average of its rating-shaped questions
+// FEEDBACK-category form gets one row here, labelled by its target when one
+// is set and by its title otherwise (the builder has no target field, so
+// most forms have none and would otherwise never appear), with the average of its rating-shaped questions
 // (LINEAR_SCALE/STAR_RATING) — the master prompt's "trainer-wise,
 // session-wise... analytics" requirement, computed generically rather
 // than through bespoke per-target tables.
@@ -108,7 +109,10 @@ export async function getFeedbackAggregates(actor: Actor): Promise<FeedbackAggre
   const forms = await prisma.form.findMany({
     where: {
       category: "FEEDBACK",
-      feedbackTargetType: { not: null },
+      // A template is never filled in itself; its copies carry the answers.
+      isTemplate: false,
+      // Unused copies and drafts would otherwise fill the list with empty rows.
+      responses: { some: {} },
       ...(actor.role === "ADMIN" ? {} : { createdById: actor.id }),
     },
     include: {

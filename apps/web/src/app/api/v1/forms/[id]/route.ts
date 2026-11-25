@@ -28,8 +28,16 @@ export async function PATCH(
   if (!user) return errorResponse("Authentication required", "UNAUTHORIZED", 401);
 
   const { id } = await params;
+  // Same loose typing as req.json() gave this route before; each field is
+  // passed through to updateFormMeta, which Prisma type-checks on write.
+  let body: Awaited<ReturnType<NextRequest["json"]>>;
   try {
-    const body = await req.json();
+    body = await req.json();
+  } catch {
+    // e.g. the page was left mid-request and the body arrived cut off.
+    return errorResponse("Invalid request body", "PARSE_ERROR", 400);
+  }
+  try {
     const form = await updateFormMeta(user, id, {
       title: body.title,
       description: body.description,

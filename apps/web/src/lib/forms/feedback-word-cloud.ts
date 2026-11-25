@@ -6,7 +6,11 @@ type Actor = { id: string; role: string };
 
 export type WordCloudEntry = { word: string; count: number; responseIds: string[] };
 
-// Tokenizes every open-text answer (SHORT_ANSWER/PARAGRAPH) on FEEDBACK
+// Short answers are where names, emails and IDs live, so only paragraph
+// answers — the actual comments — feed the cloud and its drill-down.
+const COMMENT_TYPES = ["PARAGRAPH"] as const;
+
+// Tokenizes every comment (PARAGRAPH) answer on FEEDBACK
 // forms matching the filters, lowercases, strips punctuation, drops stop
 // words, and counts frequency. This is word-frequency only — never
 // sentiment — matching the master prompt's explicit instruction to keep
@@ -36,7 +40,7 @@ export async function getFeedbackWordCloud(
   const openTextQuestionIds = new Set(
     forms
       .flatMap((f) => f.sections.flatMap((s) => s.questions))
-      .filter((q) => q.type === "SHORT_ANSWER" || q.type === "PARAGRAPH")
+      .filter((q) => (COMMENT_TYPES as readonly string[]).includes(q.type))
       .map((q) => q.id)
   );
 
@@ -75,7 +79,7 @@ export async function getOpenTextAnswersForResponses(actor: Actor, responseIds: 
   const answers = await prisma.formAnswer.findMany({
     where: {
       responseId: { in: responseIds },
-      question: { type: { in: ["SHORT_ANSWER", "PARAGRAPH"] } },
+      question: { type: { in: [...COMMENT_TYPES] } },
     },
     select: { id: true, value: true, responseId: true, question: { select: { title: true } } },
   });

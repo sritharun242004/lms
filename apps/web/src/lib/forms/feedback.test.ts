@@ -14,6 +14,17 @@ describe("getFeedbackAggregates", () => {
     await expect(getFeedbackAggregates({ id: "u1", role: "MENTEE" })).rejects.toThrow(/staff/i);
   });
 
+  it("includes a feedback form with no target set, labelled by its title, and skips templates", async () => {
+    findMany.mockResolvedValue([
+      { id: "f9", title: "AI Empowerment for Teams Certificate", feedbackTargetType: null, feedbackTargetLabel: null, sections: [], responses: [{ id: "r1", answers: [] }] },
+    ]);
+    const [aggregate] = await getFeedbackAggregates({ id: "staff1", role: "MENTOR" });
+    expect(aggregate).toMatchObject({ targetType: "GENERAL", targetLabel: "AI Empowerment for Teams Certificate", responseCount: 1 });
+    const where = findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ category: "FEEDBACK", isTemplate: false, responses: { some: {} } });
+    expect(where).not.toHaveProperty("feedbackTargetType");
+  });
+
   it("averages rating-question answers per feedback target", async () => {
     findMany.mockResolvedValue([
       {
