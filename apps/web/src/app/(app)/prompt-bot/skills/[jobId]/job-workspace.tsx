@@ -35,7 +35,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const [editingTitle, setEditingTitle] = React.useState(false);
   /** Set once a rename is committed, so Enter followed by the input's blur saves it only once. */
   const titleCommitted = React.useRef(false);
-  const [step, setStep] = React.useState<JobStep>("job");
+  const [step, setStep] = React.useState<JobStep>("task");
   const [stalledFor, setStalledFor] = React.useState("");
   /** Set when a poll finds the job gone (deleted in another tab): polling stops and the page says so. */
   const [deleted, setDeleted] = React.useState(false);
@@ -232,14 +232,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const gaps = unansweredCount(job.matrix.questions, state.answerFor);
   const canDownload = job.skills.some((s) => s.latestVersion > 0);
   const badges: Record<JobStep, { value: string; label: string } | null> = {
-    job: null,
-    files: { value: String(job.files.length), label: "files" },
+    task: null,
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
     skills: { value: String(job.skills.length), label: "skills" },
   };
   const done: Record<JobStep, boolean> = {
-    job: description.trim() !== "",
-    files: job.files.length > 0,
+    task: description.trim() !== "",
     questions: ready.answered > 0,
     skills: canDownload,
   };
@@ -359,14 +357,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
         )}
       </div>
 
-      <div hidden={step !== "job"}>
+      <div hidden={step !== "task"}>
         <DescribePanel jobId={job.id} description={description} onDescriptionChange={updateDescription} />
       </div>
-      <div hidden={step !== "files"}>
-        <FilesPanel jobId={job.id} files={job.files} aiConfigured={aiConfigured} onFileChange={onFileChange} onFileRemoved={onFileRemoved} />
-      </div>
-      <div hidden={step !== "questions"}>
+      <div hidden={step !== "questions"} className="flex flex-col gap-5">
         <QuestionsPanel matrix={job.matrix} state={state} />
+        <FilesPanel jobId={job.id} files={job.files} aiConfigured={aiConfigured} onFileChange={onFileChange} onFileRemoved={onFileRemoved} />
       </div>
       <div hidden={step !== "skills"}>
         <SkillsPanel
