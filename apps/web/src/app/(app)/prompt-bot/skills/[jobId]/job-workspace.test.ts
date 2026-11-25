@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   saveJobAnswer: vi.fn(),
   scoreJob: vi.fn(),
   downloadZip: vi.fn(),
+  generateJobSkill: vi.fn(),
   push: vi.fn(),
   panels: {} as Record<string, Record<string, unknown>>,
 }));
@@ -20,6 +21,7 @@ vi.mock("@/lib/skills/jobs/client", () => ({
   deleteJob: mocks.deleteJob,
   saveJobAnswer: mocks.saveJobAnswer,
   scoreJob: mocks.scoreJob,
+  generateJobSkill: mocks.generateJobSkill,
   jobDownloadUrl: (id: string) => `/dl/${id}`,
 }));
 vi.mock("@/lib/skills/client", () => ({ downloadZip: mocks.downloadZip }));
@@ -145,10 +147,28 @@ describe("JobWorkspace steps", () => {
       fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete job" }));
     });
     expect(mocks.deleteJob).toHaveBeenCalledWith("j1");
-    // Generate and Suggest live in the skills panel; it gets the pending saves flushed before it calls the AI.
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+
+  it("never asks with window.confirm on the generate path either", async () => {
+    mocks.generateJobSkill.mockResolvedValue(ok(skill({ status: "GENERATING" })));
+    await mount();
+    // Generate lives in the real skills panel; drive it with the props this workspace hands it (one question open).
+    const { SkillsPanel: RealSkillsPanel } = await vi.importActual<typeof import("./skills-panel")>("./skills-panel");
+    const props = mocks.panels.skills as unknown as Parameters<typeof RealSkillsPanel>[0];
+    expect(props.gaps).toBe(1);
+    const panel = render(createElement(RealSkillsPanel, props));
     await act(async () => {
-      await (mocks.panels.skills.flushSaves as () => Promise<void>)();
+      fireEvent.click(within(panel.container).getByRole("button", { name: /^Generate$/ }));
+      await vi.advanceTimersByTimeAsync(0);
     });
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Generate anyway" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.generateJobSkill).toHaveBeenCalledWith("j1", "s1");
+    // The workspace took the GENERATING skill back from the panel.
+    expect(screen.getByText(/skills:board-update=GENERATING/)).toBeTruthy();
     expect(window.confirm).not.toHaveBeenCalled();
   });
 });
