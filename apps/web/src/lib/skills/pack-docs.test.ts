@@ -19,7 +19,8 @@ describe("renderReadme", () => {
 
   it("gives the install steps for each tool and never mentions recommendations", () => {
     expect(readme).toContain("### Claude.ai / Claude Desktop");
-    expect(readme).toContain("Settings → Capabilities → Skills");
+    expect(readme).toContain("Customize → Skills → + → Create skill → Upload a skill");
+    expect(readme).toContain("## Use it");
     expect(readme).toContain("`upload-to-claude/`");
     expect(readme).toContain("### Claude Code");
     expect(readme).toContain("`~/.claude/skills/`");
