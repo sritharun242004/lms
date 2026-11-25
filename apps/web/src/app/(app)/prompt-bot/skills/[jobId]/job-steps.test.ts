@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { AnswerView } from "@/lib/prompt-bot/sessions";
 import type { JobFileView, JobSkillView, JobView } from "@/lib/skills/jobs/types";
+import { jobSkill, jobView, pluginView } from "./plugin-fixtures";
 import { canLeaveTask, fixedQuestions, JOB_STEPS, mergePolled, perUseQuestions, nextPollDelay, POLL_CAP_MS, POLL_FIRST_MS, pollKey, stepFromHash, unansweredCount } from "./job-steps";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z",
   analysisStatus: "PENDING", analysis: null, analysisEdited: false, analysisError: null, bundlable: true, questionId: null, ...over,
 });
-const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
-  id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
-});
-const job = (over: Partial<JobView> = {}): JobView => ({
-  id: "j1", title: "Board", description: "d", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null, questionsGeneratedAt: null, outputType: null, questions: [],
-  matrix: { id: "m", name: "Skill definition", questions: [] }, answers: [], files: [], skills: [], ...over,
-});
+const skill = (over: Partial<JobSkillView> = {}): JobSkillView => jobSkill({ id: "s1", name: "board-update", fileIds: ["f1"], ...over });
+const job = (over: Partial<JobView> = {}): JobView => jobView({ title: "Board", description: "d", ...over });
 
 describe("steps", () => {
   it("lists the three task steps in order", () => {
@@ -61,28 +57,39 @@ describe("polling", () => {
     expect(POLL_CAP_MS).toBe(660_000);
   });
 
-  it("keys on pending files and generating skills only", () => {
-    expect(pollKey(job({ files: [file({ analysisStatus: "READY" })], skills: [skill()] }))).toBe("");
-    expect(pollKey(job({ files: [file()], skills: [skill({ status: "GENERATING" })] }))).toBe("f:f1,s:s1");
+  it("keys on pending files and a generating plugin only", () => {
+    expect(pollKey(job({ files: [file({ analysisStatus: "READY" })], skills: [skill({ status: "GENERATING" })] }))).toBe("");
+    expect(pollKey(job({ files: [file()], plugin: pluginView({ status: "GENERATING", latestVersion: 2 }) }))).toBe("f:f1,p:2");
   });
 
   it("takes only the polled rows' status fields and reports a finished analysis", () => {
     const local = job({
       description: "typed locally",
       files: [file(), file({ id: "f2", analysisStatus: "READY", analysis: "mine" })],
-      skills: [skill({ status: "GENERATING", purpose: "typed purpose" })],
+      plugin: pluginView({ status: "GENERATING", displayName: "Typed name", displayNameIsDefault: false }),
+      skills: [skill({ purpose: "typed purpose" })],
     });
+    const versions = [{ version: 1, name: "acme-quarterly-deck", displayName: "Acme · Quarterly deck", createdAt: "2026-11-25T11:00:00.000Z", skills: 4, assets: 1 }];
     const fresh = job({
       description: "server",
       files: [file({ fileName: "SERVER", analysisStatus: "READY", analysis: "## Colours" }), file({ id: "f2", analysisStatus: "READY", analysis: "server copy" })],
-      skills: [skill({ status: "READY", purpose: "server purpose", latestVersion: 1, versions: [{ version: 1, name: "board-update", createdAt: "2026-11-25T11:00:00.000Z", assets: 1 }] })],
+      plugin: pluginView({ status: "READY", latestVersion: 1, versions }),
+      skills: [skill({ purpose: "server purpose" })],
     });
     const { job: merged, analysed } = mergePolled(local, fresh);
     expect(analysed).toBe(true);
     expect(merged.description).toBe("typed locally");
     expect(merged.files[0]).toEqual({ ...local.files[0], analysisStatus: "READY", analysis: "## Colours" });
     expect(merged.files[1]).toBe(local.files[1]);
-    expect(merged.skills[0]).toEqual({ ...local.skills[0], status: "READY", latestVersion: 1, versions: fresh.skills[0].versions });
+    expect(merged.skills).toBe(local.skills);
+    expect(merged.plugin).toEqual({ ...local.plugin, status: "READY", latestVersion: 1, versions });
+  });
+
+  it("keeps the plugin while it is still generating, and a failure's errors when it ends", () => {
+    const local = job({ plugin: pluginView({ status: "GENERATING" }) });
+    expect(mergePolled(local, job({ plugin: pluginView({ status: "GENERATING" }) })).job.plugin).toBe(local.plugin);
+    const failed = mergePolled(local, job({ plugin: pluginView({ status: "FAILED", validationErrors: ["deck-designer: description is too long"] }) })).job.plugin;
+    expect(failed).toEqual({ ...local.plugin, status: "FAILED", validationErrors: ["deck-designer: description is too long"] });
   });
 
   it("reports no analysis when a pending file failed", () => {

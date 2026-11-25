@@ -13,11 +13,17 @@ const BRIEF = "## Purpose\n\nI write the monthly board report.\n\n## Same every 
 const ok = <T,>(data: T) => ({ ok: true as const, data });
 
 /** The workspace owns the description; this harness plays that part. */
-function Harness({ initial, aiConfigured = true, onChange }: { initial: string; aiConfigured?: boolean; onChange?: (v: string) => void }) {
+function Harness({ initial, aiConfigured = true, onChange, onCompany }: { initial: string; aiConfigured?: boolean; onChange?: (v: string) => void; onCompany?: (v: string) => void }) {
   const [description, setDescription] = useState(initial);
+  const [company, setCompany] = useState("");
   return createElement(TaskPanel, {
     jobId: "j1",
     description,
+    company,
+    onCompanyChange: (v: string) => {
+      onCompany?.(v);
+      setCompany(v);
+    },
     aiConfigured,
     onDescriptionChange: (v: string) => {
       onChange?.(v);
@@ -42,6 +48,18 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 describe("TaskPanel", () => {
+  it("offers an optional company or team, capped at 80 characters", () => {
+    const onCompany = vi.fn();
+    render(createElement(Harness, { initial: LONG, onCompany }));
+    const input = screen.getByLabelText(/Company or team/) as HTMLInputElement;
+    expect(screen.getByText("(optional)")).toBeTruthy();
+    expect(input.maxLength).toBe(80);
+    expect(input.required).toBe(false);
+    fireEvent.change(input, { target: { value: "Acme" } });
+    expect(onCompany).toHaveBeenCalledWith("Acme");
+    expect(input.value).toBe("Acme");
+  });
+
   it("asks for 500 characters while short and points the box at the message", () => {
     mount("  Every month I write the board update.  ");
     expect(box().maxLength).toBe(20_000);

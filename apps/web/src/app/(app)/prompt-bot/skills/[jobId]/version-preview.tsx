@@ -8,17 +8,10 @@ import { downloadZip } from "@/lib/skills/client";
 import { getVersion, versionDownloadUrl } from "@/lib/skills/jobs/client";
 import type { JobSkillView, VersionDetail } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
-
-const WHEN = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+import { when } from "./version-when";
 
 /** A version past the last versionsKept is deleted; the list on screen can still offer it until the page reloads. */
 export const VERSION_PRUNED_MESSAGE = `This version is no longer kept (only the last ${JOB_LIMITS.versionsKept} are kept).`;
-
-/** "25 Nov 14:02" (spec): built from parts so no locale adds a comma between date and time. */
-function when(iso: string): string {
-  const part = Object.fromEntries(WHEN.formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
-  return `${part.day} ${part.month} ${part.hour}:${part.minute}`;
-}
 
 /** Read-only preview and downloads of one version of a skill. Versions never change, so loaded ones are kept. */
 export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkillView }) {
