@@ -30,10 +30,10 @@ const settle = (ms = 0) =>
     await vi.advanceTimersByTimeAsync(ms);
   });
 /** The card with the workspace's real save queue, so autosaves behave as on the page. */
-const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = true) => {
+const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = true, files: JobFileView[] = FILES) => {
   const saves = { current: null as null | ReturnType<typeof useMatrixAnswers> };
   const props = {
-    jobId: "j1", skill: skill(over), files: FILES, gaps, aiConfigured,
+    jobId: "j1", skill: skill(over), files, gaps, aiConfigured,
     flushSaves: vi.fn(() => saves.current!.flushSaves()),
     queueSave: vi.fn((key: string, run: (options: SaveOptions) => Promise<void>) => saves.current!.queueSave(key, run)),
     onChange: vi.fn(), onRemoved: vi.fn(),
@@ -67,6 +67,11 @@ afterEach(() => {
 });
 
 describe("unansweredPhrase", () => {
+  it("points to the questions when the task has no files yet", async () => {
+    await mount({}, 0, true, []);
+    expect(screen.getByText("No files in this task yet. Add them to your questions.")).toBeTruthy();
+  });
+
   it("counts questions in words", () => {
     expect(unansweredPhrase(1)).toBe("1 question unanswered");
     expect(unansweredPhrase(3)).toBe("3 questions unanswered");

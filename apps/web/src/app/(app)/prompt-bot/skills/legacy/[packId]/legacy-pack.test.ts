@@ -72,6 +72,7 @@ describe("LegacyPackView", () => {
   it("shows only written skills, their files and the read-only note", async () => {
     await mount();
     expect(screen.getByText(/made with the earlier Skills Builder\. It can't be changed\./)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Start a new task" }).getAttribute("href")).toBe("/prompt-bot/skills");
     expect(screen.getByRole("button", { name: /board-update/ })).toBeTruthy();
     expect(screen.queryByText("never-written")).toBeNull();
     expect(mocks.getItem).toHaveBeenCalledWith("p1", "i1");

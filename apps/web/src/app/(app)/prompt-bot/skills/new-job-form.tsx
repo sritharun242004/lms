@@ -45,14 +45,14 @@ export function NewJobForm({ draftKey }: { draftKey: string }) {
   return (
     <form onSubmit={submit} className="glass rounded-[1.75rem] p-5 sm:p-6" aria-labelledby="new-job-heading">
       <h2 id="new-job-heading" className="text-lg font-semibold">
-        New job
+        New task
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        One piece of work you repeat. You&apos;ll add your files and answer a few questions next.
+        One piece of work you repeat. Next you&apos;ll describe it in detail, answer a few questions and add your files.
       </p>
 
       <label htmlFor="new-job-title" className="mt-5 block text-sm font-medium">
-        Job title <span className="font-normal text-muted-foreground">(optional)</span>
+        Task title <span className="font-normal text-muted-foreground">(optional)</span>
       </label>
       <Input
         id="new-job-title"
@@ -64,7 +64,7 @@ export function NewJobForm({ draftKey }: { draftKey: string }) {
       />
 
       <label htmlFor="new-job-description" className="mt-4 block text-sm font-medium">
-        Describe the job as you do it today
+        What&apos;s the task?
       </label>
       <Textarea
         id="new-job-description"
@@ -89,7 +89,7 @@ export function NewJobForm({ draftKey }: { draftKey: string }) {
         </span>
         <Button type="submit" size="lg" disabled={!ready}>
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ArrowRight className="size-4" aria-hidden />}
-          {busy ? "Starting…" : "Start job"}
+          {busy ? "Starting…" : "Start task"}
         </Button>
       </div>
     </form>

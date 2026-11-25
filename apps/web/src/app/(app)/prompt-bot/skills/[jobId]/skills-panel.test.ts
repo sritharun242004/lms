@@ -57,7 +57,7 @@ afterEach(() => {
 describe("SkillsPanel suggest", () => {
   it("invites a suggestion when there are no skills, and suggests at once with no gaps", async () => {
     const props = mount();
-    expect(screen.getByText("Turn this job into your own skills.")).toBeTruthy();
+    expect(screen.getByText("Turn this task into your own skills.")).toBeTruthy();
     await press(/^Create my skills/);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(props.flushSaves.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
@@ -203,6 +203,6 @@ describe("SkillsPanel skills", () => {
   it("stops offering Add at five skills", () => {
     mount({ ...JOB, skills: [1, 2, 3, 4, 5].map((n) => skill({ id: `s${n}`, name: `skill-${n}` })) });
     expect((screen.getByRole("button", { name: /^Add skill/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("A job can have at most 5 skills.")).toBeTruthy();
+    expect(screen.getByText("A task can have at most 5 skills.")).toBeTruthy();
   });
 });
