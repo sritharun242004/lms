@@ -18,6 +18,8 @@ export type MatrixGroup = {
 
 type Props = {
   heading: string;
+  /** A quiet line under the heading (e.g. what the questions are for). */
+  subheading?: string | null;
   headingLevel?: "h1" | "h2";
   groups: MatrixGroup[];
   state: MatrixAnswers;
@@ -55,7 +57,7 @@ function statusLine(state: MatrixAnswers): {
  * question rows with 3-slice bars. On large screens the panel stays pinned below the site header and
  * only its question list scrolls, so the header and Check all stay in view; stacked on phones.
  */
-export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activeId, onSelect, children }: Props) {
+export function MatrixPanel({ heading, subheading, headingLevel = "h1", groups, state, activeId, onSelect, children }: Props) {
   const { answerFor } = state;
   const headingId = React.useId();
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -79,12 +81,20 @@ export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activ
     <aside
       className="glass h-fit self-start rounded-[1.75rem] p-4 sm:p-5 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100dvh-7rem)] lg:flex-col"
       aria-labelledby={headingId}
+      aria-describedby={subheading ? `${headingId}-sub` : undefined}
     >
       <div className="shrink-0">
         <ReadinessMeter {...ready}>
-          <Heading id={headingId} className="text-lg font-semibold">
-            {heading}
-          </Heading>
+          <div className="min-w-0">
+            <Heading id={headingId} className="text-lg font-semibold">
+              {heading}
+            </Heading>
+            {subheading && (
+              <p id={`${headingId}-sub`} className="mt-0.5 text-sm text-pretty text-muted-foreground">
+                {subheading}
+              </p>
+            )}
+          </div>
         </ReadinessMeter>
         <div className="mt-2 flex min-h-8 items-center justify-between gap-3">
           <p className={status.tone === "error" ? "text-xs leading-snug text-destructive" : "text-xs leading-snug text-muted-foreground"}>{status.text}</p>
