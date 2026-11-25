@@ -89,7 +89,7 @@ export class QuestionNotFoundError extends NamedError {
     super("Question not found");
   }
 }
-/** The target list (FIXED "Answer now" or PER_USE "Claude will ask each time") is at its cap. */
+/** The target list (FIXED "Answer now" or PER_USE "Asked each time you use it") is at its cap. */
 export class TooManyQuestionsError extends NamedError {
   constructor(readonly kind: "FIXED" | "PER_USE") {
     super(`Too many ${kind === "FIXED" ? "questions" : "per-use inputs"}`);

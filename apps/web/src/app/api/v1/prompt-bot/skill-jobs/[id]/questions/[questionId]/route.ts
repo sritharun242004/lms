@@ -13,7 +13,7 @@ function mapped(error: unknown): Response {
   throw error;
 }
 
-/** Edits a question; `kind` moves it between "Answer now" and "Claude will ask each time". */
+/** Edits a question; `kind` moves it between "Answer now" and "Asked each time you use it". */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();

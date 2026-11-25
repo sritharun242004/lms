@@ -30,7 +30,7 @@ afterEach(cleanup);
 describe("PerUseList", () => {
   it("explains the list and shows each input", () => {
     mount();
-    expect(screen.getByRole("heading", { name: "Claude will ask each time" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Asked each time you use it" })).toBeTruthy();
     expect(screen.getByText(/These change every time — client names, dates, figures\. Don't answer them here/)).toBeTruthy();
     expect(name().value).toBe("Client name");
     expect(hint().value).toBe("e.g. Acme Ltd");
@@ -39,7 +39,7 @@ describe("PerUseList", () => {
 
   it("says when nothing varies yet", () => {
     mount([]);
-    expect(screen.getByText("Nothing varies between uses yet. Add an input if Claude should ask for something each time.")).toBeTruthy();
+    expect(screen.getByText("Nothing varies between uses yet. Add an input if the skill should ask for something each time.")).toBeTruthy();
   });
 
   it("renames on blur, and not when unchanged or blank", async () => {

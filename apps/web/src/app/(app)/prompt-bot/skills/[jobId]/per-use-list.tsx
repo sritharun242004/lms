@@ -8,7 +8,7 @@ import type { QuestionInput, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 
 const HELP = "These change every time — client names, dates, figures. Don't answer them here: your skill will ask for them at the start of every run.";
-const EMPTY = "Nothing varies between uses yet. Add an input if Claude should ask for something each time.";
+const EMPTY = "Nothing varies between uses yet. Add an input if the skill should ask for something each time.";
 const ICON_BUTTON = "size-11 shrink-0 text-muted-foreground hover:text-foreground sm:size-9";
 
 type Props = {
@@ -20,7 +20,7 @@ type Props = {
   onQuestionRemoved(questionId: string): void;
 };
 
-/** "Claude will ask each time": per-use inputs are never answered here; the skill asks for them on every run. */
+/** "Asked each time you use it": per-use inputs are never answered here; the skill asks for them on every run. */
 export function PerUseList({ jobId, inputs, onQuestionChange, onQuestionRemoved }: Props) {
   const headingId = React.useId();
   const [adding, setAdding] = React.useState(false);
@@ -37,14 +37,14 @@ export function PerUseList({ jobId, inputs, onQuestionChange, onQuestionRemoved 
     <section className="glass rounded-[1.75rem] p-4 sm:p-5" aria-labelledby={headingId}>
       <h2 id={headingId} className="flex items-center gap-2 text-lg font-semibold">
         <MessageCircleQuestion className="size-5 text-primary" aria-hidden />
-        Claude will ask each time
+        Asked each time you use it
       </h2>
       <p className="mt-1 max-w-[72ch] text-sm text-pretty text-muted-foreground">{HELP}</p>
 
       {inputs.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-border/70 px-4 py-6 text-center text-sm text-pretty text-muted-foreground">{EMPTY}</p>
       ) : (
-        <ul className="mt-4 flex flex-col divide-y divide-border/60" aria-label="Inputs Claude asks for">
+        <ul className="mt-4 flex flex-col divide-y divide-border/60" aria-label="Inputs asked each time">
           {inputs.map((q) => (
             <PerUseRow key={q.id} jobId={jobId} input={q} onChange={onQuestionChange} onRemoved={onQuestionRemoved} />
           ))}
@@ -68,7 +68,7 @@ export function PerUseList({ jobId, inputs, onQuestionChange, onQuestionRemoved 
             <Plus className="size-4" aria-hidden />
             Add input
           </Button>
-          {full && <p className="text-xs text-muted-foreground">A task can have at most {JOB_LIMITS.perUseInputsPerTask} inputs Claude asks for each time.</p>}
+          {full && <p className="text-xs text-muted-foreground">A task can have at most {JOB_LIMITS.perUseInputsPerTask} inputs asked each time.</p>}
         </div>
       )}
     </section>

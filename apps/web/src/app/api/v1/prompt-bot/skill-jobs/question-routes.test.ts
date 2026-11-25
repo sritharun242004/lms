@@ -131,7 +131,7 @@ describe("POST /:id/questions", () => {
   it("answers 409 when the list is full and 404 for someone else's task", async () => {
     mocks.addQuestion.mockRejectedValueOnce(new TooManyQuestionsError("PER_USE"));
     expect(await result(await questions.POST(req("POST", { text: "Client", kind: "PER_USE" }), ctx))).toMatchObject({
-      status: 409, error: { code: "TOO_MANY_QUESTIONS", message: "A task can have at most 15 inputs Claude asks for each time. Remove one to add another." },
+      status: 409, error: { code: "TOO_MANY_QUESTIONS", message: "A task can have at most 15 inputs asked each time. Remove one to add another." },
     });
     mocks.addQuestion.mockRejectedValueOnce(new JobNotFoundError());
     expect((await questions.POST(req("POST", { text: "Q?" }), ctx)).status).toBe(404);

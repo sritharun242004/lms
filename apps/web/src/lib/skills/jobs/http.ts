@@ -29,7 +29,7 @@ export function jobErrorResponse(error: unknown): Response | null {
       "TOO_MANY_QUESTIONS",
       error.kind === "FIXED"
         ? `A task can have at most ${JOB_LIMITS.questionsPerTask} questions to answer now. Remove one to add another.`
-        : `A task can have at most ${JOB_LIMITS.perUseInputsPerTask} inputs Claude asks for each time. Remove one to add another.`,
+        : `A task can have at most ${JOB_LIMITS.perUseInputsPerTask} inputs asked each time. Remove one to add another.`,
     );
   }
   if (error instanceof E.DescriptionTooShortError) return errorResponse(`${tooShortMessage(error.length)}.`, "DESCRIPTION_TOO_SHORT", 400);
