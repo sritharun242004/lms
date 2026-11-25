@@ -345,6 +345,22 @@ describe("JobWorkspace description", () => {
     expect(questionsState().contextStale).toBe(true);
   });
 
+  it("autosaves the company and takes the plugin's default names from the reply", async () => {
+    const renamed = pluginView({ name: "acme-monthly-board-update", displayName: "Acme · Monthly board update" });
+    mocks.patchJob.mockResolvedValue(ok({ ...JOB, company: "Acme", plugin: renamed }));
+    await mount();
+    expect(mocks.panels.task.company).toBe("");
+    await act(async () => {
+      (mocks.panels.task.onCompanyChange as (v: string) => void)("Acme");
+    });
+    expect(mocks.panels.task.company).toBe("Acme");
+    expect(mocks.patchJob).not.toHaveBeenCalled();
+    await settle(600);
+    expect(mocks.patchJob).toHaveBeenCalledWith("j1", { company: "Acme" }, expect.anything());
+    expect((mocks.panels.skills.job as JobView).plugin.displayName).toBe("Acme · Monthly board update");
+    expect(mocks.scoreJob).not.toHaveBeenCalled();
+  });
+
   it("flags the bars when a file's analysis becomes ready or a file is removed, and drops a removed file from skills", async () => {
     await mount();
     await act(async () => {

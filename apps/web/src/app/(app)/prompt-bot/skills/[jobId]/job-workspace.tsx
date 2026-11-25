@@ -43,6 +43,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   });
   const [description, setDescription] = React.useState(initial.description);
   const [title, setTitle] = React.useState(initial.title);
+  const [company, setCompany] = React.useState(initial.company);
   const [editingTitle, setEditingTitle] = React.useState(false);
   /** Set once a rename is committed, so Enter followed by the input's blur saves it only once. */
   const titleCommitted = React.useRef(false);
@@ -144,6 +145,17 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     queueSave("description", async (options) => {
       const saved = await patchJob(initial.id, { description: value }, options);
       if (!saved.ok) toast.error(saved.message);
+    });
+  }
+
+  // Saved like the description; the reply carries the plugin's default names, which follow the company.
+  function updateCompany(value: string) {
+    setCompany(value);
+    queueSave("company", async (options) => {
+      const saved = await patchJob(initial.id, { company: value }, options);
+      if (!saved.ok) return void toast.error(saved.message);
+      const { name, nameIsDefault, displayName, displayNameIsDefault } = saved.data.plugin;
+      setJob((j) => ({ ...j, company: saved.data.company, plugin: { ...j.plugin, name, nameIsDefault, displayName, displayNameIsDefault } }));
     });
   }
 
@@ -419,7 +431,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       </div>
 
       <div hidden={shown !== "task"}>
-        <TaskPanel jobId={job.id} description={description} aiConfigured={aiConfigured} onDescriptionChange={updateDescription} />
+        <TaskPanel
+          jobId={job.id}
+          description={description}
+          company={company}
+          aiConfigured={aiConfigured}
+          onDescriptionChange={updateDescription}
+          onCompanyChange={updateCompany}
+        />
       </div>
       <div hidden={shown !== "questions"}>
         <QuestionsPanel

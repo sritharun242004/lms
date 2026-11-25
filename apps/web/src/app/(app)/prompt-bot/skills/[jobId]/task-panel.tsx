@@ -3,6 +3,7 @@ import * as React from "react";
 import type { Components } from "react-markdown";
 import { Info, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SafeMarkdown } from "@/components/prompt-bot/safe-markdown";
 import { enhanceTask } from "@/lib/skills/jobs/client";
@@ -41,14 +42,22 @@ const BRIEF_HEADINGS: Components = {
 const BRIEF_TYPE =
   "max-w-[72ch] text-sm leading-relaxed text-foreground/90 [&_h4]:mt-4 [&_h4]:font-semibold [&_h4]:text-foreground [&_h4:first-child]:mt-0 [&_h5]:mt-3 [&_h5]:font-medium [&_p]:mt-1 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mt-0.5 [&_li]:marker:text-muted-foreground [&_em]:text-muted-foreground [&_strong]:font-semibold";
 
-type Props = { jobId: string; description: string; aiConfigured: boolean; onDescriptionChange(value: string): void };
+type Props = {
+  jobId: string;
+  description: string;
+  /** Optional; names the plugin ("Acme · Quarterly deck"). "" = none. */
+  company: string;
+  aiConfigured: boolean;
+  onDescriptionChange(value: string): void;
+  onCompanyChange(value: string): void;
+};
 
 /**
  * Step 1. The workspace owns saving (debounced, flushed before AI calls, sent on page leave); this panel
  * owns Enhance: the suggested brief never replaces the text until the user picks Use this, and Undo
  * puts the previous text back until the next keystroke, the next Enhance or Keep mine.
  */
-export function TaskPanel({ jobId, description, aiConfigured, onDescriptionChange }: Props) {
+export function TaskPanel({ jobId, description, company, aiConfigured, onDescriptionChange, onCompanyChange }: Props) {
   const id = `task-description-${jobId}`;
   const shortId = taskShortMessageId(jobId);
   const boxRef = React.useRef<HTMLTextAreaElement>(null);
@@ -97,7 +106,25 @@ export function TaskPanel({ jobId, description, aiConfigured, onDescriptionChang
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <section className="glass min-w-0 rounded-[1.75rem] p-4 sm:p-5">
-        <label htmlFor={id} className="text-sm font-medium">
+        <div className="flex flex-col gap-1.5 border-b border-border/60 pb-4">
+          <label htmlFor={`${id}-company`} className="text-sm font-medium">
+            Company or team <span className="font-normal text-muted-foreground">(optional)</span>
+          </label>
+          <Input
+            id={`${id}-company`}
+            value={company}
+            maxLength={JOB_LIMITS.companyChars}
+            autoComplete="organization"
+            onChange={(e) => onCompanyChange(e.target.value)}
+            placeholder="e.g. Acme"
+            aria-describedby={`${id}-company-help`}
+            className="min-h-11 max-w-sm bg-white/60 dark:bg-white/5 sm:min-h-9"
+          />
+          <p id={`${id}-company-help`} className="text-xs text-pretty text-muted-foreground">
+            Used in your plugin&apos;s name, like &ldquo;Acme · Quarterly deck&rdquo;.
+          </p>
+        </div>
+        <label htmlFor={id} className="mt-4 block text-sm font-medium">
           Describe the task
         </label>
         <p id={`${id}-help`} className="mt-1 text-xs text-pretty text-muted-foreground">
