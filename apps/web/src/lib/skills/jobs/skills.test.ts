@@ -54,6 +54,7 @@ import {
   EmptyDescriptionError,
   FilesAnalysingError,
   JobNotFoundError,
+  MainRequiredError,
   SkillNotFoundError,
   TooManySkillsError,
 } from "./errors";
@@ -88,6 +89,8 @@ const skill = (over: Record<string, unknown> = {}) => ({
   generationStartedAt: null,
   latestVersion: 1,
   order: 0,
+  role: "SUB",
+  job: { pluginStatus: "DRAFT", pluginGenerationStartedAt: null },
   ...over,
 });
 const skillViewRow = (over: Record<string, unknown> = {}) => ({
@@ -101,6 +104,10 @@ const skillViewRow = (over: Record<string, unknown> = {}) => ({
   validationErrors: [],
   generationStartedAt: null,
   latestVersion: 0,
+  role: "SUB",
+  label: "",
+  focus: "",
+  step: "",
   createdAt: NOW,
   updatedAt: NOW,
   versions: [],
@@ -203,7 +210,7 @@ describe("suggestForJob", () => {
     mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: [] });
     mocks.activeFiles.mockResolvedValueOnce([fileRow("f1", { analysisStatus: "PENDING", analysisStartedAt: minutesAgo(1) })]);
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(FilesAnalysingError);
-    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 5 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
+    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 7 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(TooManySkillsError);
     expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
   });
@@ -226,14 +233,14 @@ describe("suggestForJob", () => {
 
 describe("addSkill", () => {
   beforeEach(() => {
-    mocks.jobFindFirst.mockResolvedValue({ id: "j1", skills: [{ name: "board-deck", order: 0 }] });
+    mocks.jobFindFirst.mockResolvedValue({ id: "j1", skills: [{ name: "board-deck", order: 0, role: "MAIN" }] });
     mocks.skillCreate.mockResolvedValue(skillViewRow());
   });
 
-  it("adds a normalised skill after the others, with all active files by default", async () => {
+  it("adds a normalised sub-skill last in the workflow, with all active files by default", async () => {
     const view = await addSkill("j1", "u1", { name: "New Skill", purpose: "Does\nit." });
     expect(mocks.skillCreate).toHaveBeenCalledWith({
-      data: { jobId: "j1", order: 1, name: "new-skill", purpose: "Does it.", fileIds: ["f1", "f2"] },
+      data: { jobId: "j1", order: 1, role: "SUB", name: "new-skill", label: "", purpose: "Does it.", focus: "", step: "", fileIds: ["f1", "f2"] },
       include: expect.objectContaining({ versions: expect.any(Object) }),
     });
     expect(view.name).toBe("new-skill");
@@ -241,10 +248,19 @@ describe("addSkill", () => {
     expect(mocks.skillCreate.mock.calls[1][0].data.fileIds).toEqual(["f2"]);
   });
 
+  it("keeps label, focus and step on one line within their caps", async () => {
+    await addSkill("j1", "u1", { name: "deck-designer", label: " Design\nslides ", purpose: "p", focus: `Layout\n${"x".repeat(700)}`, step: "Lay out\nthe slides" });
+    expect(mocks.skillCreate.mock.calls[0][0].data).toMatchObject({ label: "Design slides", step: "Lay out the slides" });
+    expect(mocks.skillCreate.mock.calls[0][0].data.focus).toHaveLength(600);
+  });
+
   it("refuses a duplicate name, a full job and a foreign job", async () => {
     await expect(addSkill("j1", "u1", { name: "Board Deck", purpose: "p" })).rejects.toEqual(new DuplicateNameError("board-deck"));
-    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: Array.from({ length: 5 }, (_, i) => ({ name: `k${i}`, order: i })) });
+    const sixSubs = Array.from({ length: 6 }, (_, i) => ({ name: `k${i}`, order: i + 1, role: "SUB" }));
+    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: [{ name: "main", order: 0, role: "MAIN" }, ...sixSubs] });
     await expect(addSkill("j1", "u1", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(TooManySkillsError);
+    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: sixSubs.slice(0, 5) });
+    await expect(addSkill("j1", "u1", { name: "x", purpose: "p" })).resolves.toBeDefined();
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     await expect(addSkill("j1", "u2", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(JobNotFoundError);
   });
@@ -278,6 +294,17 @@ describe("updateSkill", () => {
   it("updates purpose, order and files (filtered to active files)", async () => {
     await updateSkill("j1", "s1", "u1", { purpose: "New\npurpose", order: 3, fileIds: ["f2", "gone"] });
     expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { purpose: "New purpose", order: 3, fileIds: ["f2"] } });
+  });
+
+  it("updates label, focus and step", async () => {
+    await updateSkill("j1", "s1", "u1", { label: "Grammar\ncheck", focus: "Wording only", step: "Check the wording" });
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { label: "Grammar check", focus: "Wording only", step: "Check the wording" } });
+  });
+
+  it("refuses a rename while the plugin is being written", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date() } }));
+    await expect(updateSkill("j1", "s1", "u1", { name: "other" })).rejects.toBeInstanceOf(AlreadyGeneratingError);
   });
 
   it("refuses a rename while generating and a duplicate name, and 404s a foreign skill", async () => {
@@ -318,9 +345,20 @@ describe("deleteSkill", () => {
     log.mockRestore();
   });
 
+  it("never removes the main skill", async () => {
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ role: "MAIN" }));
+    await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(MainRequiredError);
+    expect(mocks.skillDelete).not.toHaveBeenCalled();
+  });
+
   it("refuses while generating and 404s a foreign skill", async () => {
     mocks.skillFindFirst.mockResolvedValueOnce(skill({ status: "GENERATING", generationStartedAt: new Date() }));
     await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date() } }));
+    await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date(Date.now() - 11 * 60_000) } }));
+    await expect(deleteSkill("j1", "s1", "u1")).resolves.toBeUndefined();
+    mocks.skillDelete.mockClear();
     mocks.skillFindFirst.mockResolvedValueOnce(null);
     await expect(deleteSkill("j1", "s1", "u2")).rejects.toBeInstanceOf(SkillNotFoundError);
     expect(mocks.skillDelete).not.toHaveBeenCalled();

@@ -63,6 +63,12 @@ export class TooManySkillsError extends NamedError {
     super("Too many skills");
   }
 }
+/** The main skill runs the whole plugin: it can be renamed, never removed. */
+export class MainRequiredError extends NamedError {
+  constructor() {
+    super("The main skill can't be removed");
+  }
+}
 export class EmptyDescriptionError extends NamedError {
   constructor() {
     super("The task has no description");

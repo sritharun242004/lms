@@ -11,6 +11,7 @@ import {
   FilesAnalysingError,
   isUniqueViolation,
   JobNotFoundError,
+  MainRequiredError,
   SkillNotFoundError,
   TooManySkillsError,
 } from "./errors";
@@ -135,10 +136,24 @@ export async function loadSkillView(jobId: string, skillId: string, userId: stri
   return row ? toSkillView(row) : null;
 }
 
-export async function addSkill(jobId: string, userId: string, input: { name: string; purpose: string; fileIds?: string[] }): Promise<JobSkillView> {
-  const job = await prisma.skillJob.findFirst({ where: { id: jobId, userId }, select: { id: true, skills: { select: { name: true, order: true } } } });
+export type SkillInput = { name: string; label?: string; purpose: string; focus?: string; step?: string; fileIds?: string[] };
+
+/** The display fields of a skill, each on one line within its cap. */
+function skillTexts(input: { label?: string; focus?: string; step?: string }): { label?: string; focus?: string; step?: string } {
+  const out: { label?: string; focus?: string; step?: string } = {};
+  if (input.label !== undefined) out.label = oneLine(input.label, JOB_LIMITS.skillLabelChars);
+  if (input.focus !== undefined) out.focus = oneLine(input.focus, JOB_LIMITS.skillFocusChars);
+  if (input.step !== undefined) out.step = oneLine(input.step, JOB_LIMITS.skillStepChars);
+  return out;
+}
+
+/** Plugins: always a sub-skill, appended last in the workflow; at most JOB_LIMITS.subSkillsMax. */
+export async function addSkill(jobId: string, userId: string, input: SkillInput): Promise<JobSkillView> {
+  const job = await prisma.skillJob.findFirst({ where: { id: jobId, userId }, select: { id: true, skills: { select: { name: true, order: true, role: true } } } });
   if (!job) throw new JobNotFoundError();
-  if (job.skills.length >= JOB_LIMITS.skillsPerJob) throw new TooManySkillsError();
+  if (job.skills.filter((s) => s.role === "SUB").length >= JOB_LIMITS.subSkillsMax || job.skills.length >= JOB_LIMITS.skillsPerJob) {
+    throw new TooManySkillsError();
+  }
   const name = normalizeSkillName(input.name);
   if (job.skills.some((s) => s.name === name)) throw new DuplicateNameError(name);
   const activeFileIds = (await activeFiles(jobId)).map((f) => f.id);
@@ -147,8 +162,13 @@ export async function addSkill(jobId: string, userId: string, input: { name: str
       data: {
         jobId,
         order: Math.max(-1, ...job.skills.map((s) => s.order)) + 1,
+        role: "SUB",
         name,
+        label: "",
         purpose: oneLine(input.purpose, SKILL_PURPOSE_MAX),
+        focus: "",
+        step: "",
+        ...skillTexts(input),
         fileIds: cleanFileIds(input.fileIds ?? activeFileIds, activeFileIds),
       },
       include: skillInclude,
@@ -159,25 +179,30 @@ export async function addSkill(jobId: string, userId: string, input: { name: str
   }
 }
 
+const pluginClaim = { select: { pluginStatus: true, pluginGenerationStartedAt: true } } as const;
+/** A legacy per-skill generation or a fresh plugin generation fixes this skill's name and existence. */
+const busy = (skill: { status: string; generationStartedAt: Date | null; job: { pluginStatus: string; pluginGenerationStartedAt: Date | null } }) =>
+  isGenerating(skill.status, skill.generationStartedAt) || isGenerating(skill.job.pluginStatus, skill.job.pluginGenerationStartedAt);
+
 /** Renaming changes the next version's name only; existing versions are immutable (spec, Data Model). */
 export async function updateSkill(
   jobId: string,
   skillId: string,
   userId: string,
-  patch: { name?: string; purpose?: string; fileIds?: string[]; order?: number },
+  patch: { name?: string; label?: string; purpose?: string; focus?: string; step?: string; fileIds?: string[]; order?: number },
 ): Promise<JobSkillView> {
   const skill = await prisma.skillJobSkill.findFirst({
     where: { id: skillId, jobId, job: { userId } },
-    select: { id: true, name: true, status: true, generationStartedAt: true },
+    select: { id: true, name: true, status: true, generationStartedAt: true, job: pluginClaim },
   });
   if (!skill) throw new SkillNotFoundError();
-  const data: Prisma.SkillJobSkillUpdateInput = {};
+  const data: Prisma.SkillJobSkillUpdateInput = { ...skillTexts(patch) };
   if (patch.purpose !== undefined) data.purpose = oneLine(patch.purpose, SKILL_PURPOSE_MAX);
   if (patch.order !== undefined) data.order = patch.order;
   if (patch.fileIds !== undefined) data.fileIds = cleanFileIds(patch.fileIds, (await activeFiles(jobId)).map((f) => f.id));
   const name = patch.name === undefined ? skill.name : normalizeSkillName(patch.name);
   if (name !== skill.name) {
-    if (isGenerating(skill.status, skill.generationStartedAt)) throw new AlreadyGeneratingError();
+    if (busy(skill)) throw new AlreadyGeneratingError();
     const clash = await prisma.skillJobSkill.findFirst({ where: { jobId, name, id: { not: skillId } }, select: { id: true } });
     if (clash) throw new DuplicateNameError(name);
     data.name = name;
@@ -196,9 +221,13 @@ export async function updateSkill(
 
 /** Deletes the skill and its versions (cascade), then the removed files only those versions kept. */
 export async function deleteSkill(jobId: string, skillId: string, userId: string): Promise<void> {
-  const skill = await prisma.skillJobSkill.findFirst({ where: { id: skillId, jobId, job: { userId } }, select: { id: true, status: true, generationStartedAt: true } });
+  const skill = await prisma.skillJobSkill.findFirst({
+    where: { id: skillId, jobId, job: { userId } },
+    select: { id: true, role: true, status: true, generationStartedAt: true, job: pluginClaim },
+  });
   if (!skill) throw new SkillNotFoundError();
-  if (isGenerating(skill.status, skill.generationStartedAt)) throw new AlreadyGeneratingError();
+  if (skill.role === "MAIN") throw new MainRequiredError();
+  if (busy(skill)) throw new AlreadyGeneratingError();
   await prisma.skillJobSkill.delete({ where: { id: skillId } });
   // The skill is gone; a purge failure only leaves removed files' bytes for the next purge.
   try {

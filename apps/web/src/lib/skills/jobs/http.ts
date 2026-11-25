@@ -50,8 +50,9 @@ export function jobErrorResponse(error: unknown): Response | null {
     return conflict("FILE_NAME_TAKEN", `Another file named "${error.fileName}" was added at the same moment. Upload it again.`);
   }
   if (error instanceof E.TooManySkillsError) {
-    return conflict("TOO_MANY_SKILLS", `A task can have at most ${JOB_LIMITS.skillsPerJob} skills. Remove one to add another.`);
+    return conflict("TOO_MANY_SKILLS", `A plugin can have at most ${JOB_LIMITS.subSkillsMax} sub-skills.`);
   }
+  if (error instanceof E.MainRequiredError) return conflict("MAIN_REQUIRED", "The main skill can't be removed. Rename it instead.");
   if (error instanceof E.DuplicateNameError) {
     return conflict("DUPLICATE_NAME", `A skill named "${error.skillName}" is already in this task. Choose another name.`);
   }
