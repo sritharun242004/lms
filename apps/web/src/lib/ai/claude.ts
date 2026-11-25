@@ -12,8 +12,15 @@ import {
   QUESTIONS_TIMEOUT_MS,
   SUGGEST_TIMEOUT_MS,
 } from "@/lib/skills/limits";
-import { ANALYSE_SYSTEM, ENHANCE_TASK_SYSTEM, GENERATE_JOB_SYSTEM, QUESTIONS_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
-import type { JobSkillDraft, RawSuggestions, RawTaskQuestions } from "@/lib/skills/jobs/types";
+import {
+  ANALYSE_SYSTEM,
+  ENHANCE_TASK_SYSTEM,
+  GENERATE_JOB_SYSTEM,
+  GENERATE_SUB_SKILL_SYSTEM,
+  QUESTIONS_SYSTEM,
+  SUGGEST_SYSTEM,
+} from "@/lib/skills/jobs/instructions";
+import type { JobSkillDraft, RawPluginSuggestion, RawTaskQuestions } from "@/lib/skills/jobs/types";
 
 let client: Anthropic | null = null;
 
@@ -189,12 +196,16 @@ export async function analyseFile(content: AnalysisContent): Promise<string> {
   return text.slice(0, JOB_LIMITS.analysisChars);
 }
 
-const SuggestReply = z.object({
-  skills: z.array(z.object({ name: z.string(), purpose: z.string(), fileIds: z.array(z.string()) })),
+const SuggestFileIds = z.array(z.string());
+/** Exported for the fake API's shape test. */
+export const PluginSuggestReply = z.object({
+  main: z.object({ name: z.string(), label: z.string(), purpose: z.string(), fileIds: SuggestFileIds }),
+  subSkills: z.array(z.object({ name: z.string(), label: z.string(), purpose: z.string(), focus: z.string(), step: z.string(), fileIds: SuggestFileIds })),
 });
 
-/** Proposes the skills for one job (spec, Suggest Skills). The caller applies cleanSuggestions. */
-export async function suggestJobSkills(message: string): Promise<RawSuggestions> {
+/** Proposes the plugin's structure for one task (plugins spec, Suggest). The caller applies cleanPluginSuggestion. */
+export async function suggestJobSkills(message: string): Promise<RawPluginSuggestion> {
+  const fileIds = { type: "array", items: STRING };
   return structured({
     model: BEST_MODEL,
     fallback: true,
@@ -202,9 +213,10 @@ export async function suggestJobSkills(message: string): Promise<RawSuggestions>
     system: SUGGEST_SYSTEM,
     user: message,
     schema: object({
-      skills: { type: "array", items: object({ name: STRING, purpose: STRING, fileIds: { type: "array", items: STRING } }) },
+      main: object({ name: STRING, label: STRING, purpose: STRING, fileIds }),
+      subSkills: { type: "array", items: object({ name: STRING, label: STRING, purpose: STRING, focus: STRING, step: STRING, fileIds }) },
     }),
-    parse: SuggestReply,
+    parse: PluginSuggestReply,
     maxTokens: 4000,
   });
 }
@@ -218,14 +230,14 @@ const JobDraftReply = z.object({
   scripts: z.array(JobFile.extend({ purpose: z.string() })),
 });
 
-/** Writes one job skill as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
-export async function generateJobSkillDraft(message: string): Promise<JobSkillDraft> {
+/** Writes one job skill (a plugin's main skill, or a sub-skill with the stand-alone rules) as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
+export async function generateJobSkillDraft(message: string, role: "main" | "sub" = "main"): Promise<JobSkillDraft> {
   const file = object({ path: STRING, content: STRING });
   return structured({
     model: BEST_MODEL,
     fallback: true,
     requestOptions: JOB_GENERATE_REQUEST,
-    system: GENERATE_JOB_SYSTEM,
+    system: role === "sub" ? GENERATE_SUB_SKILL_SYSTEM : GENERATE_JOB_SYSTEM,
     user: message,
     schema: object({
       description: STRING,

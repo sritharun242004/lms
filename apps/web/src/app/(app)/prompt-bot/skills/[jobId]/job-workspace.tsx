@@ -11,8 +11,8 @@ import { NotConfigured } from "@/components/prompt-bot/not-configured";
 import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { readiness } from "@/lib/prompt-bot/scoring";
 import { downloadZip } from "@/lib/skills/client";
-import { deleteJob, getJob, jobDownloadUrl, patchJob, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
-import type { JobFileView, JobSkillView, JobView, TaskQuestionView } from "@/lib/skills/jobs/types";
+import { deleteJob, getJob, patchJob, pluginDownloadUrl, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
+import type { JobFileView, JobSkillView, JobView, PluginView, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +43,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   });
   const [description, setDescription] = React.useState(initial.description);
   const [title, setTitle] = React.useState(initial.title);
+  const [company, setCompany] = React.useState(initial.company);
   const [editingTitle, setEditingTitle] = React.useState(false);
   /** Set once a rename is committed, so Enter followed by the input's blur saves it only once. */
   const titleCommitted = React.useRef(false);
@@ -51,7 +52,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   /** Set when a poll finds the job gone (deleted in another tab): polling stops and the page says so. */
   const [deleted, setDeleted] = React.useState(false);
   /**
-   * Bumped whenever a row starts waiting again (re-analyse, Generate v2). A poll sent before that
+   * Bumped whenever a row starts waiting again (re-analyse, Generate plugin). A poll sent before that
    * would copy the row's older finished state back over it, so its reply is not merged.
    */
   const restarts = React.useRef(0);
@@ -147,6 +148,17 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     });
   }
 
+  // Saved like the description; the reply carries the plugin's default names, which follow the company.
+  function updateCompany(value: string) {
+    setCompany(value);
+    queueSave("company", async (options) => {
+      const saved = await patchJob(initial.id, { company: value }, options);
+      if (!saved.ok) return void toast.error(saved.message);
+      const { name, nameIsDefault, displayName, displayNameIsDefault } = saved.data.plugin;
+      setJob((j) => ({ ...j, company: saved.data.company, plugin: { ...j.plugin, name, nameIsDefault, displayName, displayNameIsDefault } }));
+    });
+  }
+
   const onFileChange = React.useCallback(
     (file: JobFileView) => {
       const previous = jobRef.current.files.find((f) => f.id === file.id);
@@ -221,7 +233,6 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   );
 
   const onSkillChange = React.useCallback((skill: JobSkillView) => {
-    if (skill.status === "GENERATING") restarts.current += 1;
     setJob((j) => ({
       ...j,
       skills: j.skills.some((s) => s.id === skill.id) ? j.skills.map((s) => (s.id === skill.id ? skill : s)) : [...j.skills, skill],
@@ -230,8 +241,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const onSkillRemoved = React.useCallback((skillId: string) => {
     setJob((j) => ({ ...j, skills: j.skills.filter((s) => s.id !== skillId) }));
   }, []);
+  /** Suggest (Create / Redraft) replaces the skills and resets the plugin's names. */
   const onJobChange = React.useCallback((next: JobView) => {
-    setJob((j) => ({ ...j, skills: next.skills, suggestedAt: next.suggestedAt }));
+    setJob((j) => ({ ...j, skills: next.skills, suggestedAt: next.suggestedAt, plugin: next.plugin }));
+  }, []);
+  /** A renamed plugin, or Generate's GENERATING reply: an older poll's finished copy must not overwrite it. */
+  const onPluginChange = React.useCallback((plugin: PluginView) => {
+    if (plugin.status === "GENERATING") restarts.current += 1;
+    setJob((j) => ({ ...j, plugin }));
   }, []);
 
   function startRename() {
@@ -270,10 +287,10 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   }
 
   const [downloading, setDownloading] = React.useState(false);
-  async function downloadAll() {
-    if (downloading) return;
+  async function downloadPlugin() {
+    if (downloading || job.plugin.latestVersion === 0) return;
     setDownloading(true);
-    const result = await downloadZip(jobDownloadUrl(job.id));
+    const result = await downloadZip(pluginDownloadUrl(job.id, job.plugin.latestVersion, "plugin"));
     setDownloading(false);
     if (!result.ok) toast.error(result.message);
   }
@@ -283,7 +300,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const ready = readiness(fixed.map((q) => state.answerFor(q.id)));
   const gaps = unansweredCount(fixed, state.answerFor);
   const shortId = taskShortMessageId(job.id);
-  const canDownload = job.skills.some((s) => s.latestVersion > 0);
+  const canDownload = job.plugin.latestVersion > 0;
   const badges: Record<JobStep, { value: string; label: string } | null> = {
     task: null,
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
@@ -343,10 +360,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="lg" disabled={!canDownload || downloading} aria-busy={downloading || undefined} onClick={() => void downloadAll()}>
-            {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
-            Download all skills
-          </Button>
+          {canDownload && (
+            <Button size="lg" disabled={downloading} aria-busy={downloading || undefined} onClick={() => void downloadPlugin()}>
+              {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
+              Download plugin<span className="sr-only">{`, latest version (v${job.plugin.latestVersion})`}</span>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -414,7 +433,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       </div>
 
       <div hidden={shown !== "task"}>
-        <TaskPanel jobId={job.id} description={description} aiConfigured={aiConfigured} onDescriptionChange={updateDescription} />
+        <TaskPanel
+          jobId={job.id}
+          description={description}
+          company={company}
+          aiConfigured={aiConfigured}
+          onDescriptionChange={updateDescription}
+          onCompanyChange={updateCompany}
+        />
       </div>
       <div hidden={shown !== "questions"}>
         <QuestionsPanel
@@ -439,6 +465,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           flushSaves={state.flushSaves}
           queueSave={queueSave}
           onJobChange={onJobChange}
+          onPluginChange={onPluginChange}
           onSkillChange={onSkillChange}
           onSkillRemoved={onSkillRemoved}
         />

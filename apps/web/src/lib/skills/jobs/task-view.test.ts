@@ -30,6 +30,7 @@ const perUse = q({ id: "p1", order: 6, kind: "PER_USE", text: "Client name", gui
 const jobRow = (over: Record<string, unknown> = {}) => ({
   id: "j1", userId: "u1", title: "Client SLA", description: "d", scoreRevision: 0, suggestedAt: null, createdAt: NOW, updatedAt: NOW,
   questionsGeneratedAt: NOW, outputType: "client SLA document",
+  company: "", pluginName: null, pluginDisplayName: null, pluginStatus: "DRAFT", pluginValidationErrors: [], pluginGenerationStartedAt: null, pluginLatestVersion: 0, pluginVersions: [],
   questions: [q(), perUse],
   files: [{ id: "f1", jobId: "j1", fileName: "sla.docx", assetName: "sla.docx", kind: "DOCX", mimeType: "x", size: 10, sha256: "a",
     analysis: null, analysisStatus: "READY", analysisStartedAt: null, analysisEdited: false, analysisError: null, deletedAt: null,

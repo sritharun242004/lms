@@ -13,7 +13,7 @@ describe("server copy says Task", () => {
     expect(await message(jobErrorResponse(new E.JobNotFoundError()))).toBe("Task not found");
     expect(await message(jobErrorResponse(new E.AlreadyGeneratingError()))).toBe("A skill in this task is being written. Wait for it to finish.");
     expect(await message(jobErrorResponse(new E.TooManyFilesError()))).toBe("A task can have at most 10 files. Remove one to add another.");
-    expect(await message(jobErrorResponse(new E.TooManySkillsError()))).toBe("A task can have at most 5 skills. Remove one to add another.");
+    expect(await message(jobErrorResponse(new E.TooManySkillsError()))).toBe("A plugin can have at most 6 sub-skills.");
     expect(await message(jobErrorResponse(new E.DuplicateNameError("a")))).toBe('A skill named "a" is already in this task. Choose another name.');
     expect(await message(jobErrorResponse(new E.EmptyDescriptionError()))).toBe("Describe the task first.");
     expect(new E.JobNotFoundError().message).toBe("Task not found");

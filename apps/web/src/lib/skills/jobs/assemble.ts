@@ -5,6 +5,7 @@ import { JOB_LIMITS, SKILL_LIMITS } from "../limits";
 import { oneLine } from "../names";
 import type { SkillFile } from "../types";
 import { megabytes } from "./format";
+import { SUB_BEFORE_YOU_START_NOTE } from "./plugin-assemble";
 import type { ShippedFile } from "./instructions";
 import type { JobSkillDraft, PerUseInput, VersionAsset } from "./types";
 
@@ -72,7 +73,9 @@ export function filesSection(plan: ShippedFile[], questions: QuestionRef[] = [])
     const question = questionOf(f, questions);
     const added = question ? ` Added for the question "${displayName(question.text)}".` : "";
     if (f.shipping === "bundled") lines.push(`- \`${f.path}\`: the original "${name}". ${REUSE[f.kind]}${added}`);
-    else if (f.reason === "too-large") {
+    else if (f.shipping === "in-main") {
+      lines.push(`- "${name}": Kept in the \`${f.mainSkill}\` skill of this plugin (\`${f.path}\`). If you can't open it, ask the user to attach it.${added}`);
+    } else if (f.reason === "too-large") {
       lines.push(`- "${name}" (${megabytes(f.size)}) was too large to include. Its style is described in \`references/style-guide.md\`.${added}`);
     } else {
       lines.push(
@@ -85,6 +88,7 @@ export function filesSection(plan: ShippedFile[], questions: QuestionRef[] = [])
 
 function statusLine(f: ShippedFile): string {
   if (f.shipping === "bundled") return `Bundled as ${f.path}.`;
+  if (f.shipping === "in-main") return `Bundled in the ${f.mainSkill} skill of this plugin as ${f.path}.`;
   return f.reason === "too-large" ? "Not bundled (too large)." : "Not bundled (over the 25 MB limit for bundled files).";
 }
 
@@ -163,17 +167,19 @@ const BEFORE_YOU_START_NOTE =
   "These change every time this skill is used. Check the request first, then ask for anything missing in one message before doing any work. Never guess or invent them.";
 const BEFORE_YOU_START = /^ {0,3}(#{1,6})[ \t]+before you start\b/i;
 
-export function beforeYouStartSection(perUse: PerUseInput[]): string {
+export function beforeYouStartSection(perUse: PerUseInput[], note = BEFORE_YOU_START_NOTE): string {
   if (perUse.length === 0) return "";
   const items = perUse.map((p) => {
     const hint = oneLine(p.hint);
     return `- **${oneLine(p.label).replace(/\*/g, "")}** (${p.required ? "required" : "if available"})${hint ? `: ${hint}` : ""}`;
   });
-  return [BEFORE_YOU_START_HEADING, "", BEFORE_YOU_START_NOTE, "", ...items].join("\n");
+  return [BEFORE_YOU_START_HEADING, "", note, "", ...items].join("\n");
 }
 
-/** Removes every "Before you start" section the model wrote: from its heading to the next heading of the same or a higher level. */
-function withoutModelSection(body: string): string {
+const HOW_THIS_SKILL_WORKS = /^ {0,3}(#{1,6})[ \t]+how this skill works\b/i;
+
+/** Removes every section the model wrote whose heading matches: from its heading to the next heading of the same or a higher level. */
+function withoutModelSection(body: string, pattern = BEFORE_YOU_START): string {
   const lines = body.split("\n");
   const out: string[] = [];
   let skipLevel = 0;
@@ -183,7 +189,7 @@ function withoutModelSection(body: string): string {
       if (!heading || heading[2].length > skipLevel) continue;
       skipLevel = 0;
     }
-    const own = BEFORE_YOU_START.exec(line);
+    const own = pattern.exec(line);
     if (own) {
       skipLevel = own[1].length;
       continue;
@@ -193,30 +199,52 @@ function withoutModelSection(body: string): string {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** Puts the server's section after the body's first "# " title line (else at the top), replacing any model-written copy. */
-export function withBeforeYouStart(body: string, perUse: PerUseInput[]): string {
-  const clean = withoutModelSection(body);
-  const section = beforeYouStartSection(perUse);
-  if (!section) return clean;
-  const lines = clean.split("\n");
+/** Inserts `section` after the body's first "# " title line (else at the top). */
+function afterTitle(body: string, section: string): string {
+  if (!section) return body;
+  const lines = body.split("\n");
   const title = lines.findIndex((line) => /^# /.test(line));
-  if (title === -1) return clean ? `${section}\n\n${clean}` : section;
+  if (title === -1) return body ? `${section}\n\n${body}` : section;
   const head = lines.slice(0, title + 1).join("\n");
   const rest = lines.slice(title + 1).join("\n").trim();
   return rest ? `${head}\n\n${section}\n\n${rest}` : `${head}\n\n${section}`;
 }
+
+/** Puts the server's section after the body's first "# " title line (else at the top), replacing any model-written copy. */
+export function withBeforeYouStart(body: string, perUse: PerUseInput[], note?: string): string {
+  return afterTitle(withoutModelSection(body), beforeYouStartSection(perUse, note));
+}
+
+/** The main skill's workflow goes after "Before you start" (else after the title), replacing any model-written copy. */
+function withHowThisSkillWorks(body: string, section: string): string {
+  const clean = withoutModelSection(body, HOW_THIS_SKILL_WORKS);
+  const lines = clean.split("\n");
+  const start = lines.findIndex((line) => line === BEFORE_YOU_START_HEADING);
+  if (start === -1) return afterTitle(clean, section);
+  const next = lines.findIndex((line, i) => i > start && /^ {0,3}#{1,2}[ \t]/.test(line));
+  const end = next === -1 ? lines.length : next;
+  const head = lines.slice(0, end).join("\n").trimEnd();
+  const rest = lines.slice(end).join("\n").trim();
+  return rest ? `${head}\n\n${section}\n\n${rest}` : `${head}\n\n${section}`;
+}
+
+/** Plugins: the main skill carries the workflow section; a sub-skill carries the stand-alone note under its title. */
+export type PluginSkillSections = { role: "MAIN"; section: string } | { role: "SUB"; note: string };
 
 /** Turns the model's draft and the asset plan into a version's text files and asset entries. `name` owns the folder. */
 export function assembleJobSkill(
   name: string,
   draft: JobSkillDraft,
   plan: ShippedFile[],
-  context: { questions?: QuestionRef[]; perUse?: PerUseInput[] } = {},
+  context: { questions?: QuestionRef[]; perUse?: PerUseInput[]; plugin?: PluginSkillSections } = {},
 ): { files: SkillFile[]; assets: VersionAsset[] } {
   const questions = context.questions ?? [];
   const scripts = draft.scripts.map((s) => ({ path: inFolder("scripts", s.path), content: s.content, purpose: oneLine(s.purpose) }));
   const unlisted = scripts.filter((s) => !draft.body.includes(s.path));
-  let body = withBeforeYouStart(draft.body.trim(), context.perUse ?? []);
+  const plugin = context.plugin;
+  let body = withBeforeYouStart(draft.body.trim(), context.perUse ?? [], plugin?.role === "SUB" ? SUB_BEFORE_YOU_START_NOTE : undefined);
+  if (plugin?.role === "MAIN") body = withHowThisSkillWorks(body, plugin.section);
+  else if (plugin?.role === "SUB") body = afterTitle(body, plugin.note);
   if (unlisted.length > 0) {
     body += `\n\n## Scripts\n\nReview each script before running it.\n\n${unlisted.map((s) => `- \`${s.path}\`: ${s.purpose}`).join("\n")}`;
   }

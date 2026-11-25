@@ -19,3 +19,11 @@ describe("task usage features", () => {
     expect(normalizeLimits({ skill_questions: 3 }).skill_questions).toBe(3);
   });
 });
+
+describe("plugin usage feature", () => {
+  it("meters plugin generation at 10 a day by default", () => {
+    expect(AI_FEATURES).toContain("plugin_generate");
+    expect(DEFAULT_LIMITS.plugin_generate).toBe(10);
+    expect(normalizeLimits({}).plugin_generate).toBe(10);
+  });
+});

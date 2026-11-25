@@ -8,7 +8,10 @@ import { JOB_LIMITS } from "@/lib/skills/limits";
 
 const Body = z.object({
   name: z.string().trim().min(1).max(JOB_LIMITS.skillNameChars),
+  label: z.string().trim().max(JOB_LIMITS.skillLabelChars).optional(),
   purpose: z.string().trim().min(1).max(JOB_LIMITS.skillPurposeChars),
+  focus: z.string().trim().max(JOB_LIMITS.skillFocusChars).optional(),
+  step: z.string().trim().max(JOB_LIMITS.skillStepChars).optional(),
   fileIds: z.array(z.string().min(1).max(64)).max(JOB_LIMITS.fileIdsPerSkill).optional(),
 });
 

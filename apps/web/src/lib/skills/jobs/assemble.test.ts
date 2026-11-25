@@ -52,7 +52,7 @@ describe("planAssets", () => {
       file({ id: "d", assetName: "d.png", kind: "PNG", size: 1 * MB }),
     ]);
     expect(plan.map((p) => p.id)).toEqual(["a", "b", "c", "d"]);
-    expect(plan.map((p) => (p.shipping === "bundled" ? "bundled" : p.reason))).toEqual(["bundled", "bundled", "over-budget", "bundled"]);
+    expect(plan.map((p) => (p.shipping === "analysis-only" ? p.reason : p.shipping))).toEqual(["bundled", "bundled", "over-budget", "bundled"]);
   });
 });
 

@@ -11,8 +11,11 @@ const PatchBody = z
   .object({
     title: z.string().trim().min(1).max(JOB_LIMITS.titleChars).optional(),
     description: z.string().max(JOB_LIMITS.descriptionChars).optional(),
+    company: z.string().trim().max(JOB_LIMITS.companyChars).optional(),
+    pluginName: z.string().trim().min(1).max(JOB_LIMITS.pluginDisplayNameChars).nullable().optional(),
+    pluginDisplayName: z.string().trim().min(1).max(JOB_LIMITS.pluginDisplayNameChars).nullable().optional(),
   })
-  .refine((v) => v.title !== undefined || v.description !== undefined, "Nothing to update");
+  .refine((v) => Object.values(v).some((field) => field !== undefined), "Nothing to update");
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const user = await getCurrentUser();

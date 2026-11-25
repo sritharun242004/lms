@@ -17,6 +17,7 @@ vi.mock("@anthropic-ai/sdk", async (orig) => {
 });
 
 import { analyseFile, generateJobSkillDraft, scoreQuestions, suggestJobSkills } from "./claude";
+import { GENERATE_JOB_SYSTEM, GENERATE_SUB_SKILL_SYSTEM } from "@/lib/skills/jobs/instructions";
 import { AiNotConfiguredError } from "./config";
 import Anthropic from "@anthropic-ai/sdk";
 import { AiBadRequestError, AiResponseError, isAiCallError } from "./errors";
@@ -154,23 +155,27 @@ describe("skills builder job calls", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it("suggests with Opus 5.5, the fallback, a skills schema with file ids, and a request-scoped timeout", async () => {
-    const skills = { skills: [{ name: "board-deck", purpose: "Builds the deck.", fileIds: ["f1"] }] };
-    mocks.betaCreate.mockResolvedValue(reply(skills));
-    await expect(suggestJobSkills("message")).resolves.toEqual(skills);
+  it("suggests a plugin with Opus 5.5, the fallback, a main + sub-skills schema with file ids, and a request-scoped timeout", async () => {
+    const plugin = {
+      main: { name: "quarterly-deck", label: "Quarterly deck", purpose: "Builds the deck.", fileIds: ["f1"] },
+      subSkills: [{ name: "deck-designer", label: "Design", purpose: "Lays out slides.", focus: "Layout only.", step: "Lay out the slides", fileIds: [] }],
+    };
+    mocks.betaCreate.mockResolvedValue(reply(plugin));
+    await expect(suggestJobSkills("message")).resolves.toEqual(plugin);
     const [args, options] = mocks.betaCreate.mock.calls[0];
     expect(args.model).toBe("claude-opus-5-5");
     expect(args.betas).toEqual(["server-side-fallback-2026-07-01"]);
     expect(args.fallbacks).toBe("default");
     expect(args.max_tokens).toBe(4000);
-    const item = args.output_config.format.schema.properties.skills.items;
-    expect(item.required).toEqual(["name", "purpose", "fileIds"]);
-    expect(item.properties.fileIds).toEqual({ type: "array", items: { type: "string" } });
+    const props = args.output_config.format.schema.properties;
+    expect(props.main.required).toEqual(["name", "label", "purpose", "fileIds"]);
+    expect(props.subSkills.items.required).toEqual(["name", "label", "purpose", "focus", "step", "fileIds"]);
+    expect(props.subSkills.items.properties.fileIds).toEqual({ type: "array", items: { type: "string" } });
     expect(options).toEqual({ timeout: 100_000, maxRetries: 0 });
   });
 
   it("rejects a suggestion that does not match the schema", async () => {
-    mocks.betaCreate.mockResolvedValue(reply({ skills: [{ name: "a", purpose: "b" }] }));
+    mocks.betaCreate.mockResolvedValue(reply({ skills: [{ name: "a", purpose: "b", fileIds: [] }] }));
     await expect(suggestJobSkills("m")).rejects.toBeInstanceOf(AiResponseError);
   });
 
@@ -185,6 +190,16 @@ describe("skills builder job calls", () => {
     expect(options).toEqual({ timeout: 240_000, maxRetries: 0 });
     mocks.betaCreate.mockResolvedValueOnce({ content: [{ type: "text", text: "{" }], stop_reason: "max_tokens" });
     await expect(generateJobSkillDraft("m")).rejects.toThrow("max_tokens");
+  });
+
+  it("writes a sub-skill with the stand-alone rules appended to the same system prompt", async () => {
+    const draft = { description: "d", compatibility: "", body: "b", references: [], scripts: [] };
+    mocks.betaCreate.mockResolvedValue(reply(draft));
+    await generateJobSkillDraft("m");
+    await generateJobSkillDraft("m", "sub");
+    expect(mocks.betaCreate.mock.calls[0][0].system).toBe(GENERATE_JOB_SYSTEM);
+    expect(mocks.betaCreate.mock.calls[1][0].system).toBe(GENERATE_SUB_SKILL_SYSTEM);
+    expect(mocks.betaCreate.mock.calls[1][0].model).toBe("claude-opus-5-5");
   });
 });
 

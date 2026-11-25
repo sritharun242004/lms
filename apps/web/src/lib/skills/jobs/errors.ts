@@ -36,6 +36,12 @@ export class AlreadyGeneratingError extends NamedError {
     super("A skill is being written");
   }
 }
+/** The plugin is being generated (a fresh claim): its names and skills are fixed until it finishes. */
+export class PluginGeneratingError extends NamedError {
+  constructor() {
+    super("The plugin is being written");
+  }
+}
 export class FilesAnalysingError extends NamedError {
   constructor() {
     super("Files are still being analysed");
@@ -55,6 +61,18 @@ export class FileNameTakenError extends NamedError {
 export class TooManySkillsError extends NamedError {
   constructor() {
     super("Too many skills");
+  }
+}
+/** The plugin's structure can't be generated (details.skills lists why, e.g. "Add at least 2 sub-skills."). */
+export class PluginInvalidError extends NamedError {
+  constructor(readonly reasons: string[]) {
+    super("The plugin's structure is not valid");
+  }
+}
+/** The main skill runs the whole plugin: it can be renamed, never removed. */
+export class MainRequiredError extends NamedError {
+  constructor() {
+    super("The main skill can't be removed");
   }
 }
 export class EmptyDescriptionError extends NamedError {

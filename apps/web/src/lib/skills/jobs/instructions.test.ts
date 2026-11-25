@@ -18,7 +18,7 @@ describe("system prompts", () => {
       expect(ANALYSE_SYSTEM).toContain(heading);
     }
     expect(ANALYSE_SYSTEM).toContain("(approximate)");
-    expect(SUGGEST_SYSTEM).toMatch(/usually exactly one/i);
+    expect(SUGGEST_SYSTEM).toContain("Design one plugin for this task: a main skill that does the whole job end to end, and 2–4 sub-skills");
     expect(SUGGEST_SYSTEM).toMatch(/already built/i);
     expect(GENERATE_JOB_SYSTEM).toContain("references/style-guide.md");
     expect(GENERATE_JOB_SYSTEM).toMatch(/never write references\/style-guide\.md/i);

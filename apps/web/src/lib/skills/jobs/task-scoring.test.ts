@@ -58,7 +58,7 @@ describe("runJobScoring", () => {
   });
 
   it("scores the FIXED questions with each question's files and writes the scores to their rows", async () => {
-    mocks.jobFindFirst.mockResolvedValueOnce(job()).mockResolvedValueOnce({ scoreRevision: 3 }).mockResolvedValueOnce({ ...job(), questions: [], files: [], skills: [], updatedAt: NOW, suggestedAt: null, questionsGeneratedAt: null, outputType: null });
+    mocks.jobFindFirst.mockResolvedValueOnce(job()).mockResolvedValueOnce({ scoreRevision: 3 }).mockResolvedValueOnce({ ...job(), questions: [], files: [], skills: [], updatedAt: NOW, suggestedAt: null, questionsGeneratedAt: null, outputType: null, company: "", pluginName: null, pluginDisplayName: null, pluginStatus: "DRAFT", pluginValidationErrors: [], pluginGenerationStartedAt: null, pluginLatestVersion: 0, pluginVersions: [], });
     mocks.scoreQuestions.mockResolvedValue([{ questionId: "q2", score: 2, reason: "Partly" }]);
     const result = await runJobScoring("j1", "u1", 3);
     const args = mocks.jobFindFirst.mock.calls[0][0];

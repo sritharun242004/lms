@@ -178,14 +178,14 @@ export function enhanceReply(user) {
   return { kind, brief };
 }
 
-/** The fake generate draft: valid, but its body carries its own "Before you start" section (a model ignoring the
- * instruction), which the server must replace with exactly one server-written section. */
+/** The fake generate draft: valid, but its body carries its own "Before you start" and "How this skill works" sections
+ * (a model ignoring the instructions), which the server must replace with exactly one server-written copy of each. */
 export const JOB_DRAFT = {
   description:
     'Writes the monthly board update from rough notes and this month\'s numbers, in the house style: numbers first, "no surprises". Use when asked for a board update, an investor update or a monthly summary deck.',
   compatibility: "",
   body:
-    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
+    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\n## How this skill works\n\n1. A model-written workflow, which the server replaces with its own.\n\n## Steps\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
   references: [
     { path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" },
     // The server writes references/style-guide.md itself and must drop this one.
@@ -193,5 +193,82 @@ export const JOB_DRAFT = {
   ],
   scripts: [{ path: "scripts/word_count.py", content: "import sys\nprint(len(sys.stdin.read().split()))\n", purpose: "Counts the words in a draft read from standard input." }],
 };
+
+const sub = (name, label, purpose, focus, step) => ({ name, label, purpose, focus, step });
+/** Suggest (plugins): one main skill and three sub-skills per kind. "other" repeats a sub name to exercise clean-up. */
+const PLUGINS = {
+  carousel: {
+    main: { name: "instagram-carousel", label: "Instagram carousel", purpose: "Use to make a weekly Instagram carousel for the roastery, from topic to scheduled post." },
+    subSkills: [
+      sub("carousel-designer", "Slide design", "Use to lay out carousel slides in the brand look.", "Only the slide layout and visuals; leaves copy and scheduling to the main skill.", "Lay out the slides in the brand look"),
+      sub("caption-writer", "Captions", "Use to write the hook, slide copy and caption.", "Only the words; leaves the design to the main skill.", "Write the hook, slide copy and caption"),
+      sub("hashtag-check", "Hashtag check", "Use to check hashtags and the call to action before posting.", "Only the final checks; leaves fixes to the main skill.", "Check hashtags and the call to action"),
+    ],
+  },
+  video: {
+    main: { name: "explainer-video", label: "Explainer video", purpose: "Use to produce a ninety-second feature explainer video from release notes." },
+    subSkills: [
+      sub("script-writer", "Script", "Use to write the explainer script from release notes.", "Only the script; leaves recording and editing to the main skill.", "Write the script from the release notes"),
+      sub("video-editor", "Edit", "Use to plan the cut, captions, intro and outro.", "Only the edit plan; leaves the script to the main skill.", "Plan the cut, captions, intro and outro"),
+      sub("clarity-check", "Clarity check", "Use to check the video is clear for non-accountants.", "Only the review; leaves fixes to the main skill.", "Check it is clear and never salesy"),
+    ],
+  },
+  sla: {
+    main: { name: "client-sla", label: "Client SLA", purpose: "Use to write a client SLA document from the Word template once a deal is agreed." },
+    subSkills: [
+      sub("sla-drafter", "Draft", "Use to fill the template with the client's details and service levels.", "Only the drafting; leaves the legal check to the main skill.", "Fill the template for this client"),
+      sub("clause-check", "Clause check", "Use to check the standard clauses and the master services agreement.", "Only the clause review; leaves drafting to the main skill.", "Check the clauses against the MSA"),
+      sub("sla-formatter", "Formatting", "Use to apply the template's formatting before legal review.", "Only the formatting; leaves the wording to the main skill.", "Apply the template's formatting"),
+    ],
+  },
+  finance: {
+    main: { name: "monthly-financial-report", label: "Monthly report", purpose: "Use at month-end to prepare the leadership financial report and workbook." },
+    subSkills: [
+      sub("ledger-analyzer", "Ledger analysis", "Use to analyse the trial balance and sales ledger exports.", "Only the analysis; leaves the writing to the main skill.", "Analyse the ledger exports"),
+      sub("report-writer", "Report", "Use to write the two-page report from the numbers.", "Only the writing; leaves the numbers to the main skill.", "Write the two-page report"),
+      sub("numbers-check", "Numbers check", "Use to check the figures against the bank and last month.", "Only the checks; leaves fixes to the main skill.", "Check the numbers before sending"),
+    ],
+  },
+  other: {
+    main: { name: "client-dinner-wine-list", label: "Wine list", purpose: "Use to put together the wine list for a client dinner." },
+    subSkills: [
+      sub("wine-picker", "Wine picks", "Use to choose wines that suit the menu and budget.", "Only the choice of wines; leaves the notes to the main skill.", "Choose the wines"),
+      sub("tasting-notes", "Tasting notes", "Use to write a short tasting note per wine.", "Only the notes; leaves the choice to the main skill.", "Write the tasting notes"),
+      sub("tasting-notes", "Duplicate", "A repeated name, to check that names are made unique.", "Only a duplicate.", "Check the duplicate"),
+    ],
+  },
+};
+
+/** The plugin suggestion for this task: the main skill reuses every file id (plus an unknown one), the first sub-skill the first. */
+export function pluginSuggestionReply(user) {
+  const kind = taskKind(user);
+  const ids = [...new Set([...user.matchAll(/- id: (\S+)/g)].map((m) => m[1]))];
+  const base = PLUGINS[kind];
+  return {
+    kind,
+    reply: {
+      main: { ...base.main, fileIds: [...ids, "file_that_does_not_exist"] },
+      subSkills: base.subSkills.map((s, i) => ({ ...s, fileIds: i === 0 ? ids.slice(0, 1) : [] })),
+    },
+  };
+}
+
+/** The sub-skill named in the message's <sub_skill> block, or null for a main or single skill. */
+export function subSkillName(user) {
+  const match = /<sub_skill>\nname: (\S+)/.exec(user);
+  return match ? match[1] : null;
+}
+
+/** A valid, short sub-skill draft for `name`, with its own reference file. */
+export function subSkillDraft(name) {
+  const title = name.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return {
+    description: `Does just the ${name.replace(/-/g, " ")} part of this task, on its own or as a step of the main skill. Use when asked for ${name.replace(/-/g, " ")}.`,
+    compatibility: "",
+    body: `# ${title}\n\n1. Read \`references/${name}-checklist.md\`, because it lists what this part must get right.\n2. Do this part from the request and the files given.\n3. Check the result against the checklist and list any fixes.\n`,
+    references: [{ path: `${name}-checklist.md`, content: `# ${title} checklist\n\n- [Add what this part must get right here]\n` }],
+    scripts: [],
+  };
+}
 
 export { KINDS };

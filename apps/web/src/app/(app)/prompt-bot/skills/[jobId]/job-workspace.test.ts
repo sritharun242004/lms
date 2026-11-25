@@ -12,7 +12,11 @@ const mocks = vi.hoisted(() => ({
   saveJobAnswer: vi.fn(),
   scoreJob: vi.fn(),
   downloadZip: vi.fn(),
-  generateJobSkill: vi.fn(),
+  generatePlugin: vi.fn(),
+  patchJobSkill: vi.fn(),
+  removeJobSkill: vi.fn(),
+  addJobSkill: vi.fn(),
+  suggestSkills: vi.fn(),
   push: vi.fn(),
   panels: {} as Record<string, Record<string, unknown>>,
 }));
@@ -22,8 +26,12 @@ vi.mock("@/lib/skills/jobs/client", () => ({
   deleteJob: mocks.deleteJob,
   saveJobAnswer: mocks.saveJobAnswer,
   scoreJob: mocks.scoreJob,
-  generateJobSkill: mocks.generateJobSkill,
-  jobDownloadUrl: (id: string) => `/dl/${id}`,
+  generatePlugin: mocks.generatePlugin,
+  patchJobSkill: mocks.patchJobSkill,
+  removeJobSkill: mocks.removeJobSkill,
+  addJobSkill: mocks.addJobSkill,
+  suggestSkills: mocks.suggestSkills,
+  pluginDownloadUrl: (id: string, version: number, format: string) => `/dl/${id}/${version}/${format}`,
 }));
 vi.mock("@/lib/skills/client", () => ({ downloadZip: mocks.downloadZip }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -52,20 +60,19 @@ vi.mock("./skills-panel", async () => {
   return {
     SkillsPanel: (props: { job: JobView; gaps: number } & Record<string, unknown>) => {
       mocks.panels.skills = props;
-      return h("p", null, `skills:${props.job.skills.map((s) => `${s.name}=${s.status}`).join("|")} gaps:${props.gaps}`);
+      return h("p", null, `skills:${props.job.skills.map((s) => `${s.name}=${s.status}`).join("|")} plugin:${props.job.plugin.status} gaps:${props.gaps}`);
     },
   };
 });
 
 import { JobWorkspace } from "./job-workspace";
+import { jobSkill, pluginView } from "./plugin-fixtures";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z",
   analysisStatus: "READY", analysis: "## Colours", analysisEdited: false, analysisError: null, bundlable: true, questionId: "q1", ...over,
 });
-const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
-  id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
-});
+const skill = (over: Partial<JobSkillView> = {}): JobSkillView => jobSkill({ id: "s1", role: "MAIN", name: "board-update", fileIds: ["f1"], ...over });
 const question = (over: Partial<TaskQuestionView> = {}): TaskQuestionView => ({
   id: "q1", order: 0, kind: "FIXED", text: "When should this skill be used?", guidance: "Triggers", required: true,
   wantsFiles: false, fileHint: null, fileNote: "", source: "AI", ...over,
@@ -95,6 +102,8 @@ const JOB: JobView = {
     { questionId: "q2", answer: "", score: 1, reason: "Vague", notRelevant: false },
   ],
   files: [file()],
+  company: "",
+  plugin: pluginView({ name: "monthly-board-update", displayName: "Monthly board update" }),
   skills: [skill()],
 };
 const ok = <T,>(data: T) => ({ ok: true as const, data });
@@ -211,24 +220,25 @@ describe("JobWorkspace steps", () => {
   });
 
   it("never asks with window.confirm on the generate path either", async () => {
-    mocks.generateJobSkill.mockResolvedValue(ok(skill({ status: "GENERATING" })));
-    await mount();
+    mocks.generatePlugin.mockResolvedValue(ok(pluginView({ status: "GENERATING" })));
+    const subs = [jobSkill({ id: "s2", order: 1, name: "board-figures" }), jobSkill({ id: "s3", order: 2, name: "board-check" })];
+    await mount({ ...JOB, skills: [skill(), ...subs] });
     // Generate lives in the real skills panel; drive it with the props this workspace hands it (one question open).
     const { SkillsPanel: RealSkillsPanel } = await vi.importActual<typeof import("./skills-panel")>("./skills-panel");
     const props = mocks.panels.skills as unknown as Parameters<typeof RealSkillsPanel>[0];
     expect(props.gaps).toBe(1);
     const panel = render(createElement(RealSkillsPanel, props));
     await act(async () => {
-      fireEvent.click(within(panel.container).getByRole("button", { name: /^Generate: board-update$/ }));
+      fireEvent.click(within(panel.container).getByRole("button", { name: /^Generate plugin$/ }));
       await vi.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
       fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Generate anyway" }));
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(mocks.generateJobSkill).toHaveBeenCalledWith("j1", "s1");
-    // The workspace took the GENERATING skill back from the panel.
-    expect(screen.getByText(/skills:board-update=GENERATING/)).toBeTruthy();
+    expect(mocks.generatePlugin).toHaveBeenCalledWith("j1");
+    // The workspace took the GENERATING plugin back from the panel.
+    expect(screen.getByText(/plugin:GENERATING/)).toBeTruthy();
     expect(window.confirm).not.toHaveBeenCalled();
   });
 });
@@ -250,17 +260,33 @@ describe("JobWorkspace polling", () => {
     expect(mocks.getJob).toHaveBeenCalledTimes(1);
   });
 
-  it("polls while a skill is written and shows the result", async () => {
-    mocks.getJob.mockResolvedValue(ok({ ...JOB, skills: [skill({ status: "READY", latestVersion: 1 })] }));
-    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
-    expect(screen.getByText(/board-update=GENERATING/)).toBeTruthy();
+  it("polls while the plugin is written and shows the result", async () => {
+    const ready = pluginView({ name: "monthly-board-update", status: "READY", latestVersion: 1 });
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, plugin: ready }));
+    await mount({ ...JOB, plugin: pluginView({ status: "GENERATING" }) });
+    expect(screen.getByText(/plugin:GENERATING/)).toBeTruthy();
     await settle(3000);
-    expect(screen.getByText(/board-update=READY/)).toBeTruthy();
+    expect(screen.getByText(/plugin:READY/)).toBeTruthy();
+    await settle(60_000);
+    expect(mocks.getJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts polling when the panel reports a generating plugin", async () => {
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, plugin: pluginView({ status: "READY", latestVersion: 1 }) }));
+    await mount();
+    await settle(5000);
+    expect(mocks.getJob).not.toHaveBeenCalled();
+    await act(async () => {
+      (mocks.panels.skills.onPluginChange as (p: JobView["plugin"]) => void)(pluginView({ status: "GENERATING" }));
+    });
+    expect(screen.getByText(/plugin:GENERATING/)).toBeTruthy();
+    await settle(3000);
+    expect(screen.getByText(/plugin:READY/)).toBeTruthy();
   });
 
   it("says it is still working once the cap passes", async () => {
-    mocks.getJob.mockResolvedValue(ok({ ...JOB, skills: [skill({ status: "GENERATING" })] }));
-    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, plugin: pluginView({ status: "GENERATING" }) }));
+    await mount({ ...JOB, plugin: pluginView({ status: "GENERATING" }) });
     await settle(12 * 60_000);
     expect(screen.getByRole("status").textContent).toMatch(/Still working/);
   });
@@ -287,7 +313,7 @@ describe("JobWorkspace polling", () => {
 
   it("stops polling and says so when the job was deleted elsewhere", async () => {
     mocks.getJob.mockResolvedValue({ ok: false, code: "NOT_FOUND", message: "Task not found" });
-    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
+    await mount({ ...JOB, plugin: pluginView({ status: "GENERATING" }) });
     await settle(3000);
     expect(screen.getByRole("heading", { name: "This task was deleted" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Back to your tasks/ }).getAttribute("href")).toBe("/prompt-bot/skills");
@@ -298,8 +324,8 @@ describe("JobWorkspace polling", () => {
   it("pauses while the page is hidden and resumes when it is shown", async () => {
     let visibility: DocumentVisibilityState = "hidden";
     vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
-    mocks.getJob.mockResolvedValue(ok({ ...JOB, skills: [skill({ status: "GENERATING" })] }));
-    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, plugin: pluginView({ status: "GENERATING" }) }));
+    await mount({ ...JOB, plugin: pluginView({ status: "GENERATING" }) });
     await settle(60_000);
     expect(mocks.getJob).not.toHaveBeenCalled();
     visibility = "visible";
@@ -328,6 +354,22 @@ describe("JobWorkspace description", () => {
     expect(questionsState().contextStale).toBe(true);
   });
 
+  it("autosaves the company and takes the plugin's default names from the reply", async () => {
+    const renamed = pluginView({ name: "acme-monthly-board-update", displayName: "Acme · Monthly board update" });
+    mocks.patchJob.mockResolvedValue(ok({ ...JOB, company: "Acme", plugin: renamed }));
+    await mount();
+    expect(mocks.panels.task.company).toBe("");
+    await act(async () => {
+      (mocks.panels.task.onCompanyChange as (v: string) => void)("Acme");
+    });
+    expect(mocks.panels.task.company).toBe("Acme");
+    expect(mocks.patchJob).not.toHaveBeenCalled();
+    await settle(600);
+    expect(mocks.patchJob).toHaveBeenCalledWith("j1", { company: "Acme" }, expect.anything());
+    expect((mocks.panels.skills.job as JobView).plugin.displayName).toBe("Acme · Monthly board update");
+    expect(mocks.scoreJob).not.toHaveBeenCalled();
+  });
+
   it("flags the bars when a file's analysis becomes ready or a file is removed, and drops a removed file from skills", async () => {
     await mount();
     await act(async () => {
@@ -352,12 +394,12 @@ describe("JobWorkspace description", () => {
     expect(questionsState().contextStale).toBe(true);
   });
 
-  it("takes only skills from a suggestion reply", async () => {
+  it("takes only skills and the plugin from a suggestion reply", async () => {
     await mount();
     await act(async () => {
-      (mocks.panels.skills.onJobChange as (j: JobView) => void)({ ...JOB, description: "server", skills: [skill({ id: "s9", name: "weekly-report" })] });
+      (mocks.panels.skills.onJobChange as (j: JobView) => void)({ ...JOB, description: "server", plugin: pluginView({ status: "FAILED" }), skills: [skill({ id: "s9", name: "weekly-report" })] });
     });
-    expect(screen.getByText(/skills:weekly-report=DRAFT/)).toBeTruthy();
+    expect(screen.getByText(/skills:weekly-report=DRAFT plugin:FAILED/)).toBeTruthy();
     expect(screen.getByText("description:Every month I write the board update.")).toBeTruthy();
   });
 });
@@ -462,15 +504,16 @@ describe("JobWorkspace header", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Monthly board update" })).toBeTruthy();
   });
 
-  it("downloads all skills only when one has a version", async () => {
+  it("offers Download plugin once the plugin has a version, and downloads the latest plugin zip", async () => {
     await mount();
-    expect((screen.getByRole("button", { name: /Download all skills/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: /Download/ })).toBeNull();
     cleanup();
-    await mount({ ...JOB, skills: [skill({ status: "READY", latestVersion: 1 })] });
+    await mount({ ...JOB, plugin: pluginView({ status: "READY", latestVersion: 3 }) });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Download all skills/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Download plugin/ }));
     });
-    expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1");
+    expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1/3/plugin");
+    expect(steps().getByRole("button", { name: /Skills/ }).textContent).toContain("(done)");
   });
 
   it("deletes the job only after a destructive confirm", async () => {

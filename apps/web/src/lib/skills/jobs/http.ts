@@ -41,6 +41,7 @@ export function jobErrorResponse(error: unknown): Response | null {
   }
   if (error instanceof E.AlreadyAnalysingError) return conflict("ALREADY_ANALYSING", "This file is still being analysed. Wait for it to finish.");
   if (error instanceof E.AlreadyGeneratingError) return conflict("ALREADY_GENERATING", "A skill in this task is being written. Wait for it to finish.");
+  if (error instanceof E.PluginGeneratingError) return conflict("ALREADY_GENERATING", "Your plugin is being written. Wait for it to finish.");
   if (error instanceof E.FilesAnalysingError) return conflict("FILES_ANALYSING", "Wait until your files have been analysed.");
   if (error instanceof E.TooManyFilesError) {
     return conflict("TOO_MANY_FILES", `A task can have at most ${JOB_LIMITS.filesPerJob} files. Remove one to add another.`);
@@ -49,8 +50,12 @@ export function jobErrorResponse(error: unknown): Response | null {
     return conflict("FILE_NAME_TAKEN", `Another file named "${error.fileName}" was added at the same moment. Upload it again.`);
   }
   if (error instanceof E.TooManySkillsError) {
-    return conflict("TOO_MANY_SKILLS", `A task can have at most ${JOB_LIMITS.skillsPerJob} skills. Remove one to add another.`);
+    return conflict("TOO_MANY_SKILLS", `A plugin can have at most ${JOB_LIMITS.subSkillsMax} sub-skills.`);
   }
+  if (error instanceof E.PluginInvalidError) {
+    return errorResponse(error.reasons[0] ?? "This plugin can't be generated yet.", "PLUGIN_INVALID", 400, { skills: error.reasons });
+  }
+  if (error instanceof E.MainRequiredError) return conflict("MAIN_REQUIRED", "The main skill can't be removed. Rename it instead.");
   if (error instanceof E.DuplicateNameError) {
     return conflict("DUPLICATE_NAME", `A skill named "${error.skillName}" is already in this task. Choose another name.`);
   }

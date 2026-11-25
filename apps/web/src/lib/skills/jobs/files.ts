@@ -309,9 +309,9 @@ export async function deleteJobFile(jobId: string, fileId: string, userId: strin
   return referenced ? "soft" : "hard";
 }
 
-/** Hard-deletes the job's removed files that no remaining version bundles. Returns how many went. */
+/** Hard-deletes the job's removed files that no remaining skill version or plugin version bundles. Returns how many went. */
 export function purgeUnreferencedFiles(jobId: string): Promise<number> {
-  return prisma.$executeRaw`DELETE FROM "skill_job_files" f WHERE f."job_id" = ${jobId} AND f."deleted_at" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "skill_versions" v JOIN "skill_job_skills" s ON s."id" = v."skill_id" WHERE s."job_id" = ${jobId} AND f."id" = ANY(v."asset_file_ids"))`;
+  return prisma.$executeRaw`DELETE FROM "skill_job_files" f WHERE f."job_id" = ${jobId} AND f."deleted_at" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "skill_versions" v JOIN "skill_job_skills" s ON s."id" = v."skill_id" WHERE s."job_id" = ${jobId} AND f."id" = ANY(v."asset_file_ids")) AND NOT EXISTS (SELECT 1 FROM "skill_plugin_versions" p WHERE p."job_id" = ${jobId} AND f."id" = ANY(p."asset_file_ids"))`;
 }
 
 export async function loadFileDetail(jobId: string, fileId: string, userId: string): Promise<JobFileDetail | null> {

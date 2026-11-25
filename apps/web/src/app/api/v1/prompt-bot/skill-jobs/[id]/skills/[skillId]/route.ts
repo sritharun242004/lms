@@ -10,10 +10,15 @@ type Ctx = { params: Promise<{ id: string; skillId: string }> };
 const PatchBody = z
   .object({
     name: z.string().trim().min(1).max(JOB_LIMITS.skillNameChars).optional(),
+    label: z.string().trim().max(JOB_LIMITS.skillLabelChars).optional(),
     purpose: z.string().trim().min(1).max(JOB_LIMITS.skillPurposeChars).optional(),
+    focus: z.string().trim().max(JOB_LIMITS.skillFocusChars).optional(),
+    step: z.string().trim().max(JOB_LIMITS.skillStepChars).optional(),
     fileIds: z.array(z.string().min(1).max(64)).max(JOB_LIMITS.fileIdsPerSkill).optional(),
+    /** Reorders the workflow; `role` is not patchable. */
     order: z.number().int().min(0).max(1000).optional(),
   })
+  .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {

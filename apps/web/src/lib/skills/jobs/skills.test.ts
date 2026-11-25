@@ -54,10 +54,11 @@ import {
   EmptyDescriptionError,
   FilesAnalysingError,
   JobNotFoundError,
+  MainRequiredError,
   SkillNotFoundError,
   TooManySkillsError,
 } from "./errors";
-import { addSkill, cleanFileIds, cleanSuggestions, deleteSkill, fallbackSuggestion, suggestForJob, updateSkill } from "./skills";
+import { addSkill, deleteSkill, suggestForJob, updateSkill } from "./skills";
 
 const NOW = new Date("2026-11-25T12:00:00Z");
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000);
@@ -88,6 +89,8 @@ const skill = (over: Record<string, unknown> = {}) => ({
   generationStartedAt: null,
   latestVersion: 1,
   order: 0,
+  role: "SUB",
+  job: { pluginStatus: "DRAFT", pluginGenerationStartedAt: null },
   ...over,
 });
 const skillViewRow = (over: Record<string, unknown> = {}) => ({
@@ -101,12 +104,23 @@ const skillViewRow = (over: Record<string, unknown> = {}) => ({
   validationErrors: [],
   generationStartedAt: null,
   latestVersion: 0,
+  role: "SUB",
+  label: "",
+  focus: "",
+  step: "",
   createdAt: NOW,
   updatedAt: NOW,
   versions: [],
   ...over,
 });
-const JOB = { id: "j1", userId: "u1", title: "Board update", description: "Every month I turn the numbers into a deck. Then I email it." };
+const JOB = { id: "j1", userId: "u1", title: "Board update", description: "Every month I turn the numbers into a deck. Then I email it.", company: "", pluginStatus: "DRAFT", pluginGenerationStartedAt: null };
+const PLUGIN = {
+  main: { name: "Quarterly Deck", label: "Quarterly deck", purpose: "Builds the deck.", fileIds: ["f1"] },
+  subSkills: [
+    { name: "deck-designer", label: "Design", purpose: "Lays out slides.", focus: "Layout only.", step: "Lay out the slides", fileIds: ["f2"] },
+    { name: "deck-grammar-check", label: "Grammar", purpose: "Checks wording.", focus: "Wording only.", step: "Check the wording", fileIds: [] },
+  ],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -117,80 +131,65 @@ beforeEach(() => {
   mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
 });
 
-describe("cleanFileIds", () => {
-  it("keeps the order, drops unknown and repeated ids, and caps at 10", () => {
-    expect(cleanFileIds(["f2", "zz", "f1", "f2"], ["f1", "f2"])).toEqual(["f2", "f1"]);
-    const many = Array.from({ length: 12 }, (_, i) => `f${i}`);
-    expect(cleanFileIds(many, many)).toHaveLength(10);
-  });
-});
-
-describe("cleanSuggestions", () => {
-  it("normalises names unique against kept skills and each other, one-lines purposes and filters files", () => {
-    const cleaned = cleanSuggestions(
-      {
-        skills: [
-          { name: "Board Deck", purpose: "Builds\nthe deck.", fileIds: ["f1", "nope"] },
-          { name: "board deck", purpose: "Second one.", fileIds: [] },
-          { name: "", purpose: "", fileIds: ["f1"] },
-          { name: "", purpose: "Writes the email.", fileIds: ["f2"] },
-        ],
-      },
-      { activeFileIds: ["f1", "f2"], keptNames: ["board-deck"], room: 5 },
-    );
-    expect(cleaned).toEqual([
-      { name: "board-deck-2", purpose: "Builds the deck.", fileIds: ["f1"] },
-      { name: "board-deck-3", purpose: "Second one.", fileIds: [] },
-      { name: "writes-the-email", purpose: "Writes the email.", fileIds: ["f2"] },
-    ]);
-  });
-
-  it("stops at the room left in the job and cuts purposes to 300 characters", () => {
-    const raw = { skills: Array.from({ length: 4 }, (_, i) => ({ name: `s${i}`, purpose: "p".repeat(400), fileIds: [] })) };
-    const cleaned = cleanSuggestions(raw, { activeFileIds: [], keptNames: [], room: 2 });
-    expect(cleaned).toHaveLength(2);
-    expect(cleaned[0].purpose).toHaveLength(300);
-  });
-});
-
-describe("fallbackSuggestion", () => {
-  it("names the skill from the title, takes the first sentence as purpose and uses every file", () => {
-    expect(fallbackSuggestion(JOB, ["f1", "f2"], [])).toEqual({ name: "board-update", purpose: "Every month I turn the numbers into a deck.", fileIds: ["f1", "f2"] });
-    expect(fallbackSuggestion({ title: "!!!", description: "" }, [], ["my-skill"]).name).toBe("my-skill-2");
-  });
-});
-
 describe("suggestForJob", () => {
-  it("keeps skills with versions, replaces drafts, and records when it suggested", async () => {
-    mocks.jobFindFirst.mockResolvedValue({ ...JOB, skills: [skill(), skill({ id: "s2", name: "old-draft", latestVersion: 0, status: "DRAFT", order: 1 })] });
-    mocks.suggestJobSkills.mockResolvedValue({ skills: [{ name: "Board email", purpose: "Writes the email.", fileIds: ["f2"] }] });
+  it("keeps skills with versions (a kept main stays main), replaces drafts with sub-skills, and records when it suggested", async () => {
+    mocks.jobFindFirst.mockResolvedValue({
+      ...JOB,
+      company: "Acme",
+      skills: [skill({ role: "MAIN" }), skill({ id: "s2", name: "old-draft", latestVersion: 0, status: "DRAFT", order: 1 })],
+    });
+    mocks.suggestJobSkills.mockResolvedValue(PLUGIN);
     await suggestForJob("j1", "u1", NOW);
     expect(mocks.consumeAiUsage).toHaveBeenCalledWith("u1", "skill_split", NOW);
     const message = mocks.suggestJobSkills.mock.calls[0][0];
-    expect(message).toContain("- board-deck: Builds the deck.");
+    expect(message).toContain("- board-deck (main): Builds the deck.");
+    expect(message).toContain("company: Acme");
     expect(message).not.toContain("old-draft");
     expect(message).toContain("id: f1");
     expect(mocks.skillDeleteMany).toHaveBeenCalledWith({ where: { jobId: "j1", latestVersion: 0 } });
     expect(mocks.skillCreateMany).toHaveBeenCalledWith({
-      data: [{ jobId: "j1", order: 1, name: "board-email", purpose: "Writes the email.", fileIds: ["f2"] }],
+      data: [
+        { jobId: "j1", order: 1, role: "SUB", name: "deck-designer", label: "Design", purpose: "Lays out slides.", focus: "Layout only.", step: "Lay out the slides", fileIds: ["f2"] },
+        { jobId: "j1", order: 2, role: "SUB", name: "deck-grammar-check", label: "Grammar", purpose: "Checks wording.", focus: "Wording only.", step: "Check the wording", fileIds: [] },
+      ],
     });
     expect(mocks.jobUpdate).toHaveBeenCalledWith({ where: { id: "j1" }, data: { suggestedAt: NOW } });
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.loadJobView).toHaveBeenCalledWith("j1", "u1", NOW);
   });
 
+  it("writes one main and the sub-skills in workflow order for a task without skills", async () => {
+    mocks.jobFindFirst.mockResolvedValue({ ...JOB, skills: [] });
+    mocks.suggestJobSkills.mockResolvedValue(PLUGIN);
+    await suggestForJob("j1", "u1", NOW);
+    const rows = mocks.skillCreateMany.mock.calls[0][0].data;
+    expect(rows.map((r: { name: string; role: string; order: number }) => [r.name, r.role, r.order])).toEqual([
+      ["quarterly-deck", "MAIN", 0],
+      ["deck-designer", "SUB", 1],
+      ["deck-grammar-check", "SUB", 2],
+    ]);
+  });
+
   it("maps a unique-index race in the apply transaction (P2002) to DuplicateNameError", async () => {
+    mocks.jobFindFirst.mockResolvedValue({ ...JOB, skills: [] });
+    mocks.suggestJobSkills.mockResolvedValue(PLUGIN);
     mocks.transaction.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "6" }));
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(DuplicateNameError);
   });
 
-  it("falls back to one skill from the title when the model returns nothing usable and no skill exists", async () => {
+  it("falls back to a main skill from the title plus planner and checker when the model returns nothing usable", async () => {
     mocks.jobFindFirst.mockResolvedValue({ ...JOB, skills: [] });
-    mocks.suggestJobSkills.mockResolvedValue({ skills: [{ name: "", purpose: "", fileIds: [] }] });
+    mocks.suggestJobSkills.mockResolvedValue({ main: { name: "", label: "", purpose: "", fileIds: [] }, subSkills: [] });
     await suggestForJob("j1", "u1", NOW);
-    expect(mocks.skillCreateMany.mock.calls[0][0].data).toEqual([
-      { jobId: "j1", order: 0, name: "board-update", purpose: "Every month I turn the numbers into a deck.", fileIds: ["f1", "f2"] },
-    ]);
+    const rows = mocks.skillCreateMany.mock.calls[0][0].data;
+    expect(rows[0]).toEqual({ jobId: "j1", order: 0, role: "MAIN", name: "board-update", label: "Board update", purpose: "Every month I turn the numbers into a deck.", fileIds: ["f1", "f2"] });
+    expect(rows.slice(1).map((r: { name: string }) => r.name)).toEqual(["board-update-planner", "board-update-checker"]);
+  });
+
+  it("refuses while the plugin is being written", async () => {
+    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, pluginStatus: "GENERATING", pluginGenerationStartedAt: minutesAgo(1), skills: [] });
+    await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
   });
 
   it("checks every precondition before spending a unit", async () => {
@@ -203,7 +202,7 @@ describe("suggestForJob", () => {
     mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: [] });
     mocks.activeFiles.mockResolvedValueOnce([fileRow("f1", { analysisStatus: "PENDING", analysisStartedAt: minutesAgo(1) })]);
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(FilesAnalysingError);
-    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 5 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
+    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 6 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(TooManySkillsError);
     expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
   });
@@ -211,7 +210,7 @@ describe("suggestForJob", () => {
   it("an interrupted analysis does not block suggesting", async () => {
     mocks.jobFindFirst.mockResolvedValue({ ...JOB, skills: [] });
     mocks.activeFiles.mockResolvedValue([fileRow("f1", { analysisStatus: "PENDING", analysisStartedAt: minutesAgo(6), analysis: null })]);
-    mocks.suggestJobSkills.mockResolvedValue({ skills: [{ name: "a", purpose: "b", fileIds: ["f1"] }] });
+    mocks.suggestJobSkills.mockResolvedValue(PLUGIN);
     await suggestForJob("j1", "u1", NOW);
     expect(mocks.suggestJobSkills.mock.calls[0][0]).toContain("(no analysis yet)");
   });
@@ -226,14 +225,14 @@ describe("suggestForJob", () => {
 
 describe("addSkill", () => {
   beforeEach(() => {
-    mocks.jobFindFirst.mockResolvedValue({ id: "j1", skills: [{ name: "board-deck", order: 0 }] });
+    mocks.jobFindFirst.mockResolvedValue({ id: "j1", skills: [{ name: "board-deck", order: 0, role: "MAIN" }] });
     mocks.skillCreate.mockResolvedValue(skillViewRow());
   });
 
-  it("adds a normalised skill after the others, with all active files by default", async () => {
+  it("adds a normalised sub-skill last in the workflow, with all active files by default", async () => {
     const view = await addSkill("j1", "u1", { name: "New Skill", purpose: "Does\nit." });
     expect(mocks.skillCreate).toHaveBeenCalledWith({
-      data: { jobId: "j1", order: 1, name: "new-skill", purpose: "Does it.", fileIds: ["f1", "f2"] },
+      data: { jobId: "j1", order: 1, role: "SUB", name: "new-skill", label: "", purpose: "Does it.", focus: "", step: "", fileIds: ["f1", "f2"] },
       include: expect.objectContaining({ versions: expect.any(Object) }),
     });
     expect(view.name).toBe("new-skill");
@@ -241,10 +240,19 @@ describe("addSkill", () => {
     expect(mocks.skillCreate.mock.calls[1][0].data.fileIds).toEqual(["f2"]);
   });
 
+  it("keeps label, focus and step on one line within their caps", async () => {
+    await addSkill("j1", "u1", { name: "deck-designer", label: " Design\nslides ", purpose: "p", focus: `Layout\n${"x".repeat(700)}`, step: "Lay out\nthe slides" });
+    expect(mocks.skillCreate.mock.calls[0][0].data).toMatchObject({ label: "Design slides", step: "Lay out the slides" });
+    expect(mocks.skillCreate.mock.calls[0][0].data.focus).toHaveLength(600);
+  });
+
   it("refuses a duplicate name, a full job and a foreign job", async () => {
     await expect(addSkill("j1", "u1", { name: "Board Deck", purpose: "p" })).rejects.toEqual(new DuplicateNameError("board-deck"));
-    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: Array.from({ length: 5 }, (_, i) => ({ name: `k${i}`, order: i })) });
+    const sixSubs = Array.from({ length: 6 }, (_, i) => ({ name: `k${i}`, order: i + 1, role: "SUB" }));
+    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: [{ name: "main", order: 0, role: "MAIN" }, ...sixSubs] });
     await expect(addSkill("j1", "u1", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(TooManySkillsError);
+    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: sixSubs.slice(0, 5) });
+    await expect(addSkill("j1", "u1", { name: "x", purpose: "p" })).resolves.toBeDefined();
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     await expect(addSkill("j1", "u2", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(JobNotFoundError);
   });
@@ -278,6 +286,38 @@ describe("updateSkill", () => {
   it("updates purpose, order and files (filtered to active files)", async () => {
     await updateSkill("j1", "s1", "u1", { purpose: "New\npurpose", order: 3, fileIds: ["f2", "gone"] });
     expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { purpose: "New purpose", order: 3, fileIds: ["f2"] } });
+  });
+
+  it("swaps places with the skill already at the requested order, keeping orders unique", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst
+      .mockResolvedValueOnce(skill({ order: 1 }))
+      .mockResolvedValueOnce({ id: "s2" })
+      .mockResolvedValue(skillViewRow({ id: "s1", order: 2 }));
+    await updateSkill("j1", "s1", "u1", { order: 2 });
+    expect(mocks.skillFindFirst.mock.calls[1][0]).toEqual({ where: { jobId: "j1", order: 2, id: { not: "s1" } }, select: { id: true } });
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s2" }, data: { order: 1 } });
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { order: 2 } });
+  });
+
+  it("moves to a free order without touching other skills", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ order: 1 })).mockResolvedValueOnce(null).mockResolvedValue(skillViewRow({ id: "s1", order: 5 }));
+    await updateSkill("j1", "s1", "u1", { order: 5 });
+    expect(mocks.skillUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { order: 5 } });
+  });
+
+  it("updates label, focus and step", async () => {
+    await updateSkill("j1", "s1", "u1", { label: "Grammar\ncheck", focus: "Wording only", step: "Check the wording" });
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { label: "Grammar check", focus: "Wording only", step: "Check the wording" } });
+  });
+
+  it("refuses a rename while the plugin is being written", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date() } }));
+    await expect(updateSkill("j1", "s1", "u1", { name: "other" })).rejects.toBeInstanceOf(AlreadyGeneratingError);
   });
 
   it("refuses a rename while generating and a duplicate name, and 404s a foreign skill", async () => {
@@ -318,9 +358,20 @@ describe("deleteSkill", () => {
     log.mockRestore();
   });
 
+  it("never removes the main skill", async () => {
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ role: "MAIN" }));
+    await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(MainRequiredError);
+    expect(mocks.skillDelete).not.toHaveBeenCalled();
+  });
+
   it("refuses while generating and 404s a foreign skill", async () => {
     mocks.skillFindFirst.mockResolvedValueOnce(skill({ status: "GENERATING", generationStartedAt: new Date() }));
     await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date() } }));
+    await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(AlreadyGeneratingError);
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ job: { pluginStatus: "GENERATING", pluginGenerationStartedAt: new Date(Date.now() - 11 * 60_000) } }));
+    await expect(deleteSkill("j1", "s1", "u1")).resolves.toBeUndefined();
+    mocks.skillDelete.mockClear();
     mocks.skillFindFirst.mockResolvedValueOnce(null);
     await expect(deleteSkill("j1", "s1", "u2")).rejects.toBeInstanceOf(SkillNotFoundError);
     expect(mocks.skillDelete).not.toHaveBeenCalled();
