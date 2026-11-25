@@ -245,9 +245,15 @@ describe("Workspace", () => {
   it("focuses the answer box when a question row is clicked, but not on mount", async () => {
     await mount();
     expect(document.activeElement).not.toBe(answerBox());
-    fireEvent.click(screen.getByRole("button", { name: /^2\.\s*Second question/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^2\.\s*Finally:\s*Second question/ }));
     await tick(0);
     expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Second question" }));
+  });
+
+  it("leads the last core question with \"Finally\", as on the Design Think deck", async () => {
+    await mount();
+    expect(screen.getByRole("button", { name: /^1\.\s*First question/ }).textContent).not.toContain("Finally");
+    expect(screen.getByRole("button", { name: /^2\.\s*Finally:\s*Second question/ })).toBeTruthy();
   });
 
   it("shows the privacy line", async () => {

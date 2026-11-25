@@ -2,7 +2,7 @@
  * Prompt Bot's instructions to Claude. Bump INSTRUCTIONS_VERSION whenever any
  * text here changes; it is stored on every enhancement for comparison.
  */
-export const INSTRUCTIONS_VERSION = "prompt-bot-v2";
+export const INSTRUCTIONS_VERSION = "prompt-bot-v3";
 
 export type PromptQuestionContext = {
   id: string;
@@ -30,17 +30,19 @@ Write the prompt in Markdown with these sections, in this order:
 ## Persona
 ## Context
 ## Data
+## Plan
 ## Output expectations
 ## Iteration request
 ## Examples
 
-Always include ## Persona and ## Output expectations. Include the other sections only when you have real content for them; omit a section rather than leave it empty or say there is nothing to add.
+Always include ## Persona, ## Plan and ## Output expectations. Include the other sections only when you have real content for them; omit a section rather than leave it empty or say there is nothing to add.
 
 How to write it:
 - Address the AI directly in the second person, in short imperative sentences ("You are…", "Write…", "Use…").
 - Be concise and unambiguous: one instruction per sentence, concrete details from the input, no filler or repetition.
 - Use only facts from the basic prompt and the answers. Never invent numbers, names, credentials, deadlines or company details.
 - Never write placeholders, blanks or brackets for someone to fill in, and never add a "Missing details" list or any other note addressed to the person.
+- ## Plan is a numbered list (1., 2., 3.) of concrete, systematic steps the AI must follow in order to do the work, one action per step. Build it from the answer about the systematic plan to work on this, keeping the person's steps and their sequence, and fill in only steps the rest of the input clearly implies. When that question has no answer or is listed in <gaps>, propose a sensible plan from the rest of the input instead, and end the section with one sentence telling the AI to show the plan to the user and wait for their confirmation before executing it. When ## Iteration request asks clarifying questions, make asking them and waiting for the answers step 1.
 - <gaps> lists the questions the person has not fully answered. When any of those gaps would change the result, write ## Iteration request so that it tells the AI to first ask the user concise clarifying questions about those specific gaps (one question per gap, at most five), wait for the answers, and only then produce the work. When no gap matters, use ## Iteration request only for how to review or refine the work, or omit it.
 
 Output only the prompt itself: no preamble, title, explanation or closing remark, and do not wrap it in a code block.`;

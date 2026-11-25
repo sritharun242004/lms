@@ -6,8 +6,8 @@ import http from "node:http";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
-// Same shape as a real prompt-bot-v2 reply: sections addressed to the AI, no placeholders,
-// and missing details turned into clarifying questions in the Iteration request.
+// Same shape as a real prompt-bot-v3 reply: sections addressed to the AI, no placeholders,
+// a numbered Plan, and missing details turned into clarifying questions in the Iteration request.
 const ENHANCED = `## Persona
 You are an experienced freelance copywriter who wins first clients through short, specific cold emails.
 
@@ -17,6 +17,13 @@ I am a freelance designer looking for my first paying client. I want to email sm
 ## Data
 - Offer: a one-page website redesign delivered in two weeks.
 - Proof: three practice projects for local cafés.
+
+## Plan
+1. Ask the clarifying questions in the Iteration request and wait for my answers.
+2. Pick one specific problem with the reader's current website to open with.
+3. Draft the email around the one-page redesign offer and the café projects as proof.
+4. Cut it to under 150 words and check that every sentence is about the reader.
+5. Write two alternative subject lines.
 
 ## Output expectations
 Write one cold email under 150 words with:

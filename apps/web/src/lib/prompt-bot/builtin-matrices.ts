@@ -3,11 +3,13 @@
  * institute's Design Think decks; the other task matrices are drafts the
  * institute edits in /prompt-bot/matrices (spec, 2026-11-24).
  *
- * Prompt Bot asks only the seven active core questions. Retired rows stay in the
- * database, switched off (`isActive: false`), so stored answers keep their
+ * Prompt Bot asks only the active core questions: the deck's seven, then
+ * "Finally: What is the systematic plan to work on this?". Retired rows stay in
+ * the database, switched off (`isActive: false`), so stored answers keep their
  * question. 20261124150000_add_prompt_bot seeds every row as active;
- * 20261125090000_prompt_bot_core_seven switches the retired ones off
- * (scripts/prompt-bot-seed-sql.ts prints both).
+ * 20261125090000_prompt_bot_core_seven switches the retired ones off (it also
+ * switched off pbq_core_8 by mistake); 20261125090500_prompt_bot_core_eighth
+ * switches pbq_core_8 back on (scripts/prompt-bot-seed-sql.ts prints all three).
  */
 export type BuiltinQuestion = { id: string; text: string; guidance: string; element: string | null; isActive?: boolean };
 export type BuiltinMatrix = {
@@ -47,7 +49,7 @@ export const BUILTIN_MATRICES: BuiltinMatrix[] = [
       q("core", 5, "What are the goals and objectives & How do we measure them?", "Concrete objectives and how success will be measured.", "goal"),
       q("core", 6, "What are the different ways we can approach this?", "Options or angles considered, or permission for the AI to propose options.", "iteration"),
       q("core", 7, "What does success look like?", "A description of the ideal finished output: format, length, tone and quality bar.", "output"),
-      { ...q("core", 8, "What is the systematic plan to work on this?", "Steps or sequence, including iteration such as asking clarifying questions first.", "plan"), isActive: false },
+      q("core", 8, "What is the systematic plan to work on this?", "Steps or sequence, including iteration such as asking clarifying questions first.", "plan"),
     ],
   },
   {

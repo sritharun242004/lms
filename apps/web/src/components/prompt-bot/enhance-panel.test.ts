@@ -12,6 +12,10 @@ afterEach(() => {
 const PROMPT = `## Persona
 You are a copywriter.
 
+## Plan
+1. Ask which industry to target and wait.
+2. Draft the email.
+
 ## Output expectations
 - One email under **150 words**.
 - See [the brief](https://example.com/brief).
@@ -38,11 +42,19 @@ describe("EnhancePanel", () => {
     render(createElement(EnhancePanel, props));
     const region = screen.getByRole("region", { name: "Enhanced prompt" });
     expect(screen.getByRole("heading", { level: 3, name: "Persona" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Plan" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 3, name: "Output expectations" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 3, name: "Iteration request" })).toBeTruthy();
     expect(region.textContent).not.toContain("##");
     expect(region.querySelector("strong")?.textContent).toBe("150 words");
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+  });
+
+  it("renders the Plan as a numbered list in step order", () => {
+    render(createElement(EnhancePanel, props));
+    const plan = screen.getByRole("heading", { level: 3, name: "Plan" }).nextElementSibling!;
+    expect(plan.tagName).toBe("OL");
+    expect([...plan.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["Ask which industry to target and wait.", "Draft the email."]);
   });
 
   it("opens links in a new tab and loads no images", () => {

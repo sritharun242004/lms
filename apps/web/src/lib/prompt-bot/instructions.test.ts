@@ -23,12 +23,12 @@ describe("prompt bot instructions", () => {
     expect(message).not.toContain("Where will this image be published?");
   });
 
-  it("asks for the Elements of LLM Prompts sections in order, Persona and Output expectations always", () => {
-    const order = ["Persona", "Context", "Data", "Output expectations", "Iteration request", "Examples"];
+  it("asks for the Elements of LLM Prompts sections in order, Persona, Plan and Output expectations always", () => {
+    const order = ["Persona", "Context", "Data", "Plan", "Output expectations", "Iteration request", "Examples"];
     const positions = order.map((h) => ENHANCE_SYSTEM.indexOf(`## ${h}`));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona and ## Output expectations/);
+    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona, ## Plan and ## Output expectations/);
     expect(ENHANCE_SYSTEM).toMatch(/omit/i);
   });
 
@@ -42,7 +42,16 @@ describe("prompt bot instructions", () => {
     expect(ENHANCE_SYSTEM).toMatch(/imperative/);
   });
 
+  it("writes the plan as numbered steps from the plan answer, or proposes one for the user to confirm first", () => {
+    const rule = ENHANCE_SYSTEM.split("\n").find((line) => line.startsWith("- ## Plan"))!;
+    expect(rule).toMatch(/numbered list/);
+    expect(rule).toMatch(/systematic plan/);
+    expect(rule).toMatch(/<gaps>/);
+    expect(rule).toMatch(/propose a sensible plan/);
+    expect(rule).toMatch(/wait for their confirmation before executing/);
+  });
+
   it("versions the instructions", () => {
-    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v2");
+    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v3");
   });
 });
