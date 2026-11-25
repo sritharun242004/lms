@@ -11,7 +11,7 @@ export const FILE_HINTS: readonly FileHint[] = ["REFERENCE", "INPUT", "TEMPLATE"
 export type QuestionKind = "FIXED" | "PER_USE";
 export type QuestionSource = "AI" | "USER";
 
-/** FIXED = "Answer now (same every time)"; PER_USE = "Claude will ask each time" (text = label, guidance = hint). */
+/** FIXED = "Answer now (same every time)"; PER_USE = "Asked each time you use it" (text = label, guidance = hint). */
 export type TaskQuestionView = {
   id: string;
   order: number;

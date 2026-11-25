@@ -436,14 +436,25 @@ body {
   color: var(--foreground);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   line-height: 1.6;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* The page's glow and line pattern live on their own fixed, composited layer.
+   `background-attachment: fixed` on body forced a full repaint on every scroll
+   frame, which showed as white flashes under the glass panels on fast scrolls. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image:
     radial-gradient(ellipse 70% 55% at 92% 2%, rgba(96, 165, 250, 0.24), transparent 66%),
     radial-gradient(ellipse 55% 45% at 5% 100%, rgba(191, 219, 254, 0.3), transparent 70%),
     url("data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 120C45 94 61 35 120 0' fill='none' stroke='%2393c5fd' stroke-width='1' opacity='.22'/%3E%3C/svg%3E");
-  background-attachment: fixed;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
+  transform: translateZ(0);
 }
 
 /* ============================================================
@@ -504,10 +515,11 @@ body {
    GLASSMORPHISM UTILITY
    ============================================================ */
 .glass {
-  background: color-mix(in srgb, var(--card) 68%, transparent);
+  background: color-mix(in srgb, var(--card) 76%, transparent);
   /* No hand-written -webkit- copy: Lightning CSS adds the prefix, and a
      manual one makes it drop the standard property Chrome and Firefox use. */
-  backdrop-filter: blur(28px) saturate(1.15);
+  /* 16px, not 28px: big glass panels re-blur what scrolls behind them every frame. */
+  backdrop-filter: blur(16px) saturate(1.15);
   border: 1px solid rgba(255, 255, 255, 0.58);
   box-shadow: 0 18px 55px rgba(30, 64, 175, 0.1), inset 0 1px rgba(255,255,255,.72);
 }
@@ -522,6 +534,7 @@ body {
   border-radius: 9999px;
   filter: blur(70px);
   opacity: .34;
+  will-change: transform;
   animation: ambient-drift 18s ease-in-out infinite alternate;
 }
 

@@ -30,7 +30,7 @@ export function canLeaveTask(description: string, questionCount: number): boolea
 const byOrder = (a: TaskQuestionView, b: TaskQuestionView) => a.order - b.order;
 /** "Answer now (same every time)": the questions that are answered, scored and take files. */
 export const fixedQuestions = (questions: TaskQuestionView[]) => questions.filter((q) => q.kind === "FIXED").sort(byOrder);
-/** "Claude will ask each time": never answered here. */
+/** "Asked each time you use it": never answered here. */
 export const perUseQuestions = (questions: TaskQuestionView[]) => questions.filter((q) => q.kind === "PER_USE").sort(byOrder);
 
 export const POLL_FIRST_MS = 3000;

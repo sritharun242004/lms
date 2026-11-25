@@ -196,7 +196,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     [aiConfigured, check, markStale],
   );
 
-  /** An added, edited or moved question. Moving one to "Claude will ask each time" makes its files general. */
+  /** An added, edited or moved question. Moving one to "Asked each time you use it" makes its files general. */
   const onQuestionChange = React.useCallback(
     (question: TaskQuestionView) => {
       setJob((j) => ({

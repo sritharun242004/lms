@@ -5,7 +5,7 @@ import { jobErrorResponse, readJobJson, unauthorized } from "@/lib/skills/jobs/h
 import { QuestionBody } from "@/lib/skills/jobs/question-input";
 import { addQuestion } from "@/lib/skills/jobs/task-questions";
 
-/** Adds the person's own question ("Answer now") or per-use input ("Claude will ask each time"). */
+/** Adds the person's own question ("Answer now") or per-use input ("Asked each time you use it"). */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();

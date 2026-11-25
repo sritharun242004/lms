@@ -57,7 +57,7 @@ export const JOB_LIMITS = {
   questionsPerTask: 12,
   /** Per-use inputs kept from one AI generation. */
   aiPerUseMax: 10,
-  /** Per-use ("Claude will ask each time") inputs per task. */
+  /** Per-use ("Asked each time you use it") inputs per task. */
   perUseInputsPerTask: 15,
   questionTextChars: 300,
   perUseLabelChars: 120,

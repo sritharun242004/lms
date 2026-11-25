@@ -69,7 +69,7 @@ export function QuestionEditor({ question, onSubmit, onCancel }: Props) {
           value={text}
           maxLength={JOB_LIMITS.questionTextChars}
           onChange={(e) => setText(e.target.value)}
-          placeholder="One thing Claude should know, as you'd ask a colleague."
+          placeholder="One thing your skill should know, as you'd ask a colleague."
           className="mt-1.5 min-h-20 resize-y bg-white/60 dark:bg-white/5"
         />
       </div>

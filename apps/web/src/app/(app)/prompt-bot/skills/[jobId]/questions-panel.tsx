@@ -16,7 +16,7 @@ import { AnswerCard } from "./question-answer-card";
 import { QuestionEditor } from "./question-editor";
 import { QuestionFiles } from "./question-files";
 
-const WRITING = "Writing questions for this task…";
+const WRITING = "Preparing questions for your task…";
 const REGENERATE_TEXT =
   "Questions you added yourself, and answers to questions that come back with the same wording, are kept. Other answers are removed and their files move to General files.";
 
@@ -39,7 +39,7 @@ type Props = {
 
 /**
  * Step 2. "Answer now (same every time)" questions with 3-slice bars beside the selected question's
- * answer and files; under them "Claude will ask each time". Saving and checking stay in the workspace.
+ * answer and files; under them "Asked each time you use it". Saving and checking stay in the workspace.
  */
 export function QuestionsPanel(props: Props) {
   const { job, state, aiConfigured, visible, description, onQuestionChange, onQuestionRemoved, onFileChange, onFileRemoved } = props;
@@ -159,10 +159,10 @@ export function QuestionsPanel(props: Props) {
             <Wand2 className="size-5" aria-hidden />
           </span>
           <h2 id={`${shortId}-empty`} className="text-lg font-semibold text-balance">
-            Questions for this task
+            Let&apos;s learn more about your task
           </h2>
           <p className="max-w-md text-sm text-pretty text-muted-foreground">
-            Claude writes 5 to 8 questions for exactly this task: what stays the same every time, and what it should ask you for on each run.
+            Let&apos;s get to know your task. We&apos;ll ask 5 to 8 questions about what stays the same every time, and list what changes on each run.
           </p>
           <Button
             size="lg"
@@ -173,7 +173,7 @@ export function QuestionsPanel(props: Props) {
             onClick={() => void write()}
           >
             <Wand2 className="size-4" aria-hidden />
-            Write questions
+            Start the questions
           </Button>
           {short && (
             <p id={shortId} className="max-w-md text-xs text-pretty text-muted-foreground">
@@ -220,7 +220,7 @@ export function QuestionsPanel(props: Props) {
               <QuestionEditor key={editor === "edit" ? active?.id : "add"} question={editor === "edit" ? (active ?? undefined) : undefined} onSubmit={saveQuestion} onCancel={closeEditor} />
             ) : !active ? (
               <p className="text-sm text-pretty text-muted-foreground">
-                Nothing to answer now. Add a question, or move an input up from &ldquo;Claude will ask each time&rdquo;.
+                Nothing to answer now. Add a question.
               </p>
             ) : (
               <AnswerCard

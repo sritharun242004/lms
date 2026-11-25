@@ -99,7 +99,7 @@ describe("QuestionsPanel without questions", () => {
   it("does not auto-write when short, when questions were written before, or without the AI", async () => {
     mount({ job: job({ ...empty, description: "short" }), description: "short" });
     await runTimers();
-    const write = screen.getByRole("button", { name: "Write questions" }) as HTMLButtonElement;
+    const write = screen.getByRole("button", { name: "Start the questions" }) as HTMLButtonElement;
     expect(write.disabled).toBe(true);
     expect(document.getElementById(write.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Add a bit more detail — at least 500 characters (5/500)");
     cleanup();
@@ -115,8 +115,8 @@ describe("QuestionsPanel without questions", () => {
     let finish: (v: unknown) => void = () => {};
     mocks.generateQuestions.mockImplementation(() => new Promise((r) => (finish = r)));
     mount({ job: job({ ...empty, questionsGeneratedAt: "2026-11-25T11:00:00.000Z" }) });
-    await click("Write questions");
-    expect(screen.getAllByText("Writing questions for this task…").length).toBeGreaterThan(0);
+    await click("Start the questions");
+    expect(screen.getAllByText("Preparing questions for your task…").length).toBeGreaterThan(0);
     await act(async () => finish({ ok: false, code: "AI_FAILED", message: "The AI didn't answer. Try again." }));
     expect(screen.getByRole("alert").textContent).toBe("The AI didn't answer. Try again.");
   });
@@ -200,7 +200,7 @@ describe("QuestionsPanel editing", () => {
 
   it("offers no button to move a question to the ask-each-time list", () => {
     mount();
-    expect(screen.queryByRole("button", { name: /Claude will ask each time/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Asked each time you use it/ })).toBeNull();
   });
 
   it("deletes the selected question after a destructive confirm", async () => {
