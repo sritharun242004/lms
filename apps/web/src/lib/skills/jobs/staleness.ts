@@ -1,6 +1,7 @@
 import { ANALYSIS_STALE_MS, GENERATION_STALE_MS } from "../limits";
 
 export const GENERATION_INTERRUPTED_MESSAGE = "Writing this skill was interrupted. Generate it again.";
+export const PLUGIN_GENERATION_INTERRUPTED_MESSAGE = "Writing this plugin was interrupted. Generate it again.";
 export const ANALYSIS_INTERRUPTED_MESSAGE = "Analysing this file was interrupted. Analyse it again.";
 
 export const generationCutoff = (now = new Date()) => new Date(now.getTime() - GENERATION_STALE_MS);

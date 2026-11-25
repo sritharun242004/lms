@@ -4,16 +4,24 @@ import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
 import { scoreAndApply, type AnswerView } from "@/lib/prompt-bot/score-run";
 import { titleFrom } from "@/lib/prompt-bot/sessions";
 import { JOB_LIMITS } from "../limits";
+import { effectivePlugin } from "../plugin-names";
 import type { SkillItemStatus } from "../types";
 import { JobNotFoundError } from "./errors";
-import { ANALYSIS_INTERRUPTED_MESSAGE, GENERATION_INTERRUPTED_MESSAGE, isAnalysing, isGenerating } from "./staleness";
-import type { AnalysisStatus, FileHint, JobFileView, JobSkillView, JobView, PerUseInput, ScoreReply, TaskQuestionView } from "./types";
+import { ANALYSIS_INTERRUPTED_MESSAGE, GENERATION_INTERRUPTED_MESSAGE, isAnalysing, isGenerating, PLUGIN_GENERATION_INTERRUPTED_MESSAGE } from "./staleness";
+import type { AnalysisStatus, FileHint, JobFileView, JobSkillView, JobView, PerUseInput, PluginView, ScoreReply, TaskQuestionView } from "./types";
 
 /** Lists and views never read a file's bytes or its facts. */
 export const fileViewOmit = { data: true, facts: true } as const satisfies Prisma.SkillJobFileOmit;
 export const skillInclude = {
   versions: { select: { version: true, name: true, createdAt: true, assetFileIds: true }, orderBy: { version: "desc" } },
 } as const satisfies Prisma.SkillJobSkillInclude;
+
+/** Plugin version summaries read only the small JSON columns (never the skills' file contents). */
+export const pluginVersionsInclude = {
+  select: { version: true, name: true, displayName: true, createdAt: true, files: true, assets: true },
+  orderBy: { version: "desc" },
+  take: JOB_LIMITS.pluginVersionsKept,
+} as const satisfies Prisma.SkillJob$pluginVersionsArgs;
 
 /** Questions in the order the person sees them; ties (same order) by creation. */
 export const questionOrder = [{ order: "asc" }, { createdAt: "asc" }] as const satisfies Prisma.SkillJobQuestionOrderByWithRelationInput[];
@@ -76,13 +84,61 @@ export function toSkillView(row: SkillViewRow, now = new Date()): JobSkillView {
   return {
     id: row.id,
     order: row.order,
+    role: row.role,
     name: row.name,
+    label: row.label,
     purpose: row.purpose,
+    focus: row.focus,
+    step: row.step,
     fileIds: row.fileIds,
     status,
     validationErrors,
     latestVersion: row.latestVersion,
     versions: row.versions.map((v) => ({ version: v.version, name: v.name, createdAt: v.createdAt.toISOString(), assets: v.assetFileIds.length })),
+  };
+}
+
+/** Main first, then sub-skills in workflow order. */
+export function mainFirst<T extends { role: string; order: number }>(skills: T[]): T[] {
+  return [...skills].sort((a, b) => Number(a.role !== "MAIN") - Number(b.role !== "MAIN") || a.order - b.order);
+}
+
+type PluginVersionSummaryRow = Prisma.SkillPluginVersionGetPayload<{ select: typeof pluginVersionsInclude.select }>;
+export type PluginViewRow = {
+  title: string;
+  company: string;
+  pluginName: string | null;
+  pluginDisplayName: string | null;
+  pluginStatus: string;
+  pluginValidationErrors: string[];
+  pluginGenerationStartedAt: Date | null;
+  pluginLatestVersion: number;
+  pluginVersions: PluginVersionSummaryRow[];
+};
+
+const jsonLength = (value: Prisma.JsonValue, keep: (entry: unknown) => boolean = () => true) => (Array.isArray(value) ? value.filter(keep).length : 0);
+const isCommand = (entry: unknown) => typeof entry === "object" && entry !== null && String((entry as { path?: unknown }).path).startsWith("commands/");
+
+export function toPluginView(row: PluginViewRow, now = new Date()): PluginView {
+  let status = row.pluginStatus as SkillItemStatus;
+  let validationErrors = row.pluginValidationErrors;
+  if (status === "GENERATING" && !isGenerating(status, row.pluginGenerationStartedAt, now)) {
+    status = "FAILED";
+    validationErrors = [PLUGIN_GENERATION_INTERRUPTED_MESSAGE];
+  }
+  return {
+    ...effectivePlugin(row),
+    status,
+    validationErrors,
+    latestVersion: row.pluginLatestVersion,
+    versions: row.pluginVersions.map((v) => ({
+      version: v.version,
+      name: v.name,
+      displayName: v.displayName,
+      createdAt: v.createdAt.toISOString(),
+      skills: jsonLength(v.files, isCommand),
+      assets: jsonLength(v.assets),
+    })),
   };
 }
 
@@ -93,6 +149,7 @@ export async function loadJobView(jobId: string, userId: string, now = new Date(
       questions: { orderBy: questionOrder },
       files: { where: { deletedAt: null }, omit: fileViewOmit, orderBy: { createdAt: "asc" } },
       skills: { include: skillInclude, orderBy: { order: "asc" } },
+      pluginVersions: pluginVersionsInclude,
     },
   });
   if (!job) return null;
@@ -114,7 +171,9 @@ export async function loadJobView(jobId: string, userId: string, now = new Date(
     },
     answers: fixed.map(toQuestionAnswer),
     files: job.files.map((f) => toFileView(f, now)),
-    skills: job.skills.map((s) => toSkillView(s, now)),
+    company: job.company,
+    plugin: toPluginView(job, now),
+    skills: mainFirst(job.skills).map((s) => toSkillView(s, now)),
   };
 }
 
