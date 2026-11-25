@@ -46,6 +46,64 @@ export const GENERATE_JOB_SYSTEM = `You write one Agent Skill: a folder that AI 
 
 Never invent facts about the person, their company or their numbers. Where context is missing (the gaps list), write clearly marked placeholders such as [Add the board's preferred metrics here] in a references/ file, and tell the reader in the body to fill them in.`;
 
+// ---------------------------------------------------------------------------
+// Tasks redesign (spec 2026-11-25 tasks): Enhance and Write questions
+// ---------------------------------------------------------------------------
+
+export const ENHANCE_TASK_SYSTEM = `You turn a person's description of one recurring task into a clear task brief. The brief is used next to write questions about the task and then to build an Agent Skill that does the task their way, so it must say plainly what they do.
+
+Rewrite the description in <task> as Markdown with exactly these sections, in this order:
+## Purpose — what the task produces and why it matters.
+## When it's used — when the task comes up, and what it is not for.
+## Same every time — what stays fixed on every run and defines the work's structure: document structure and sections, company standards, the template, clauses that always apply, brand assets, tone.
+## Varies each time — what changes from one use to the next, as a short list: client name, date, project scope, deal value, contacts, deadlines, specific figures. Name only what varies for this task; each item becomes an input the skill asks for at the start of every run.
+## Steps — a numbered list of the steps as they do them today.
+## Output — what they hand over, its format, and what great looks like.
+## Audience — who it is for.
+## Quality bar — how they judge it is good enough.
+## Constraints — rules, tools, limits and things to avoid.
+
+Rules:
+- Write in the first person ("I", "my team"), in plain words, 150 to 450 words.
+- Keep every fact, number, name and tool they wrote.
+- Never invent facts about them, their company, their clients or their numbers.
+- Where a section has nothing to go on, write one short italic question under it instead, for example _Which file do you start from?_ They answer it in the next step.
+- Every task gets the same sections, whatever the task is.
+- Reply with the brief only, in the brief field.`;
+
+export const QUESTIONS_SYSTEM = `You help a person turn one recurring task into an Agent Skill: instructions and files an AI assistant loads whenever the task comes up, so it is done their way every time. Read the task in <task> and write the questions you, Claude, would need answered to write an excellent skill for exactly this task, the way you would ask a skilled colleague: specific, one thing at a time, in the person's own words. Never ask what the description already answers fully.
+
+Whatever the task is, always do all four of these:
+
+(a) Work out the output type. Decide what the task produces, from this taxonomy: image or visual design; social post or carousel; video; audio or podcast; slide deck; document, report, contract or policy (for example an SLA, an ERP specification, a proposal); spreadsheet, financial model or data analysis; email or written copy; research or summary; code or automation; plan, process or checklist; or other. Name it in outputType as a short sentence-case label in the person's terms, for example "Instagram carousel", "client SLA document" or "monthly financial report". For other, still name the output, and ask what a skilled practitioner of it would need first.
+
+(b) Ask for inputs and assets first. Ask the questions a skilled practitioner of that output would ask before starting, putting the required inputs and assets first. Wherever a file answers better than words, set wantsFiles to true, pick the fileHint (TEMPLATE for templates or design systems they produce from, REFERENCE for past examples or references to match, INPUT for typical input data, BRAND for logos, colours, fonts and brand guidelines) and write a specific fileNote saying what to upload, for example "Upload your logo files and brand colours." Otherwise set wantsFiles to false, fileHint to NONE and fileNote to "".
+
+(c) Split what is fixed from what varies. Give every question a kind:
+- kind "fixed": the same every time the skill runs, and it defines the work's structure: document structure and sections, company standards, the template, clauses that always apply, brand assets, tone. The person answers these now, with text and files, and they become the skill's standing instructions.
+- kind "per_use": it varies from one use to the next: client name, date, project scope, deal value, contacts, deadlines, specific figures. Never ask the person to answer these now: the skill asks for them at the start of every run.
+Also list in perUseInputs the per-use inputs you can infer from the description, each with a short label (for example "Client name", "Agreement date", "Service levels for this client"), a hint or example (or ""), and required (false when the skill can proceed without it). Do this the same way for every output type.
+
+(d) Cover the skill essentials. Ask 5 to 8 fixed questions that together cover all six, each phrased for this task, and list in covers the essentials each question covers:
+- triggers: when the skill should be used, and when not.
+- inputs: what it starts from.
+- steps: how the work is done.
+- output: what great looks like.
+- quality: the bar it must meet.
+- avoid: what it must never do.
+
+Each question: text is one sentence ending in "?"; guidance is one sentence saying what a strong answer includes.
+
+Short illustrations of the pattern follow. Adapt the idea to the task in front of you and never copy them. They are not a menu.
+- An Instagram carousel needs the look (style, mood, references), the format (for example 1080×1350, slide count, safe areas), brand assets (logo files and placement, colours, fonts: BRAND), the images to use (INPUT), the copy per slide and the call to action, and past posts to match (REFERENCE).
+- An explainer video needs its purpose and platform, duration and aspect ratio, the script or storyboard, footage and b-roll (INPUT), brand assets such as the logo and intro or outro (BRAND), voice-over, music and captions, videos to match (REFERENCE), and the output resolution.
+- A client SLA document needs the template (TEMPLATE), the standard sections and clauses that always apply, company standards and past signed examples (REFERENCE), while the client name, dates and service levels vary per use.
+- A monthly financial report needs the report template (TEMPLATE), the data sources and exports (INPUT), the KPIs and structure and past reports (REFERENCE), while the month and its figures vary per use.
+
+When <existing_questions> are given, these are the task's current questions ("(answered)" marks those with an answer). For every one that still fits, keep its exact wording, so its answer is kept; change or drop the rest.
+
+Never invent facts about the person, their company, their clients or their numbers.`;
+
 /** Strips the characters that would end the attribute or the tag. */
 const attrSafe = (value: string) => value.replace(/["<>&]/g, "").replace(/\s+/g, " ").trim();
 const excerpt = (analysis: string | null) => (analysis?.trim() ? analysis.trim().slice(0, JOB_LIMITS.analysisExcerptChars) : null);
@@ -134,4 +192,26 @@ export function buildJobRetryMessage(original: string, draft: JobSkillDraft, err
     `<validation_errors>\n${errors.map((e) => `- ${e}`).join("\n")}\n</validation_errors>`,
     "Your previous attempt failed the checks above. Return the complete skill again with every error fixed.",
   ].join("\n\n");
+}
+
+/** The task block every task message starts with; output_type is added once questions have named it. */
+function taskSection(title: string, description: string, outputType?: string | null): string {
+  const type = outputType?.trim() ? `\noutput_type: ${outputType.trim()}` : "";
+  return `<task>\ntitle: ${title.trim() || "(untitled)"}${type}\n\n${description.trim()}\n</task>`;
+}
+
+export function buildEnhanceTaskMessage(input: { title: string; description: string }): string {
+  return `${taskSection(input.title, input.description)}\n\nRewrite this description as the task brief.`;
+}
+
+export type ExistingQuestionLine = { kind: "FIXED" | "PER_USE"; text: string; answered: boolean };
+
+export function buildQuestionsMessage(input: { title: string; description: string; existing: ExistingQuestionLine[] }): string {
+  const parts = [taskSection(input.title, input.description)];
+  if (input.existing.length > 0) {
+    const lines = input.existing.map((q) => `- [${q.kind === "FIXED" ? "fixed" : "per_use"}] ${q.text}${q.answered ? " (answered)" : ""}`);
+    parts.push(`<existing_questions>\n${lines.join("\n")}\n</existing_questions>`);
+  }
+  parts.push(input.existing.length > 0 ? "Write the questions for this task again." : "Write the questions for this task.");
+  return parts.join("\n\n");
 }

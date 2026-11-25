@@ -59,7 +59,8 @@ export type RawTaskQuestions = {
     wantsFiles: boolean;
     fileHint: FileHint | "NONE";
     fileNote: string;
-    covers: Essential[];
+    /** Unknown values are ignored by cleanQuestionSet. */
+    covers: string[];
   }[];
 };
 
