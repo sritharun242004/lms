@@ -32,11 +32,9 @@ import {
   activeFiles,
   createJob,
   deleteJob,
-  jobQuestionContext,
   jobScoringBase,
   loadJobView,
   runJobScoring,
-  saveJobAnswer,
   toFileView,
   toSkillView,
   updateJob,
@@ -70,6 +68,7 @@ const fileRow = (over: Record<string, unknown> = {}) => ({
   deletedAt: null,
   createdAt: NOW,
   updatedAt: NOW,
+  questionId: null,
   ...over,
 }) as never;
 const skillRow = (over: Record<string, unknown> = {}) => ({
@@ -109,8 +108,11 @@ const jobRow = (over: Record<string, unknown> = {}) => ({
   description: "Every month I turn the numbers into a deck.",
   scoreRevision: 3,
   suggestedAt: null,
+  questionsGeneratedAt: null,
+  outputType: null,
   createdAt: NOW,
   updatedAt: NOW,
+  questions: [],
   answers: [answerRow("pbq_skill_1", { answer: "Monthly", score: 3, reason: "Clear" }), answerRow("pbq_old")],
   files: [fileRow()],
   skills: [skillRow()],
@@ -189,7 +191,7 @@ describe("loadJobView", () => {
     expect(mocks.jobFindFirst.mock.calls[0][0].where).toEqual({ id: "j1", userId: "u2" });
   });
 
-  it("never reads bytes or facts, skips removed files, and keeps only active answers", async () => {
+  it("never reads bytes or facts and skips removed files", async () => {
     mocks.jobFindFirst.mockResolvedValue(jobRow());
     const view = await loadJobView("j1", "u1", NOW);
     const include = mocks.jobFindFirst.mock.calls[0][0].include;
@@ -205,8 +207,6 @@ describe("loadJobView", () => {
       scoreRevision: 3,
       updatedAt: NOW.toISOString(),
       suggestedAt: null,
-      matrix: MATRIX,
-      answers: [{ questionId: "pbq_skill_1", answer: "Monthly", score: 3, reason: "Clear", notRelevant: false }],
     });
     expect(view?.files).toHaveLength(1);
     expect(view?.skills[0].versions).toHaveLength(2);
@@ -305,27 +305,9 @@ describe("runJobScoring", () => {
 });
 
 describe("answers and context", () => {
-  it("saves only the fields sent, and only for an active question", async () => {
-    mocks.jobFindFirst.mockResolvedValue({ id: "j1", title: "t", description: "d" });
-    expect(await saveJobAnswer("j1", "u1", "pbq_skill_1", { notRelevant: true })).toBe("saved");
-    expect(mocks.answerUpsert).toHaveBeenCalledWith({
-      where: { jobId_questionId: { jobId: "j1", questionId: "pbq_skill_1" } },
-      create: { jobId: "j1", questionId: "pbq_skill_1", notRelevant: true },
-      update: { notRelevant: true },
-    });
-    expect(await saveJobAnswer("j1", "u1", "pbq_core_1", { answer: "x" })).toBe("no-question");
-    mocks.jobFindFirst.mockResolvedValue(null);
-    await expect(saveJobAnswer("j1", "u2", "pbq_skill_1", { answer: "x" })).rejects.toBeInstanceOf(JobNotFoundError);
-  });
-
-  it("lists active files without bytes and builds the question context", async () => {
+  it("lists active files without bytes", async () => {
     mocks.fileFindMany.mockResolvedValue([fileRow()]);
     await activeFiles("j1");
     expect(mocks.fileFindMany).toHaveBeenCalledWith({ where: { jobId: "j1", deletedAt: null }, omit: { data: true, facts: true }, orderBy: { createdAt: "asc" } });
-    mocks.answerFindMany.mockResolvedValue([answerRow("pbq_skill_1", { answer: "Monthly", score: 3 })]);
-    expect(await jobQuestionContext("j1")).toEqual([
-      { id: "pbq_skill_1", text: "When should this skill be used?", guidance: "Triggers", answer: "Monthly", score: 3, notRelevant: false },
-      { id: "pbq_skill_2", text: "What inputs will it receive?", guidance: "Inputs", answer: "", score: 0, notRelevant: false },
-    ]);
   });
 });
