@@ -9,6 +9,7 @@ import type { JobSkillView, JobView, PluginView } from "@/lib/skills/jobs/types"
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { AddSubSkill } from "./add-sub-skill-form";
 import { PluginCard } from "./plugin-card";
+import { PluginGenerate } from "./plugin-generate";
 import { PluginOverview, splitSkills } from "./plugin-overview";
 import { unansweredPhrase, type QueueSave } from "./skill-card";
 
@@ -117,6 +118,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
       <PluginCard jobId={job.id} plugin={job.plugin} onChange={onPluginChange} />
       <PluginOverview job={job} queueSave={queueSave} onSkillChange={onSkillChange} onSkillRemoved={onSkillRemoved} registerFileSaves={registerFileSaves} />
       <AddSubSkill jobId={job.id} full={subs.length >= JOB_LIMITS.subSkillsMax} locked={locked} onAdded={onSkillChange} />
+      <PluginGenerate job={job} gaps={gaps} aiConfigured={aiConfigured} settleSaves={settleSaves} onPluginChange={onPluginChange} />
       <ConfirmDialog ref={confirmRef} />
     </section>
   );
