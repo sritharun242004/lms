@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FileTree, groupFiles } from "./file-tree";
+import { FileTree, formatBytes, groupFiles } from "./file-tree";
 
 afterEach(cleanup);
 
@@ -35,5 +35,21 @@ describe("FileTree", () => {
     fireEvent.click(screen.getByRole("button", { name: "z.md" }));
     expect(onSelect).toHaveBeenCalledWith("references/z.md");
     expect(screen.getByRole("navigation", { name: "Skill files" })).toBeTruthy();
+  });
+
+  it("shows an original file's size next to its name", () => {
+    render(createElement(FileTree, { files: [{ path: "SKILL.md" }, { path: "assets/deck.pptx", bytes: 4_404_019, asset: true }], selected: null, onSelect: vi.fn() }));
+    const asset = screen.getByRole("button", { name: /deck\.pptx/ });
+    expect(asset.textContent).toBe("deck.pptx4.2 MB");
+    expect(asset.getAttribute("data-asset")).toBe("true");
+  });
+});
+
+describe("formatBytes", () => {
+  it("uses B, KB and one-decimal MB", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1500)).toBe("2 KB");
+    expect(formatBytes(4_404_019)).toBe("4.2 MB");
+    expect(formatBytes(20 * 1024 * 1024)).toBe("20.0 MB");
   });
 });
