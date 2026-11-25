@@ -21,6 +21,7 @@ import { ENHANCE_TASK_SYSTEM, QUESTIONS_SYSTEM } from "@/lib/skills/jobs/instruc
 const reply = (json: unknown, stop_reason = "end_turn") => ({ content: [{ type: "text", text: JSON.stringify(json) }], stop_reason });
 const QUESTIONS = {
   outputType: "client SLA document",
+  coveredByDescription: ["triggers"],
   perUseInputs: [{ label: "Client name", hint: "e.g. Acme Ltd", required: true }],
   questions: [
     { text: "Which template?", guidance: "Name it.", kind: "fixed", wantsFiles: true, fileHint: "TEMPLATE", fileNote: "Upload it.", covers: ["inputs"] },
@@ -95,7 +96,11 @@ describe("writeTaskQuestions", () => {
     mocks.betaCreate.mockResolvedValue(reply(QUESTIONS));
     await writeTaskQuestions("x");
     const schema = mocks.betaCreate.mock.calls[0][0].output_config.format.schema;
-    expect(schema.required).toEqual(["outputType", "perUseInputs", "questions"]);
+    expect(schema.required).toEqual(["outputType", "coveredByDescription", "perUseInputs", "questions"]);
+    expect(schema.properties.coveredByDescription).toEqual({
+      type: "array",
+      items: { type: "string", enum: ["triggers", "inputs", "steps", "output", "quality", "avoid"] },
+    });
     expect(schema.additionalProperties).toBe(false);
     expect(schema.properties.perUseInputs.items.required).toEqual(["label", "hint", "required"]);
     const item = schema.properties.questions.items;

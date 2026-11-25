@@ -55,6 +55,12 @@ describe("QUESTIONS_SYSTEM", () => {
     expect(QUESTIONS_SYSTEM).toContain("Ask 5 to 8 fixed questions");
   });
 
+  it("never re-asks what the description already answers fully", () => {
+    expect(QUESTIONS_SYSTEM).toContain("coveredByDescription");
+    expect(QUESTIONS_SYSTEM).toContain("already answers fully");
+    expect(QUESTIONS_SYSTEM).toContain("ask only for the missing part");
+  });
+
   it("gives illustrations, not a menu", () => {
     for (const ex of ["Instagram carousel", "1080×1350", "explainer video", "storyboard", "client SLA document", "monthly financial report"]) {
       expect(QUESTIONS_SYSTEM).toContain(ex);

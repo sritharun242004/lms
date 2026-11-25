@@ -272,6 +272,7 @@ const QUESTION_FILE_HINTS = ["REFERENCE", "INPUT", "TEMPLATE", "BRAND", "NONE"] 
 /** The questions reply as zod validates it (exported for the fake API's shape tests). */
 export const TaskQuestionsReply = z.object({
   outputType: z.string(),
+  coveredByDescription: z.array(z.string()),
   perUseInputs: z.array(z.object({ label: z.string(), hint: z.string(), required: z.boolean() })),
   questions: z.array(
     z.object({
@@ -299,6 +300,7 @@ export async function writeTaskQuestions(message: string): Promise<RawTaskQuesti
     user: message,
     schema: object({
       outputType: STRING,
+      coveredByDescription: { type: "array", items: enumOf(ESSENTIAL_NAMES) },
       perUseInputs: { type: "array", items: object({ label: STRING, hint: STRING, required: { type: "boolean" } }) },
       questions: {
         type: "array",

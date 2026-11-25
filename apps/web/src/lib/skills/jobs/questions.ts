@@ -65,11 +65,15 @@ function cleanFixed(raw: RawTaskQuestions["questions"], seen: Set<string>): Clea
   return out;
 }
 
-/** Drops redundant questions from the end until the fallbacks fit within the cap, then appends one per missing essential. */
-function coverEssentials(fixed: CleanQuestion[], seen: Set<string>): CleanQuestion[] {
+/**
+ * Drops redundant questions from the end until the fallbacks fit within the cap, then appends one per essential
+ * that neither a question nor the description (coveredByDescription) covers: the person is never asked again
+ * what they already wrote.
+ */
+function coverEssentials(fixed: CleanQuestion[], seen: Set<string>, byDescription: Set<string>): CleanQuestion[] {
   const kept = [...fixed];
   const coveredBy = (list: CleanQuestion[]) => new Set(list.flatMap((q) => q.covers));
-  const missing = () => ESSENTIALS.filter((e) => !coveredBy(kept).has(e));
+  const missing = () => ESSENTIALS.filter((e) => !byDescription.has(e) && !coveredBy(kept).has(e));
   while (kept.length + missing().length > JOB_LIMITS.aiQuestionsMax) {
     let dropped = false;
     for (let i = kept.length - 1; i >= 0; i--) {
@@ -116,6 +120,7 @@ function cleanPerUse(raw: RawTaskQuestions, seen: Set<string>): PerUseInput[] {
 /** Fixed questions (every essential covered, at most 8) and per-use inputs (at most 10), deduplicated across both. */
 export function cleanQuestionSet(raw: RawTaskQuestions): { outputType: string | null; fixed: CleanQuestion[]; perUse: PerUseInput[] } {
   const seen = new Set<string>();
-  const fixed = coverEssentials(cleanFixed(raw.questions, seen), seen);
+  const byDescription = new Set((raw.coveredByDescription ?? []).filter(isEssential));
+  const fixed = coverEssentials(cleanFixed(raw.questions, seen), seen, byDescription);
   return { outputType: cleanOutputType(raw.outputType), fixed, perUse: cleanPerUse(raw, seen) };
 }

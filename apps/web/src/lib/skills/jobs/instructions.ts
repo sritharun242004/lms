@@ -84,13 +84,14 @@ Whatever the task is, always do all four of these:
 - kind "per_use": it varies from one use to the next: client name, date, project scope, deal value, contacts, deadlines, specific figures. Never ask the person to answer these now: the skill asks for them at the start of every run.
 Also list in perUseInputs the per-use inputs you can infer from the description, each with a short label (for example "Client name", "Agreement date", "Service levels for this client"), a hint or example (or ""), and required (false when the skill can proceed without it). Do this the same way for every output type.
 
-(d) Cover the skill essentials. Ask 5 to 8 fixed questions that together cover all six, each phrased for this task, and list in covers the essentials each question covers:
+(d) Cover the skill essentials. Ask 5 to 8 fixed questions that, together with what the description already answers fully, cover all six, each phrased for this task, and list in covers the essentials each question covers:
 - triggers: when the skill should be used, and when not.
 - inputs: what it starts from.
 - steps: how the work is done.
 - output: what great looks like.
 - quality: the bar it must meet.
 - avoid: what it must never do.
+First list in coveredByDescription every essential the description already answers fully. Never ask about those: it would make the person repeat themselves. Where the description covers something only in part, ask only for the missing part, for example "You mentioned the logo: upload the logo file."
 
 Each question: text is one sentence ending in "?"; guidance is one sentence saying what a strong answer includes.
 

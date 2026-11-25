@@ -32,6 +32,7 @@ const fq = (text: string, covers: string[], over: Record<string, unknown> = {}) 
 });
 const REPLY = {
   outputType: "client SLA document",
+  coveredByDescription: [],
   perUseInputs: [{ label: "Client name", hint: "e.g. Acme Ltd", required: true }],
   questions: [
     fq("Which SLA template do you start from?", ["inputs"], { wantsFiles: true, fileHint: "TEMPLATE", fileNote: "Upload your SLA template." }),

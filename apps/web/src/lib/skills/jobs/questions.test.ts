@@ -6,7 +6,9 @@ type RawQ = RawTaskQuestions["questions"][number];
 const fq = (text: string, covers: string[], over: Partial<RawQ> = {}): RawQ => ({
   text, guidance: "A strong answer names it.", kind: "fixed", wantsFiles: false, fileHint: "NONE", fileNote: "", covers, ...over,
 });
-const raw = (questions: RawQ[], over: Partial<RawTaskQuestions> = {}): RawTaskQuestions => ({ outputType: "client SLA document", perUseInputs: [], questions, ...over });
+const raw = (questions: RawQ[], over: Partial<RawTaskQuestions> = {}): RawTaskQuestions => ({
+  outputType: "client SLA document", coveredByDescription: [], perUseInputs: [], questions, ...over,
+});
 const ALL = [fq("When is it used?", ["triggers"]), fq("What do you start from?", ["inputs"]), fq("What are the steps?", ["steps"]),
   fq("What does great look like?", ["output", "quality"]), fq("What must it never do?", ["avoid"])];
 
@@ -59,6 +61,20 @@ describe("cleanQuestionSet: fixed questions", () => {
     expect(fixed).toHaveLength(8);
     expect(fixed.slice(0, 3).map((q) => q.text)).toEqual(["Output question 1?", "Output question 2?", "Output question 3?"]);
     for (const e of ESSENTIALS) expect(fixed.some((q) => q.covers.includes(e))).toBe(true);
+  });
+
+  it("adds no fallback for essentials the description already answers fully", () => {
+    const steps = [fq("What do you start from?", ["inputs"]), fq("What are the steps?", ["steps"]), fq("How is it checked?", ["quality"])];
+    const { fixed } = cleanQuestionSet(raw(steps, { coveredByDescription: ["triggers", "output", "avoid", "bogus"] }));
+    expect(fixed.map((q) => q.text)).toEqual(steps.map((q) => q.text));
+  });
+
+  it("still adds fallbacks for a lazy description", () => {
+    const { fixed } = cleanQuestionSet(raw([fq("What do you start from?", ["inputs"])], { coveredByDescription: [] }));
+    expect(fixed.map((q) => q.text)).toEqual([
+      "What do you start from?",
+      FALLBACK_QUESTIONS.triggers.text, FALLBACK_QUESTIONS.steps.text, FALLBACK_QUESTIONS.output.text, FALLBACK_QUESTIONS.quality.text, FALLBACK_QUESTIONS.avoid.text,
+    ]);
   });
 
   it("does not add a fallback when nothing is missing", () => {

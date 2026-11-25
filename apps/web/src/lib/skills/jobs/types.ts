@@ -51,6 +51,8 @@ export type Essential = "triggers" | "inputs" | "steps" | "output" | "quality" |
 /** Write questions' structured reply before clean-up. */
 export type RawTaskQuestions = {
   outputType: string;
+  /** Essentials the description already answers fully: no question, and no fallback, for them. Transient (not stored). */
+  coveredByDescription: string[];
   perUseInputs: { label: string; hint: string; required: boolean }[];
   questions: {
     text: string;
