@@ -40,6 +40,22 @@ describe("getFeedbackWordCloud", () => {
     expect(entries.find((e) => e.word === "5")).toBeUndefined();
   });
 
+  it("ignores short answers, where names, emails and IDs live", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "f2",
+        sections: [{ questions: [{ id: "name", type: "SHORT_ANSWER" }, { id: "c", type: "PARAGRAPH" }] }],
+        responses: [
+          { id: "r1", answers: [{ questionId: "name", value: "Priya priya@example.com" }, { questionId: "c", value: "Loved the agents module" }] },
+        ],
+      },
+    ]);
+    const words = (await getFeedbackWordCloud({ id: "staff1", role: "MENTOR" }, {})).map((e) => e.word);
+    expect(words).toContain("agents");
+    expect(words).not.toContain("priya");
+    expect(words).not.toContain("example");
+  });
+
   it("sorts entries by descending frequency", async () => {
     findMany.mockResolvedValue([formWithOpenAnswers]);
     const entries = await getFeedbackWordCloud({ id: "staff1", role: "MENTOR" }, {});
