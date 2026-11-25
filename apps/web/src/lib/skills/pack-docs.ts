@@ -27,7 +27,7 @@ export function renderReadme(input: ReadmeInput): string {
     "",
     "### Claude.ai / Claude Desktop",
     "",
-    "First turn on Settings → Capabilities → Create and edit files (skills need it). Then open Customize → Skills → + → Create skill → Upload a skill, and upload each zip from `upload-to-claude/` (one skill per upload). Don't use Plugins → Upload plugin: these are skills, not plugins.",
+    "First turn on Settings → Capabilities → Create and edit files (skills need it). Then open Plugins → Add → Upload plugin and upload each zip from `upload-to-claude/` (one skill per upload). It appears in your plugins as a Skill · By you.",
     "",
     "## Use it",
     "",
