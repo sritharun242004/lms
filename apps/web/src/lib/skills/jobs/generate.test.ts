@@ -67,6 +67,10 @@ const VALID: JobSkillDraft = {
   scripts: [],
 };
 const INVALID: JobSkillDraft = { ...VALID, description: "Uses <angle> brackets" };
+/** The claim this run was started with; every final write is guarded by it. */
+const CLAIM = new Date("2026-11-25T11:58:00Z");
+const OURS = { id: "s1", status: "GENERATING", generationStartedAt: CLAIM };
+const running = (over: Record<string, unknown> = {}) => skillRow({ status: "GENERATING", generationStartedAt: CLAIM, ...over });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -76,7 +80,12 @@ beforeEach(() => {
   mocks.fileFindMany.mockResolvedValue([]);
   mocks.versionCreate.mockResolvedValue({});
   mocks.versionDeleteMany.mockResolvedValue({ count: 0 });
-  mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
+  // Interactive transaction: the callback gets a client whose writes are the same mocks.
+  const tx = {
+    skillJobSkill: { updateMany: mocks.skillUpdateMany },
+    skillVersion: { create: mocks.versionCreate, deleteMany: mocks.versionDeleteMany },
+  };
+  mocks.transaction.mockImplementation(async (fn: (client: typeof tx) => unknown) => fn(tx));
   mocks.consumeAiUsage.mockResolvedValue(undefined);
   mocks.activeFiles.mockResolvedValue([fileRow()]);
   mocks.jobQuestionContext.mockResolvedValue([]);
@@ -146,6 +155,8 @@ describe("startJobSkillGeneration", () => {
 });
 
 describe("runJobSkillGeneration", () => {
+  beforeEach(() => mocks.skillFindFirst.mockResolvedValue(running()));
+
   it("writes v1 from a valid draft, with the bundled original, then purges unreferenced files", async () => {
     mocks.generateJobSkillDraft.mockResolvedValue(VALID);
     await runJobSkillGeneration("j1", "s1", "u1");
@@ -161,14 +172,17 @@ describe("runJobSkillGeneration", () => {
     });
     expect(data.files.map((f: { path: string }) => f.path)).toEqual(["SKILL.md", "references/style-guide.md"]);
     expect(data.files[0].content).toContain('name: "board-update"');
-    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { status: "READY", latestVersion: 1, validationErrors: [] } });
+    expect(mocks.skillUpdateMany).toHaveBeenCalledWith({ where: OURS, data: { status: "READY", latestVersion: 1, validationErrors: [] } });
+    // The claim check is the transaction's first write.
+    expect(mocks.skillUpdateMany.mock.invocationCallOrder[0]).toBeLessThan(mocks.versionCreate.mock.invocationCallOrder[0]);
+    expect(mocks.skillUpdate).not.toHaveBeenCalled();
     expect(mocks.versionDeleteMany).toHaveBeenCalledWith({ where: { skillId: "s1", version: { lte: -19 } } });
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.purgeUnreferencedFiles).toHaveBeenCalledWith("j1");
   });
 
   it("retries once with the validation errors, then records FAILED and leaves older versions alone", async () => {
-    mocks.skillFindFirst.mockResolvedValue(skillRow({ latestVersion: 2 }));
+    mocks.skillFindFirst.mockResolvedValue(running({ latestVersion: 2 }));
     mocks.generateJobSkillDraft.mockResolvedValue(INVALID);
     await runJobSkillGeneration("j1", "s1", "u1");
     expect(mocks.generateJobSkillDraft).toHaveBeenCalledTimes(2);
@@ -178,29 +192,30 @@ describe("runJobSkillGeneration", () => {
     expect(retry).toContain("cannot contain < or >");
     expect(mocks.versionCreate).not.toHaveBeenCalled();
     expect(mocks.versionDeleteMany).not.toHaveBeenCalled();
-    expect(mocks.skillUpdate).toHaveBeenCalledWith({
-      where: { id: "s1" },
+    expect(mocks.skillUpdateMany).toHaveBeenCalledWith({
+      where: OURS,
       data: { status: "FAILED", validationErrors: [expect.stringMatching(/< or >/)] },
     });
+    expect(mocks.skillUpdate).not.toHaveBeenCalled();
   });
 
   it("numbers a version after the latest one when the retry passes", async () => {
-    mocks.skillFindFirst.mockResolvedValue(skillRow({ latestVersion: 3 }));
+    mocks.skillFindFirst.mockResolvedValue(running({ latestVersion: 3 }));
     mocks.generateJobSkillDraft.mockResolvedValueOnce(INVALID).mockResolvedValueOnce(VALID);
     await runJobSkillGeneration("j1", "s1", "u1");
     expect(mocks.versionCreate.mock.calls[0][0].data.version).toBe(4);
-    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { status: "READY", latestVersion: 4, validationErrors: [] } });
+    expect(mocks.skillUpdateMany).toHaveBeenCalledWith({ where: OURS, data: { status: "READY", latestVersion: 4, validationErrors: [] } });
   });
 
   it("keeps only the last 20 versions", async () => {
-    mocks.skillFindFirst.mockResolvedValue(skillRow({ latestVersion: 24 }));
+    mocks.skillFindFirst.mockResolvedValue(running({ latestVersion: 24 }));
     mocks.generateJobSkillDraft.mockResolvedValue(VALID);
     await runJobSkillGeneration("j1", "s1", "u1");
     expect(mocks.versionDeleteMany).toHaveBeenCalledWith({ where: { skillId: "s1", version: { lte: 5 } } });
   });
 
   it("uses only active files the skill lists, in the skill's order; a file without a ready analysis is sent as missing", async () => {
-    mocks.skillFindFirst.mockResolvedValue(skillRow({ fileIds: ["f2", "gone", "f1"] }));
+    mocks.skillFindFirst.mockResolvedValue(running({ fileIds: ["f2", "gone", "f1"] }));
     mocks.activeFiles.mockResolvedValue([
       fileRow(),
       fileRow({ id: "f2", fileName: "Logo.png", assetName: "logo.png", kind: "PNG", analysis: "stale text", analysisStatus: "FAILED" }),
@@ -218,7 +233,7 @@ describe("runJobSkillGeneration", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.generateJobSkillDraft.mockRejectedValue(Object.assign(new Error("secret prompt text"), { name: "APIConnectionError" }));
     await expect(runJobSkillGeneration("j1", "s1", "u1")).resolves.toBeUndefined();
-    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { status: "FAILED", validationErrors: [JOB_GENERATION_FAILED_MESSAGE] } });
+    expect(mocks.skillUpdateMany).toHaveBeenCalledWith({ where: OURS, data: { status: "FAILED", validationErrors: [JOB_GENERATION_FAILED_MESSAGE] } });
     expect(JSON.stringify(log.mock.calls)).not.toContain("secret prompt text");
     expect(JSON.stringify(log.mock.calls)).toContain("APIConnectionError");
     log.mockRestore();
@@ -229,8 +244,8 @@ describe("runJobSkillGeneration", () => {
     mocks.generateJobSkillDraft.mockResolvedValue(VALID);
     mocks.purgeUnreferencedFiles.mockRejectedValue(new Error("db"));
     await runJobSkillGeneration("j1", "s1", "u1");
-    expect(mocks.skillUpdate).toHaveBeenCalledTimes(1);
-    expect(mocks.skillUpdate.mock.calls[0][0].data.status).toBe("READY");
+    expect(mocks.skillUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdateMany.mock.calls[0][0].data.status).toBe("READY");
     log.mockRestore();
   });
 
@@ -239,5 +254,30 @@ describe("runJobSkillGeneration", () => {
     await runJobSkillGeneration("j1", "s1", "u2");
     expect(mocks.generateJobSkillDraft).not.toHaveBeenCalled();
     expect(mocks.skillUpdate).not.toHaveBeenCalled();
+    expect(mocks.skillUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("writes no version when a newer run took the claim, and never marks that run FAILED", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.generateJobSkillDraft.mockResolvedValue(VALID);
+    mocks.skillUpdateMany.mockResolvedValue({ count: 0 });
+    await expect(runJobSkillGeneration("j1", "s1", "u1")).resolves.toBeUndefined();
+    expect(mocks.skillUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdateMany.mock.calls[0][0].where).toEqual(OURS);
+    expect(mocks.versionCreate).not.toHaveBeenCalled();
+    expect(mocks.versionDeleteMany).not.toHaveBeenCalled();
+    expect(mocks.purgeUnreferencedFiles).not.toHaveBeenCalled();
+    expect(mocks.skillUpdate).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("guards the failure writes with the claim too", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.generateJobSkillDraft.mockRejectedValue(new Error("x"));
+    mocks.skillUpdateMany.mockResolvedValue({ count: 0 });
+    await runJobSkillGeneration("j1", "s1", "u1");
+    expect(mocks.skillUpdateMany.mock.calls.map(([a]) => a.where)).toEqual([OURS]);
+    expect(mocks.skillUpdate).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });

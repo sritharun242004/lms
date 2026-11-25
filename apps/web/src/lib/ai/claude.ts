@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./config";
-import { AiResponseError } from "./errors";
+import { AiBadRequestError, AiResponseError } from "./errors";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
 import { ANALYSIS_TIMEOUT_MS, GENERATION_TIMEOUT_MS, JOB_LIMITS, SUGGEST_TIMEOUT_MS } from "@/lib/skills/limits";
@@ -161,10 +161,12 @@ export async function analyseFile(content: AnalysisContent): Promise<string> {
     blocks.push({ type: "image", source: { type: "base64", media_type: content.image.mediaType, data: content.image.base64 } });
   }
   blocks.push({ type: "text", text: content.text });
-  const response = await getClient().messages.create(
-    { model: FAST_MODEL, max_tokens: 3000, system: ANALYSE_SYSTEM, messages: [{ role: "user", content: blocks }] },
-    ANALYSE_REQUEST,
-  );
+  const response = await getClient()
+    .messages.create({ model: FAST_MODEL, max_tokens: 3000, system: ANALYSE_SYSTEM, messages: [{ role: "user", content: blocks }] }, ANALYSE_REQUEST)
+    .catch((error: unknown) => {
+      // Callers decide what a refused request means (an unreadable PDF) without depending on the SDK.
+      throw error instanceof Anthropic.BadRequestError ? new AiBadRequestError({ cause: error }) : error;
+    });
   if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
     throw new AiResponseError(`Claude stopped with ${response.stop_reason}`);
   }

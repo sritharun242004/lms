@@ -189,5 +189,10 @@ export async function deleteSkill(jobId: string, skillId: string, userId: string
   if (!skill) throw new SkillNotFoundError();
   if (isGenerating(skill.status, skill.generationStartedAt)) throw new AlreadyGeneratingError();
   await prisma.skillJobSkill.delete({ where: { id: skillId } });
-  await purgeUnreferencedFiles(jobId);
+  // The skill is gone; a purge failure only leaves removed files' bytes for the next purge.
+  try {
+    await purgeUnreferencedFiles(jobId);
+  } catch (error) {
+    console.error("[skills-builder] could not purge unreferenced files:", error instanceof Error ? error.name : "unknown");
+  }
 }

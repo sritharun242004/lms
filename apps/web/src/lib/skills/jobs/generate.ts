@@ -75,11 +75,16 @@ export async function startJobSkillGeneration(jobId: string, skillId: string, us
 /**
  * One model call, assembly, validation, one retry with the errors, then a new immutable version or FAILED.
  * Runs in after(); never throws. A failure never touches older versions, which stay downloadable.
+ * Every final write is guarded by this run's claim (generationStartedAt), so a run that outlived the stale
+ * window never overwrites a newer run with its version or its FAILED.
  */
 export async function runJobSkillGeneration(jobId: string, skillId: string, userId: string): Promise<void> {
+  let claim: Date | null | undefined;
+  const ours = () => ({ id: skillId, status: "GENERATING" as const, generationStartedAt: claim ?? null });
   try {
     const skill = await findOwnedSkill(jobId, skillId, userId);
     if (!skill) return;
+    claim = skill.generationStartedAt;
     const byId = new Map((await activeFiles(jobId)).map((f) => [f.id, f]));
     const used = skill.fileIds.flatMap((id) => {
       const f = byId.get(id);
@@ -113,13 +118,19 @@ export async function runJobSkillGeneration(jobId: string, skillId: string, user
       errors = validateJobSkill(skill.name, built.files, built.assets);
     }
     if (errors.length > 0) {
-      await prisma.skillJobSkill.update({ where: { id: skillId }, data: { status: "FAILED", validationErrors: errors } });
+      await prisma.skillJobSkill.updateMany({ where: ours(), data: { status: "FAILED", validationErrors: errors } });
       return;
     }
 
     const version = skill.latestVersion + 1;
-    await prisma.$transaction([
-      prisma.skillVersion.create({
+    const written = await prisma.$transaction(async (tx) => {
+      // The claim check comes first: a lost claim makes no write at all.
+      const claimed = await tx.skillJobSkill.updateMany({
+        where: ours(),
+        data: { status: "READY", latestVersion: version, validationErrors: [] },
+      });
+      if (claimed.count === 0) return false;
+      await tx.skillVersion.create({
         data: {
           skillId,
           version,
@@ -129,18 +140,24 @@ export async function runJobSkillGeneration(jobId: string, skillId: string, user
           assets: built.assets.map((a) => ({ fileId: a.fileId, path: a.path, fileName: a.fileName, bytes: a.bytes })) as Prisma.InputJsonValue,
           assetFileIds: built.assets.map((a) => a.fileId),
         },
-      }),
-      prisma.skillJobSkill.update({ where: { id: skillId }, data: { status: "READY", latestVersion: version, validationErrors: [] } }),
-      prisma.skillVersion.deleteMany({ where: { skillId, version: { lte: version - JOB_LIMITS.versionsKept } } }),
-    ]);
+      });
+      await tx.skillVersion.deleteMany({ where: { skillId, version: { lte: version - JOB_LIMITS.versionsKept } } });
+      return true;
+    });
+    if (!written) {
+      console.error("[skills-builder] job skill generation lost its claim; the draft was discarded");
+      return;
+    }
     // The version is written; a purge failure only leaves removed files' bytes for the next purge.
     await purgeUnreferencedFiles(jobId).catch((error: unknown) => {
       console.error("[skills-builder] could not purge unreferenced files:", logName(error));
     });
   } catch (error) {
     console.error("[skills-builder] job skill generation failed:", logName(error));
+    // Without a known claim (the skill never loaded) there is nothing of ours to mark.
+    if (claim === undefined) return;
     await prisma.skillJobSkill
-      .update({ where: { id: skillId }, data: { status: "FAILED", validationErrors: [JOB_GENERATION_FAILED_MESSAGE] } })
+      .updateMany({ where: ours(), data: { status: "FAILED", validationErrors: [JOB_GENERATION_FAILED_MESSAGE] } })
       .catch((writeError: unknown) => {
         // The skill stays GENERATING and becomes retryable once the 10-minute stale window passes.
         console.error("[skills-builder] could not record the failure:", logName(writeError));

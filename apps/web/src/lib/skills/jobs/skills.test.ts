@@ -304,6 +304,17 @@ describe("deleteSkill", () => {
     expect(mocks.purgeUnreferencedFiles).toHaveBeenCalledWith("j1");
   });
 
+  it("still succeeds when only the purge fails after the delete, logging the error name only", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.skillFindFirst.mockResolvedValue(skill());
+    mocks.purgeUnreferencedFiles.mockRejectedValueOnce(Object.assign(new Error("secret sql"), { name: "PrismaClientKnownRequestError" }));
+    await expect(deleteSkill("j1", "s1", "u1")).resolves.toBeUndefined();
+    expect(mocks.skillDelete).toHaveBeenCalledWith({ where: { id: "s1" } });
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^\[skills-builder\] /), "PrismaClientKnownRequestError");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("secret sql");
+    log.mockRestore();
+  });
+
   it("refuses while generating and 404s a foreign skill", async () => {
     mocks.skillFindFirst.mockResolvedValueOnce(skill({ status: "GENERATING", generationStartedAt: new Date() }));
     await expect(deleteSkill("j1", "s1", "u1")).rejects.toBeInstanceOf(AlreadyGeneratingError);

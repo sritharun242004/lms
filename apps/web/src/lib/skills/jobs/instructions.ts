@@ -86,7 +86,7 @@ export function buildSuggestMessage(input: {
   const files = input.files
     .map((f) => {
       const analysis = excerpt(f.analysis);
-      return `- id: ${f.id}\n  name: ${f.fileName}\n  kind: ${f.kind}\n  size: ${megabytes(f.size)}\n  <analysis>\n${analysis ?? "(no analysis yet)"}\n  </analysis>`;
+      return `- id: ${f.id}\n  name: ${attrSafe(f.fileName)}\n  kind: ${f.kind}\n  size: ${megabytes(f.size)}\n  <analysis>\n${analysis ?? "(no analysis yet)"}\n  </analysis>`;
     })
     .join("\n\n");
   const built = input.built.map((b) => `- ${b.name}: ${b.purpose}`).join("\n");

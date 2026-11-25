@@ -1,19 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), betaCreate: vi.fn(), ctor: vi.fn() }));
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: class {
-    constructor(options: unknown) {
-      mocks.ctor(options);
-    }
-    messages = { create: mocks.create };
-    beta = { messages: { stream: vi.fn(), create: mocks.betaCreate } };
-  },
-}));
+vi.mock("@anthropic-ai/sdk", async (orig) => {
+  const real = (await orig<typeof import("@anthropic-ai/sdk")>()).default;
+  return {
+    default: class {
+      static AnthropicError = real.AnthropicError;
+      static BadRequestError = real.BadRequestError;
+      constructor(options: unknown) {
+        mocks.ctor(options);
+      }
+      messages = { create: mocks.create };
+      beta = { messages: { stream: vi.fn(), create: mocks.betaCreate } };
+    },
+  };
+});
 
 import { analyseFile, generateJobSkillDraft, scoreQuestions, suggestJobSkills } from "./claude";
 import { AiNotConfiguredError } from "./config";
-import { AiResponseError } from "./errors";
+import Anthropic from "@anthropic-ai/sdk";
+import { AiBadRequestError, AiResponseError, isAiCallError } from "./errors";
 
 const reply = (json: unknown) => ({ content: [{ type: "text", text: JSON.stringify(json) }], stop_reason: "end_turn" });
 
@@ -129,6 +135,17 @@ describe("skills builder job calls", () => {
     await expect(analyseFile({ text: "t" })).rejects.toBeInstanceOf(AiResponseError);
     mocks.create.mockResolvedValueOnce({ content: [], stop_reason: "end_turn" });
     await expect(analyseFile({ text: "t" })).rejects.toBeInstanceOf(AiResponseError);
+  });
+
+  it("reports Claude's 400 for an analysis as an AiBadRequestError, which is still an AI-call error", async () => {
+    mocks.create.mockRejectedValueOnce(new Anthropic.BadRequestError(400, { type: "error" }, "too many pages", new Headers()));
+    const error = await analyseFile({ text: "t" }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AiBadRequestError);
+    expect(isAiCallError(error)).toBe(true);
+    expect((error as Error).message).not.toContain("too many pages");
+    const other = new Error("boom");
+    mocks.create.mockRejectedValueOnce(other);
+    await expect(analyseFile({ text: "t" })).rejects.toBe(other);
   });
 
   it("refuses to analyse without a key", async () => {

@@ -46,6 +46,12 @@ export class TooManyFilesError extends NamedError {
     super("Too many files");
   }
 }
+/** Two uploads picked the same asset name at once, and the one retry with fresh names lost again. */
+export class FileNameTakenError extends NamedError {
+  constructor(readonly fileName: string) {
+    super(`A file named "${fileName}" is being added`);
+  }
+}
 export class TooManySkillsError extends NamedError {
   constructor() {
     super("Too many skills");

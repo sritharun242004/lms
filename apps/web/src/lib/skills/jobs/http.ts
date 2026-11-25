@@ -27,6 +27,9 @@ export function jobErrorResponse(error: unknown): Response | null {
   if (error instanceof E.TooManyFilesError) {
     return conflict("TOO_MANY_FILES", `A job can have at most ${JOB_LIMITS.filesPerJob} files. Remove one to add another.`);
   }
+  if (error instanceof E.FileNameTakenError) {
+    return conflict("FILE_NAME_TAKEN", `Another file named "${error.fileName}" was added at the same moment. Upload it again.`);
+  }
   if (error instanceof E.TooManySkillsError) {
     return conflict("TOO_MANY_SKILLS", `A job can have at most ${JOB_LIMITS.skillsPerJob} skills. Remove one to add another.`);
   }

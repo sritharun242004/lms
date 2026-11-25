@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
@@ -43,12 +43,11 @@ vi.mock("../files/extract", () => ({ readUpload: mocks.readUpload }));
 vi.mock("../files/image", () => ({ imageForClaude: mocks.imageForClaude }));
 vi.mock("../files/safe-name", () => ({ assetFileName: mocks.assetFileName }));
 
-import Anthropic from "@anthropic-ai/sdk";
 import { Prisma } from "@prisma/client";
-import { AiResponseError } from "@/lib/ai/errors";
+import { AiBadRequestError, AiResponseError } from "@/lib/ai/errors";
 import { LimitReachedError } from "@/lib/ai/usage";
 import { FileReadError, FILE_READ_MESSAGES } from "../files/types";
-import { AlreadyAnalysingError, AlreadyGeneratingError, FileNotFoundError, JobNotFoundError, TooManyFilesError } from "./errors";
+import { AlreadyAnalysingError, AlreadyGeneratingError, FileNameTakenError, FileNotFoundError, JobNotFoundError, TooManyFilesError } from "./errors";
 import {
   ANALYSIS_FAILED_MESSAGE,
   countActiveFiles,
@@ -65,6 +64,7 @@ import {
 
 const NOW = new Date("2026-11-25T12:00:00Z");
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000);
+const STARTED = new Date("2026-11-25T12:03:00Z");
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 const fileRow = (over: Record<string, unknown> = {}) => ({
   id: "f1",
@@ -144,9 +144,27 @@ describe("storeJobFile", () => {
     await expect(storeJobFile({ jobId: "j1", userId: "u2", fileName: "x.pptx", bytes: BYTES }, NOW)).rejects.toBeInstanceOf(JobNotFoundError);
   });
 
-  it("answers TooManyFiles when a concurrent upload took the same asset name (unique index)", async () => {
-    mocks.fileCreate.mockRejectedValue(new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "x" }));
-    await expect(storeJobFile({ jobId: "j1", userId: "u1", fileName: "x.pptx", bytes: BYTES }, NOW)).rejects.toBeInstanceOf(TooManyFilesError);
+  const dup = () => new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "x" });
+
+  it("picks the name again from a fresh read once when a concurrent upload took the same asset name (unique index)", async () => {
+    mocks.fileCreate.mockRejectedValueOnce(dup());
+    mocks.fileFindMany.mockResolvedValueOnce([{ assetName: "logo.png" }]).mockResolvedValueOnce([{ assetName: "logo.png" }, { assetName: "q3-deck.pptx" }]);
+    mocks.assetFileName.mockReturnValueOnce("q3-deck.pptx").mockReturnValueOnce("q3-deck-2.pptx");
+    const view = await storeJobFile({ jobId: "j1", userId: "u1", fileName: "Q3 deck.pptx", bytes: BYTES }, NOW);
+    expect(mocks.fileFindMany).toHaveBeenCalledTimes(2);
+    expect(mocks.assetFileName).toHaveBeenLastCalledWith("Q3 deck.pptx", "PPTX", ["logo.png", "q3-deck.pptx"]);
+    expect(mocks.fileCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.fileCreate.mock.calls[1][0].data.assetName).toBe("q3-deck-2.pptx");
+    expect(mocks.consumeAiUsage).toHaveBeenCalledTimes(1);
+    expect(view.id).toBe("f1");
+  });
+
+  it("answers a name conflict (not TooManyFiles) when the retry loses the race too", async () => {
+    mocks.fileCreate.mockRejectedValue(dup());
+    const error = await storeJobFile({ jobId: "j1", userId: "u1", fileName: "x.pptx", bytes: BYTES }, NOW).catch((e: unknown) => e);
+    expect(error).toEqual(new FileNameTakenError("x.pptx"));
+    expect(error).not.toBeInstanceOf(TooManyFilesError);
+    expect(mocks.fileCreate).toHaveBeenCalledTimes(2);
   });
 
   it("counts only files that are not removed", async () => {
@@ -159,18 +177,64 @@ describe("storeJobFile", () => {
 describe("runFileAnalysis", () => {
   const withData = (over: Record<string, unknown> = {}) => fileRow({ data: Buffer.from("PDFBYTES"), facts: FACTS, ...over });
   const finished = () => mocks.fileUpdateMany.mock.calls.at(-1)![0];
+  // The run re-stamps its claim when it gets a slot; only Date is faked, so promises and real timers still run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(STARTED);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("refreshes the claim when the run gets a slot, so time spent queued does not count against the stale window", async () => {
+    mocks.fileFindFirst.mockResolvedValue(withData());
+    mocks.analyseFile.mockResolvedValue("guide");
+    await runFileAnalysis("j1", "f1", "u1");
+    expect(mocks.fileUpdateMany.mock.calls[0][0]).toEqual({
+      where: { id: "f1", analysisStatus: "PENDING", analysisStartedAt: NOW },
+      data: { analysisStartedAt: STARTED },
+    });
+    expect(finished().where).toEqual({ id: "f1", analysisStatus: "PENDING", analysisStartedAt: STARTED });
+  });
+
+  it("skips the AI and writes nothing more when the claim was lost while queued", async () => {
+    mocks.fileFindFirst.mockResolvedValue(withData());
+    mocks.fileUpdateMany.mockResolvedValueOnce({ count: 0 });
+    await runFileAnalysis("j1", "f1", "u1");
+    expect(mocks.analyseFile).not.toHaveBeenCalled();
+    expect(mocks.fileFindFirst).toHaveBeenCalledTimes(1);
+    expect(mocks.fileUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs at most two analyses at once; a third waits until one finishes", async () => {
+    mocks.fileFindFirst.mockResolvedValue(withData());
+    const release: (() => void)[] = [];
+    mocks.analyseFile.mockImplementation(() => new Promise<string>((resolve) => release.push(() => resolve("guide"))));
+    const runs = ["f1", "f2", "f3"].map((id) => runFileAnalysis("j1", id, "u1"));
+    await vi.waitFor(() => expect(mocks.analyseFile).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mocks.analyseFile).toHaveBeenCalledTimes(2);
+    // The queued run has neither re-stamped its claim nor loaded its bytes.
+    expect(mocks.fileUpdateMany.mock.calls.map(([a]) => a.where.id)).toEqual(["f1", "f2"]);
+    release[0]();
+    await vi.waitFor(() => expect(mocks.analyseFile).toHaveBeenCalledTimes(3));
+    release[1]();
+    release[2]();
+    await Promise.all(runs);
+    expect(mocks.fileUpdateMany.mock.calls.filter(([a]) => a.data.analysisStatus === "READY")).toHaveLength(3);
+  });
 
   it("writes the analysis for an Office file from its facts, only if the claim is still ours", async () => {
     mocks.fileFindFirst.mockResolvedValue(withData());
     mocks.analyseFile.mockResolvedValue("## Colours\n- #1F4E79");
     await runFileAnalysis("j1", "f1", "u1");
-    expect(mocks.fileFindFirst).toHaveBeenCalledWith({ where: { id: "f1", jobId: "j1", deletedAt: null, job: { userId: "u1" } } });
+    // The bytes are read only once the run holds an analysis slot.
+    expect(mocks.fileFindFirst.mock.calls[0][0]).toEqual({ where: { id: "f1", jobId: "j1", deletedAt: null, job: { userId: "u1" } }, omit: { data: true } });
+    expect(mocks.fileFindFirst.mock.calls[1][0]).toEqual({ where: { id: "f1" }, select: { data: true } });
     const content = mocks.analyseFile.mock.calls[0][0];
     expect(content.document).toBeUndefined();
     expect(content.image).toBeUndefined();
     expect(content.text).toContain('<file name="Q3 deck.pptx" kind="PPTX">');
     expect(finished()).toEqual({
-      where: { id: "f1", analysisStatus: "PENDING", analysisStartedAt: NOW },
+      where: { id: "f1", analysisStatus: "PENDING", analysisStartedAt: STARTED },
       data: { analysisStatus: "READY", analysis: "## Colours\n- #1F4E79", analysisEdited: false, analysisError: null },
     });
   });
@@ -192,12 +256,12 @@ describe("runFileAnalysis", () => {
   it("says the PDF could not be read when Claude refuses it with a 400 (page count unknown)", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.fileFindFirst.mockResolvedValue(withData({ kind: "PDF", facts: { kind: "PDF", version: "1.7", pages: null, title: null } }));
-    mocks.analyseFile.mockRejectedValue(new Anthropic.BadRequestError(400, { type: "error" }, "too many pages", new Headers()));
+    mocks.analyseFile.mockRejectedValue(new AiBadRequestError());
     await runFileAnalysis("j1", "f1", "u1");
     expect(finished().data).toEqual({ analysisStatus: "FAILED", analysisError: PDF_UNREADABLE_MESSAGE });
     expect(PDF_UNREADABLE_MESSAGE).toContain("add the analysis by hand");
     mocks.fileFindFirst.mockResolvedValue(withData());
-    mocks.analyseFile.mockRejectedValue(new Anthropic.BadRequestError(400, { type: "error" }, "bad", new Headers()));
+    mocks.analyseFile.mockRejectedValue(new AiBadRequestError());
     await runFileAnalysis("j1", "f1", "u1");
     expect(finished().data).toEqual({ analysisStatus: "FAILED", analysisError: ANALYSIS_FAILED_MESSAGE });
     log.mockRestore();
@@ -218,7 +282,7 @@ describe("runFileAnalysis", () => {
     mocks.analyseFile.mockRejectedValue(new AiResponseError("Claude stopped with refusal"));
     await expect(runFileAnalysis("j1", "f1", "u1")).resolves.toBeUndefined();
     expect(finished()).toEqual({
-      where: { id: "f1", analysisStatus: "PENDING", analysisStartedAt: NOW },
+      where: { id: "f1", analysisStatus: "PENDING", analysisStartedAt: STARTED },
       data: { analysisStatus: "FAILED", analysisError: ANALYSIS_FAILED_MESSAGE },
     });
     expect(log).toHaveBeenCalledWith("[skills-builder] file analysis failed:", "AiResponseError");

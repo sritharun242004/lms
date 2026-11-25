@@ -23,6 +23,7 @@ describe("jobErrorResponse", () => {
     [new E.AlreadyGeneratingError(), 409, "ALREADY_GENERATING", "A skill in this job is being written. Wait for it to finish."],
     [new E.FilesAnalysingError(), 409, "FILES_ANALYSING", "Wait until your files have been analysed."],
     [new E.TooManyFilesError(), 409, "TOO_MANY_FILES", "A job can have at most 10 files. Remove one to add another."],
+    [new E.FileNameTakenError("Q3 deck.pptx"), 409, "FILE_NAME_TAKEN", 'Another file named "Q3 deck.pptx" was added at the same moment. Upload it again.'],
     [new E.TooManySkillsError(), 409, "TOO_MANY_SKILLS", "A job can have at most 5 skills. Remove one to add another."],
     [new E.DuplicateNameError("board-deck"), 409, "DUPLICATE_NAME", 'A skill named "board-deck" is already in this job. Choose another name.'],
     [new E.EmptyDescriptionError(), 400, "VALIDATION_ERROR", "Describe the job first."],

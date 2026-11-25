@@ -1,14 +1,14 @@
 import type { Prisma } from "@prisma/client";
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db/prisma";
 import { analyseFile, type AnalysisContent } from "@/lib/ai/claude";
+import { AiBadRequestError } from "@/lib/ai/errors";
 import { consumeAiUsage } from "@/lib/ai/usage";
 import { readUpload } from "../files/extract";
 import { imageForClaude } from "../files/image";
 import { assetFileName } from "../files/safe-name";
 import type { FileFacts, SkillFileKind } from "../files/types";
 import { JOB_LIMITS } from "../limits";
-import { AlreadyAnalysingError, AlreadyGeneratingError, FileNotFoundError, isUniqueViolation, JobNotFoundError, TooManyFilesError } from "./errors";
+import { AlreadyAnalysingError, AlreadyGeneratingError, FileNameTakenError, FileNotFoundError, isUniqueViolation, JobNotFoundError, TooManyFilesError } from "./errors";
 import { buildAnalysisText } from "./instructions";
 import { fileViewOmit, findOwnedJob, toFileView } from "./jobs";
 import { analysisCutoff, generationCutoff, isAnalysing } from "./staleness";
@@ -26,10 +26,9 @@ export function countActiveFiles(jobId: string): Promise<number> {
   return prisma.skillJobFile.count({ where: { jobId, deletedAt: null } });
 }
 
-function createFile(args: Prisma.SkillJobFileCreateArgs) {
-  return prisma.skillJobFile.create(args).catch((error: unknown) => {
-    throw isUniqueViolation(error) ? new TooManyFilesError() : error;
-  });
+/** Removed-but-kept files keep their names, so a version's assets/<name> never changes meaning. */
+async function takenAssetNames(jobId: string): Promise<string[]> {
+  return (await prisma.skillJobFile.findMany({ where: { jobId }, select: { assetName: true } })).map((r) => r.assetName);
 }
 
 /**
@@ -41,36 +40,68 @@ export async function storeJobFile(input: { jobId: string; userId: string; fileN
   const read = await readUpload(input.bytes);
   if ((await countActiveFiles(input.jobId)) >= JOB_LIMITS.filesPerJob) throw new TooManyFilesError();
   await consumeAiUsage(input.userId, "skill_analyze", now);
-  // Removed-but-kept files keep their names, so a version's assets/<name> never changes meaning.
-  const taken = (await prisma.skillJobFile.findMany({ where: { jobId: input.jobId }, select: { assetName: true } })).map((r) => r.assetName);
-  // Two uploads can both pass the count and name checks; the unique [jobId, assetName] index decides, and the loser is told the job is full.
-  const row = await createFile({
-    data: {
-      jobId: input.jobId,
-      fileName: input.fileName,
-      assetName: assetFileName(input.fileName, read.kind, taken),
-      kind: read.kind,
-      mimeType: read.mimeType,
-      size: input.bytes.byteLength,
-      sha256: read.sha256,
-      data: Buffer.from(input.bytes),
-      facts: read.facts as unknown as Prisma.InputJsonValue,
-      analysisStatus: "PENDING",
-      analysisStartedAt: now,
-    },
-    omit: fileViewOmit,
+  const bytes = Buffer.from(input.bytes);
+  const data = (assetName: string): Prisma.SkillJobFileUncheckedCreateInput => ({
+    jobId: input.jobId,
+    fileName: input.fileName,
+    assetName,
+    kind: read.kind,
+    mimeType: read.mimeType,
+    size: input.bytes.byteLength,
+    sha256: read.sha256,
+    data: bytes,
+    facts: read.facts as unknown as Prisma.InputJsonValue,
+    analysisStatus: "PENDING",
+    analysisStartedAt: now,
+  });
+  const create = async () =>
+    prisma.skillJobFile.create({ data: data(assetFileName(input.fileName, read.kind, await takenAssetNames(input.jobId))), omit: fileViewOmit });
+  // The unique [jobId, assetName] index only catches two uploads picking the same name at once (two uploads can
+  // still both pass the count check). The loser picks again from a fresh read of the names, once.
+  const row = await create().catch((error: unknown) => {
+    if (!isUniqueViolation(error)) throw error;
+    return create().catch((retryError: unknown) => {
+      throw isUniqueViolation(retryError) ? new FileNameTakenError(input.fileName) : retryError;
+    });
   });
   return toFileView(row, now);
 }
 
-async function analysisContent(row: { kind: SkillFileKind; fileName: string; assetName: string; data: Uint8Array; facts: FileFacts | null }): Promise<AnalysisContent> {
+async function analysisContent(
+  row: { kind: SkillFileKind; fileName: string; assetName: string; facts: FileFacts | null },
+  data: Uint8Array,
+): Promise<AnalysisContent> {
   const text = buildAnalysisText({ fileName: row.fileName, kind: row.kind, facts: row.facts });
-  if (row.kind === "PDF") return { text, document: { base64: Buffer.from(row.data).toString("base64"), title: row.assetName } };
+  if (row.kind === "PDF") {
+    // A view over the stored bytes, not a copy: the base64 string is already a second copy of the file.
+    return { text, document: { base64: Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64"), title: row.assetName } };
+  }
   if (row.kind === "PNG" || row.kind === "JPEG") {
-    const image = await imageForClaude(row.data, row.kind);
+    const image = await imageForClaude(data, row.kind);
     return { text, image: { base64: image.base64, mediaType: image.mediaType } };
   }
   return { text };
+}
+
+/**
+ * An analysis holds a file's bytes (up to the upload limit) plus their base64 copy until Claude answers, so this
+ * process runs at most this many at once; the rest wait in order. Process-wide, not per user.
+ */
+export const MAX_CONCURRENT_ANALYSES = 2;
+let analysesRunning = 0;
+const analysisQueue: (() => void)[] = [];
+
+async function withAnalysisSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (analysesRunning < MAX_CONCURRENT_ANALYSES) analysesRunning++;
+  else await new Promise<void>((resolve) => analysisQueue.push(resolve));
+  try {
+    return await work();
+  } finally {
+    // Hand the slot straight to the next waiter; only free it when nobody waits.
+    const next = analysisQueue.shift();
+    if (next) next();
+    else analysesRunning--;
+  }
 }
 
 /**
@@ -83,7 +114,7 @@ export async function runFileAnalysis(jobId: string, fileId: string, userId: str
   const finish = (data: Prisma.SkillJobFileUpdateManyMutationInput) =>
     prisma.skillJobFile.updateMany({ where: { id: fileId, analysisStatus: "PENDING", analysisStartedAt: claim ?? null }, data });
   try {
-    const row = await prisma.skillJobFile.findFirst({ where: ownedFile(jobId, fileId, userId) });
+    const row = await prisma.skillJobFile.findFirst({ where: ownedFile(jobId, fileId, userId), omit: { data: true } });
     if (!row || row.analysisStatus !== "PENDING") return;
     claim = row.analysisStartedAt;
     isPdf = row.kind === "PDF";
@@ -92,14 +123,28 @@ export async function runFileAnalysis(jobId: string, fileId: string, userId: str
       await finish({ analysisStatus: "FAILED", analysisError: PDF_TOO_LONG_MESSAGE });
       return;
     }
-    const analysis = await analyseFile(await analysisContent({ ...row, facts }));
-    await finish({ analysisStatus: "READY", analysis, analysisEdited: false, analysisError: null });
+    await withAnalysisSlot(async () => {
+      // Re-stamp the claim now that the run starts, so time spent queued does not read as interrupted.
+      // A lost claim (a newer Analyse again took the file while this run waited) means skip: that run owns it.
+      const startedAt = new Date();
+      const refreshed = await prisma.skillJobFile.updateMany({
+        where: { id: fileId, analysisStatus: "PENDING", analysisStartedAt: claim ?? null },
+        data: { analysisStartedAt: startedAt },
+      });
+      if (refreshed.count === 0) return;
+      claim = startedAt;
+      // Only now are the bytes loaded, so queued runs hold no file in memory.
+      const stored = await prisma.skillJobFile.findFirst({ where: { id: fileId }, select: { data: true } });
+      if (!stored) return;
+      const analysis = await analyseFile(await analysisContent({ ...row, facts }, stored.data));
+      await finish({ analysisStatus: "READY", analysis, analysisEdited: false, analysisError: null });
+    });
   } catch (error) {
     console.error("[skills-builder] file analysis failed:", error instanceof Error ? error.name : "unknown");
     // Without a known claim (the row never loaded) the file stays PENDING and reads as interrupted after 5 minutes.
     if (claim === undefined) return;
     // A PDF whose page count the parser could not read skips the page guard; Claude's own 400 is the guard then.
-    const unreadablePdf = isPdf && error instanceof Anthropic.BadRequestError;
+    const unreadablePdf = isPdf && error instanceof AiBadRequestError;
     await finish({ analysisStatus: "FAILED", analysisError: unreadablePdf ? PDF_UNREADABLE_MESSAGE : ANALYSIS_FAILED_MESSAGE }).catch((writeError: unknown) => {
       console.error("[skills-builder] could not record the analysis failure:", writeError instanceof Error ? writeError.name : "unknown");
     });
