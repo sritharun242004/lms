@@ -1,17 +1,18 @@
 "use client";
 import * as React from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { AnswerCheck, checkOnShortcut } from "@/components/prompt-bot/answer-check";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
-import { useActiveQuestion, type useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
+import { useActiveQuestion, type MatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import type { SkillMatrixView } from "@/lib/skills/types";
 
 const ANSWER_MAX = 4000;
 
-type Props = { matrix: SkillMatrixView; state: ReturnType<typeof useMatrixAnswers> };
+type Props = { matrix: SkillMatrixView; state: MatrixAnswers };
 
 /**
  * Step 3: the skill-definition matrix with 3-slice bars beside the selected question's answer, in the
- * enhancer's two-column layout (stacked on phones). Saving and scoring stay in the workspace's hook.
+ * enhancer's two-column layout (stacked on phones). Saving and checking stay in the workspace's hook.
  */
 export function QuestionsPanel({ matrix, state }: Props) {
   const { activeId, answerRef, selectQuestion } = useActiveQuestion(matrix.questions[0]?.id ?? null);
@@ -25,9 +26,8 @@ export function QuestionsPanel({ matrix, state }: Props) {
         heading={matrix.name}
         headingLevel="h2"
         groups={[{ id: matrix.id || "skill-definition", title: "Questions", questions: matrix.questions }]}
-        answerFor={state.answerFor}
+        state={state}
         activeId={activeId}
-        scoreState={state.scoreState}
         onSelect={selectQuestion}
         onToggleRelevant={(id) => state.updateAnswer(id, { notRelevant: !state.answerFor(id).notRelevant })}
       >
@@ -45,10 +45,12 @@ export function QuestionsPanel({ matrix, state }: Props) {
               value={state.answerFor(active.id).answer}
               maxLength={ANSWER_MAX}
               onChange={(e) => state.updateAnswer(active.id, { answer: e.target.value })}
+              onKeyDown={checkOnShortcut(state, active.id)}
               placeholder={active.guidance}
               aria-describedby={helpId}
               className="mt-2 min-h-48 resize-y bg-white/60 dark:bg-white/5"
             />
+            <AnswerCheck key={active.id} state={state} questionId={active.id} question={active.text} />
             <p id={helpId} className="mt-2 text-xs text-muted-foreground">
               Short notes are fine. Anything your description or files already say counts too.
             </p>

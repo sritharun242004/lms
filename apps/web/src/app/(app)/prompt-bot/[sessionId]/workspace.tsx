@@ -2,6 +2,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import { AnswerCheck, checkOnShortcut } from "@/components/prompt-bot/answer-check";
 import { EnhancePanel } from "@/components/prompt-bot/enhance-panel";
 import { MatrixPanel } from "@/components/prompt-bot/matrix-panel";
 import { useActiveQuestion, useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
@@ -38,21 +39,24 @@ export function Workspace({ initial }: { initial: SessionView }) {
   const questions = view.matrices.flatMap((m) => m.questions);
   const gaps = unansweredQuestionIds(questions.map((q) => matrix.answerFor(q.id)));
 
+  // A new prompt changes what every answer is scored against: the bars are flagged for "Check all".
   function updateBasePrompt(value: string) {
-    matrix.bumpRevision();
+    matrix.markStale();
     setBasePrompt(value);
     if (!value.trim()) return;
     matrix.queueSave("basePrompt", async (options) => {
       const saved = await patchSession(view.id, { basePrompt: value }, options);
       if (!saved.ok) toast.error(saved.message);
-      matrix.scheduleScore();
     });
   }
 
   async function enhance() {
+    const unchecked = matrix.pendingCount > 0 || matrix.contextStale;
     if (
       gaps.length > 0 &&
-      !window.confirm(`${gaps.length} questions aren't fully answered yet. The enhanced prompt will ask the AI to check them with you first. Continue?`)
+      !window.confirm(
+        `${gaps.length} questions aren't fully answered yet${unchecked ? " (some changes haven't been checked)" : ""}. The enhanced prompt will ask the AI to check them with you first. Continue?`,
+      )
     )
       return;
     enhancing.current = true;
@@ -152,9 +156,8 @@ export function Workspace({ initial }: { initial: SessionView }) {
       <MatrixPanel
         heading="Design Think"
         groups={groups}
-        answerFor={matrix.answerFor}
+        state={matrix}
         activeId={activeId}
-        scoreState={matrix.scoreState}
         onSelect={selectQuestion}
         onToggleRelevant={(id) => matrix.updateAnswer(id, { notRelevant: !matrix.answerFor(id).notRelevant })}
       />
@@ -171,9 +174,11 @@ export function Workspace({ initial }: { initial: SessionView }) {
                 ref={answerRef}
                 value={matrix.answerFor(active.id).answer}
                 onChange={(e) => matrix.updateAnswer(active.id, { answer: e.target.value })}
+                onKeyDown={checkOnShortcut(matrix, active.id)}
                 placeholder={active.guidance}
                 className="mt-2 min-h-24 bg-white/60 dark:bg-white/5"
               />
+              <AnswerCheck key={active.id} state={matrix} questionId={active.id} question={active.text} />
             </div>
           )}
         </section>

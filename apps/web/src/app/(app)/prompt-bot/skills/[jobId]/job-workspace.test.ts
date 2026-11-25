@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import type { JobFileView, JobSkillView, JobView } from "@/lib/skills/jobs/types";
 
 const mocks = vi.hoisted(() => ({
@@ -101,6 +102,7 @@ const mount = async (initial: JobView = JOB, aiConfigured = true) => {
   render(createElement(JobWorkspace, { initial, aiConfigured, isAdmin: false }));
   await settle();
 };
+const questionsState = () => mocks.panels.questions.state as MatrixAnswers;
 const steps = () => within(screen.getByRole("navigation", { name: "Steps" }));
 
 beforeEach(() => {
@@ -175,7 +177,7 @@ describe("JobWorkspace steps", () => {
 });
 
 describe("JobWorkspace polling", () => {
-  it("polls while a file is analysed, merges only its status, rescores, then stops", async () => {
+  it("polls while a file is analysed, merges only its status, flags the bars for a check, then stops", async () => {
     const waiting = { ...JOB, files: [file({ analysisStatus: "PENDING", analysis: null })] };
     mocks.getJob.mockResolvedValue(ok({ ...JOB, description: "server copy", files: [file({ fileName: "SERVER", analysisStatus: "READY", analysis: "## Fonts" })] }));
     await mount(waiting);
@@ -185,7 +187,8 @@ describe("JobWorkspace polling", () => {
     expect(screen.getByText("deck.pptx:READY")).toBeTruthy();
     expect(screen.getByText("description:Every month I write the board update.")).toBeTruthy();
     await settle(1500);
-    expect(mocks.scoreJob).toHaveBeenCalledWith("j1", 3);
+    expect(mocks.scoreJob).not.toHaveBeenCalled();
+    expect(questionsState().contextStale).toBe(true);
     await settle(60_000);
     expect(mocks.getJob).toHaveBeenCalledTimes(1);
   });
@@ -254,7 +257,7 @@ describe("JobWorkspace polling", () => {
 });
 
 describe("JobWorkspace description", () => {
-  it("saves the description after the save delay, then rescores", async () => {
+  it("saves the description after the save delay and flags the bars for a check without scoring", async () => {
     await mount();
     await act(async () => {
       (mocks.panels.describe.onDescriptionChange as (v: string) => void)("Weekly board update");
@@ -264,24 +267,32 @@ describe("JobWorkspace description", () => {
     await settle(600);
     expect(mocks.patchJob).toHaveBeenCalledWith("j1", { description: "Weekly board update" }, expect.anything());
     await settle(1500);
-    expect(mocks.scoreJob).toHaveBeenCalledWith("j1", 3);
+    expect(mocks.scoreJob).not.toHaveBeenCalled();
+    expect(questionsState().contextStale).toBe(true);
   });
 
-  it("rescores when a file's analysis becomes ready or is edited, and drops a removed file from skills", async () => {
+  it("flags the bars when a file's analysis becomes ready or a file is removed, and drops a removed file from skills", async () => {
     await mount();
     await act(async () => {
       (mocks.panels.files.onFileChange as (f: JobFileView) => void)(file({ id: "f2", fileName: "brief.docx", analysis: "## Tone" }));
     });
     expect(screen.getByText("brief.docx:READY")).toBeTruthy();
     await settle(1500);
+    expect(questionsState().contextStale).toBe(true);
+    mocks.scoreJob.mockResolvedValueOnce(ok({ applied: true, revision: 3, answers: [] }));
+    await act(async () => {
+      await questionsState().check();
+    });
     expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
+    expect(questionsState().contextStale).toBe(false);
     await act(async () => {
       (mocks.panels.files.onFileRemoved as (id: string) => void)("f1");
     });
     expect(screen.queryByText("deck.pptx:READY")).toBeNull();
     expect((mocks.panels.skills.job as JobView).skills[0].fileIds).toEqual([]);
     await settle(1500);
-    expect(mocks.scoreJob).toHaveBeenCalledTimes(2);
+    expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
+    expect(questionsState().contextStale).toBe(true);
   });
 
   it("takes only skills from a suggestion reply", async () => {
@@ -291,6 +302,19 @@ describe("JobWorkspace description", () => {
     });
     expect(screen.getByText(/skills:weekly-report=DRAFT/)).toBeTruthy();
     expect(screen.getByText("description:Every month I write the board update.")).toBeTruthy();
+  });
+});
+
+describe("JobWorkspace checks", () => {
+  it("scores a never-scored job once on open, then only when asked", async () => {
+    mocks.scoreJob.mockResolvedValue(ok({ applied: true, revision: 3, answers: [{ questionId: "q1", answer: "", score: 1, reason: "Hinted", notRelevant: false }] }));
+    await mount({ ...JOB, answers: [] });
+    expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
+    expect(mocks.scoreJob).toHaveBeenCalledWith("j1", 3);
+    expect(questionsState().answerFor("q1").reason).toBe("Hinted");
+    expect(questionsState().contextStale).toBe(false);
+    await settle(60_000);
+    expect(mocks.scoreJob).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -393,8 +417,8 @@ describe("JobWorkspace header", () => {
     await settle(1500);
     expect(mocks.patchJob).toHaveBeenCalledTimes(2);
     expect(mocks.scoreJob).not.toHaveBeenCalled();
-    const state = mocks.panels.questions.state as { scoreState: string };
-    expect(state.scoreState).toBe("idle");
+    expect(questionsState().canCheck).toBe(false);
+    expect(questionsState().checkError).toBeNull();
     expect(screen.getAllByText("Prompt Bot isn't configured yet")).toHaveLength(1);
   });
 });

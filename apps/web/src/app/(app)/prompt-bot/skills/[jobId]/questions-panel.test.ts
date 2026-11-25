@@ -21,7 +21,17 @@ const ANSWERS: Record<string, AnswerView> = {
   q2: { questionId: "q2", answer: "", score: 1, reason: "Only hinted at", notRelevant: false },
 };
 const mount = (matrix = MATRIX) => {
-  const state = { answerFor: (id: string) => ANSWERS[id], scoreState: "idle", updateAnswer: vi.fn() } as unknown as State;
+  const state = {
+    answerFor: (id: string) => ANSWERS[id],
+    updateAnswer: vi.fn(),
+    canCheck: true,
+    checking: false,
+    checkError: null,
+    pendingCount: 1,
+    contextStale: false,
+    isChanged: (id: string) => id === "q1",
+    check: vi.fn(async () => {}),
+  } as unknown as State;
   render(createElement(QuestionsPanel, { matrix, state }));
   return state;
 };
@@ -56,6 +66,16 @@ describe("QuestionsPanel", () => {
     expect(state.updateAnswer).toHaveBeenCalledWith("q1", { answer: "Monthly board meetings" });
     fireEvent.click(screen.getByRole("button", { name: "Mark not relevant: What context does it need to know?" }));
     expect(state.updateAnswer).toHaveBeenCalledWith("q2", { notRelevant: true });
+  });
+
+  it("checks the selected answer from its button or Ctrl+Enter, and offers Check all", () => {
+    const state = mount();
+    fireEvent.click(screen.getByRole("button", { name: "Check answer: When should this skill be used?" }));
+    fireEvent.keyDown(box("When should this skill be used?"), { key: "Enter", ctrlKey: true });
+    expect(state.check).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/Clear trigger/, { selector: "p" }).textContent).toMatch(/Last check/);
+    fireEvent.click(screen.getByRole("button", { name: /^Check all/ }));
+    expect(state.check).toHaveBeenCalledTimes(3);
   });
 
   it("says so when no questions are set up", () => {

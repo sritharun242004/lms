@@ -1,10 +1,11 @@
 "use client";
 import * as React from "react";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { readiness } from "@/lib/prompt-bot/scoring";
-import type { AnswerView } from "@/lib/prompt-bot/sessions";
 import { QuestionRow } from "./question-row";
 import { ReadinessMeter } from "./readiness-meter";
-import type { ScoreState } from "./use-matrix-answers";
+import type { MatrixAnswers } from "./use-matrix-answers";
 
 export type MatrixGroup = {
   id: string;
@@ -19,21 +20,57 @@ type Props = {
   heading: string;
   headingLevel?: "h1" | "h2";
   groups: MatrixGroup[];
-  answerFor(id: string): AnswerView;
+  state: MatrixAnswers;
   activeId: string | null;
-  scoreState: ScoreState;
   onSelect(id: string): void;
   onToggleRelevant(id: string): void;
   children?: React.ReactNode;
 };
 
+function statusLine(state: MatrixAnswers): {
+  text: string;
+  tone: "muted" | "error";
+} {
+  if (state.checking) return { text: "Checking your answers…", tone: "muted" };
+  if (state.checkError)
+    return {
+      text: `Couldn't check: ${state.checkError.message}`,
+      tone: "error",
+    };
+  if (state.contextStale)
+    return {
+      text: "Bars may be out of date. Check all to update them.",
+      tone: "muted",
+    };
+  const n = state.pendingCount;
+  if (n > 0)
+    return {
+      text: `${n} ${n === 1 ? "answer" : "answers"} changed since the last check.`,
+      tone: "muted",
+    };
+  return { text: "", tone: "muted" };
+}
+
 /**
- * The left column of a matrix workspace: heading and overall progress, then numbered question rows
- * with 3-slice bars. Sized so eight rows fit a laptop screen; on large screens it stays in view and
- * scrolls on its own if a matrix is longer.
+ * The left column of a matrix workspace: heading, overall progress and "Check all", then numbered
+ * question rows with 3-slice bars. On large screens the panel stays pinned below the site header and
+ * only its question list scrolls, so the header and Check all stay in view; stacked on phones.
  */
-export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, activeId, scoreState, onSelect, onToggleRelevant, children }: Props) {
+export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activeId, onSelect, onToggleRelevant, children }: Props) {
+  const { answerFor } = state;
   const headingId = React.useId();
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const mounted = React.useRef(false);
+  // Keep the selected row visible inside the panel's own scroll; the first render leaves the page alone.
+  React.useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
+  const status = statusLine(state);
+  const canCheckAll = !state.checking && (state.pendingCount > 0 || state.contextStale);
   const Heading = headingLevel;
   const GroupHeading = headingLevel === "h1" ? "h2" : "h3";
   const ready = readiness(groups.flatMap((g) => g.questions.map((q) => answerFor(q.id))));
@@ -41,48 +78,75 @@ export function MatrixPanel({ heading, headingLevel = "h1", groups, answerFor, a
 
   return (
     <aside
-      className="glass h-fit rounded-[1.75rem] p-4 sm:p-5 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overscroll-contain"
+      className="glass h-fit self-start rounded-[1.75rem] p-4 sm:p-5 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100dvh-7rem)] lg:flex-col"
       aria-labelledby={headingId}
     >
-      <ReadinessMeter {...ready}>
-        <Heading id={headingId} className="text-lg font-semibold">
-          {heading}
-        </Heading>
-      </ReadinessMeter>
-      <p className="mt-1.5 h-4 text-xs text-muted-foreground" aria-live="polite">
-        {scoreState === "scoring" ? "Updating…" : scoreState === "failed" ? "Couldn't update the bars — keep typing to retry." : ""}
-      </p>
-      {groups.map((group, gi) => (
-        <section key={group.id} className="mt-2" aria-labelledby={`${headingId}-${group.id}`}>
-          {/* One group needs no visible label; the heading stays for screen-reader navigation. */}
-          <GroupHeading
-            id={`${headingId}-${group.id}`}
-            className={groups.length === 1 ? "sr-only" : "mb-1.5 mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"}
-          >
-            {group.title}
-          </GroupHeading>
-          <ul className="-mx-1 flex flex-col gap-0.5">
-            {group.questions.map((q, qi) => {
-              const a = answerFor(q.id);
-              return (
-                <QuestionRow
-                  key={q.id}
-                  index={offsets[gi] + qi + 1}
-                  text={q.text}
-                  lead={group.closingLead && group.questions.length > 1 && qi === group.questions.length - 1 ? group.closingLead : undefined}
-                  score={a.score}
-                  reason={a.reason}
-                  notRelevant={a.notRelevant}
-                  active={q.id === activeId}
-                  onSelect={() => onSelect(q.id)}
-                  onToggleRelevant={() => onToggleRelevant(q.id)}
-                />
-              );
-            })}
-          </ul>
-        </section>
-      ))}
-      {children}
+      <div className="shrink-0">
+        <ReadinessMeter {...ready}>
+          <Heading id={headingId} className="text-lg font-semibold">
+            {heading}
+          </Heading>
+        </ReadinessMeter>
+        <div className="mt-2 flex min-h-8 items-center justify-between gap-3">
+          <p className={status.tone === "error" ? "text-xs leading-snug text-destructive" : "text-xs leading-snug text-muted-foreground"}>{status.text}</p>
+          {state.canCheck && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canCheckAll}
+              onClick={() => void state.check()}
+              className="shrink-0 hover:translate-y-0"
+            >
+              {state.checking ? (
+                <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+              ) : (
+                <RefreshCw className="size-3.5" aria-hidden />
+              )}
+              {state.checking ? "Checking…" : "Check all"}
+              {!state.checking && state.pendingCount > 0 && (
+                <span className="rounded-full bg-primary/10 px-1.5 text-xs tabular-nums text-primary">
+                  {state.pendingCount}
+                  <span className="sr-only"> changed</span>
+                </span>
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+      <div ref={listRef} className="-mx-1 px-1 pb-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+        {groups.map((group, gi) => (
+          <section key={group.id} className="mt-2" aria-labelledby={`${headingId}-${group.id}`}>
+            {/* One group needs no visible label; the heading stays for screen-reader navigation. */}
+            <GroupHeading
+              id={`${headingId}-${group.id}`}
+              className={groups.length === 1 ? "sr-only" : "mb-1.5 mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"}
+            >
+              {group.title}
+            </GroupHeading>
+            <ul className="-mx-1 flex flex-col gap-0.5">
+              {group.questions.map((q, qi) => {
+                const a = answerFor(q.id);
+                return (
+                  <QuestionRow
+                    key={q.id}
+                    index={offsets[gi] + qi + 1}
+                    text={q.text}
+                    lead={group.closingLead && group.questions.length > 1 && qi === group.questions.length - 1 ? group.closingLead : undefined}
+                    score={a.score}
+                    reason={a.reason}
+                    notRelevant={a.notRelevant}
+                    active={q.id === activeId}
+                    onSelect={() => onSelect(q.id)}
+                    onToggleRelevant={() => onToggleRelevant(q.id)}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
+      {children && <div className="shrink-0">{children}</div>}
     </aside>
   );
 }

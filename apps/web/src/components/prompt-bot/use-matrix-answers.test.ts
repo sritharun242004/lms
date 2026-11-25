@@ -18,20 +18,18 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("useMatrixAnswers", () => {
-  it("saves through the caller's endpoint, then scores the current revision and takes only score and reason", async () => {
+  it("saves after a pause but never scores on its own", async () => {
     const saveAnswer = vi.fn(() => ok({ saved: true }));
-    const score = vi.fn(() =>
-      ok({ applied: true, revision: 5, answers: [{ questionId: "q1", answer: "server", score: 2, reason: "Partly", notRelevant: false }] }),
-    );
+    const score = vi.fn(() => ok({ applied: true, revision: 5, answers: [] }));
     const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 4, saveAnswer, score }));
 
     act(() => result.current.updateAnswer("q1", { answer: "draft" }));
     expect(result.current.answerFor("q1").answer).toBe("draft");
     await tick(600);
     expect(saveAnswer).toHaveBeenCalledWith("q1", { answer: "draft" }, {});
-    await tick(1500);
-    expect(score).toHaveBeenCalledWith(5);
-    expect(result.current.answerFor("q1")).toEqual({ questionId: "q1", answer: "draft", score: 2, reason: "Partly", notRelevant: false });
+    await tick(10_000);
+    expect(score).not.toHaveBeenCalled();
+    expect(result.current.isChanged("q1")).toBe(true);
   });
 
   it("sends a pending save at once on flushSaves", async () => {
@@ -107,22 +105,127 @@ describe("useMatrixAnswers", () => {
     expect(unload()).toBe(false);
   });
 
-  it("reports a failed score", async () => {
-    const score = vi.fn(() => Promise.resolve({ ok: false as const, code: "AI_FAILED", message: "x" }));
+  it("on check, sends the pending save first, then scores the next revision and takes only score and reason", async () => {
+    const order: string[] = [];
+    const saveAnswer = vi.fn(() => {
+      order.push("save");
+      return ok({ saved: true });
+    });
+    const score = vi.fn(() => {
+      order.push("score");
+      return ok({ applied: true, revision: 5, answers: [{ questionId: "q1", answer: "server", score: 2, reason: "Partly", notRelevant: false }] });
+    });
+    const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 4, saveAnswer, score }));
+
+    act(() => result.current.updateAnswer("q1", { answer: "draft" }));
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(order).toEqual(["save", "score"]);
+    expect(score).toHaveBeenCalledWith(5);
+    expect(result.current.answerFor("q1")).toEqual({ questionId: "q1", answer: "draft", score: 2, reason: "Partly", notRelevant: false });
+    expect(result.current.isChanged("q1")).toBe(false);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("counts loaded answers as checked and edited ones as pending until checked", async () => {
+    const initialAnswers = [{ questionId: "q1", answer: "saved", score: 2, reason: "Partly", notRelevant: false }];
+    const { result } = renderHook(() =>
+      useMatrixAnswers({ initialAnswers, initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score: vi.fn(() => ok({ applied: true, revision: 1, answers: [] })) }),
+    );
+    expect(result.current.isChanged("q1")).toBe(false);
+    act(() => result.current.updateAnswer("q1", { answer: "saved!" }));
+    act(() => result.current.updateAnswer("q2", { answer: "new" }));
+    expect(result.current.isChanged("q1")).toBe(true);
+    expect(result.current.pendingCount).toBe(2);
+    act(() => result.current.updateAnswer("q1", { answer: "saved" }));
+    expect(result.current.isChanged("q1")).toBe(false);
+    expect(result.current.pendingCount).toBe(1);
+  });
+
+  it("shows checking while the score is in flight, and keeps an edit made meanwhile pending", async () => {
+    let release!: (r: { ok: true; data: { applied: boolean; revision: number; answers: [] } }) => void;
+    const score = vi.fn(() => new Promise<{ ok: true; data: { applied: boolean; revision: number; answers: [] } }>((r) => (release = r)));
     const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score }));
-    act(() => result.current.scheduleScore());
-    await tick(1500);
-    expect(result.current.scoreState).toBe("failed");
+    act(() => result.current.updateAnswer("q1", { answer: "a" }));
+    let done!: Promise<void>;
+    await act(async () => {
+      done = result.current.check();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.checking).toBe(true);
+    act(() => result.current.updateAnswer("q1", { answer: "ab" }));
+    await act(async () => {
+      release({ ok: true, data: { applied: true, revision: 1, answers: [] } });
+      await done;
+    });
+    expect(result.current.checking).toBe(false);
+    expect(result.current.isChanged("q1")).toBe(true);
+  });
+
+  it("ignores a late reply for an older check once a newer check has been applied", async () => {
+    const releases: ((r: unknown) => void)[] = [];
+    const score = vi.fn(() => new Promise((r) => releases.push(r))) as unknown as (n: number) => Promise<never>;
+    const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score }));
+    act(() => result.current.updateAnswer("q1", { answer: "a" }));
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    await act(async () => {
+      first = result.current.check();
+      await vi.advanceTimersByTimeAsync(0);
+      second = result.current.check();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const reply = (score: number, reason: string, revision: number) => ({
+      ok: true,
+      data: { applied: true, revision, answers: [{ questionId: "q1", answer: "a", score, reason, notRelevant: false }] },
+    });
+    await act(async () => {
+      releases[1](reply(3, "newer", 2));
+      await second;
+      releases[0](reply(1, "older", 1));
+      await first;
+    });
+    expect(result.current.answerFor("q1").reason).toBe("newer");
+    expect(result.current.answerFor("q1").score).toBe(3);
+  });
+
+  it("reports a failed check with its code and message, and leaves the answer pending", async () => {
+    const score = vi.fn(() => Promise.resolve({ ok: false as const, code: "LIMIT_REACHED", message: "Daily limit reached" }));
+    const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score }));
+    act(() => result.current.updateAnswer("q1", { answer: "a" }));
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.checkError).toEqual({ code: "LIMIT_REACHED", message: "Daily limit reached" });
+    expect(result.current.checking).toBe(false);
+    expect(result.current.isChanged("q1")).toBe(true);
+  });
+
+  it("marks every answer stale when the prompt changes, until the next check", async () => {
+    const score = vi.fn(() => ok({ applied: true, revision: 1, answers: [] }));
+    const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: vi.fn(() => ok({})), score }));
+    expect(result.current.contextStale).toBe(false);
+    act(() => result.current.markStale());
+    expect(result.current.contextStale).toBe(true);
+    expect(score).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.contextStale).toBe(false);
   });
 
   it("never scores when the caller has no scorer, so there is no failure to report", async () => {
     const saveAnswer = vi.fn(() => ok({}));
     const { result } = renderHook(() => useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer, score: null }));
+    expect(result.current.canCheck).toBe(false);
     act(() => result.current.updateAnswer("q1", { answer: "draft" }));
-    await tick(600 + 1500);
-    act(() => result.current.scheduleScore());
-    await tick(1500);
+    await act(async () => {
+      await result.current.check();
+    });
+    expect(result.current.checking).toBe(false);
+    await tick(600);
     expect(saveAnswer).toHaveBeenCalledTimes(1);
-    expect(result.current.scoreState).toBe("idle");
+    expect(result.current.checkError).toBeNull();
   });
 });

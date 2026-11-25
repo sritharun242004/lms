@@ -53,17 +53,20 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     saveAnswer: (questionId, patch, options) => saveJobAnswer(initial.id, questionId, patch, options),
     score: aiConfigured ? (revision) => scoreJob(initial.id, revision) : null,
   });
-  const { bumpRevision, scheduleScore, queueSave } = state;
-  const rescore = React.useCallback(() => {
-    bumpRevision();
-    scheduleScore();
-  }, [bumpRevision, scheduleScore]);
+  // Scoring runs only when asked ("Check answer" / "Check all"). A change to what answers are scored
+  // against (description, file analyses) flags the bars as out of date instead of rescoring.
+  const { markStale, check, queueSave } = state;
 
-  // A job that was never scored (fresh from the home page) gets its bars once.
+  // A job that was never scored (fresh from the home page) gets its bars once. The ref keeps a
+  // development double-run of this effect from paying for a second check.
   const [neverScored] = React.useState(initial.answers.length === 0 && initial.description.trim() !== "");
+  const firstCheck = React.useRef(false);
   React.useEffect(() => {
-    if (neverScored) scheduleScore();
-  }, [neverScored, scheduleScore]);
+    if (!neverScored || !aiConfigured || firstCheck.current) return;
+    firstCheck.current = true;
+    markStale();
+    void check();
+  }, [neverScored, aiConfigured, markStale, check]);
 
   // The step lives in the URL hash, so reload and Back keep it.
   React.useEffect(() => {
@@ -102,7 +105,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
         const fresh = result.data;
         const { analysed } = mergePolled(jobRef.current, fresh);
         setJob((current) => mergePolled(current, fresh).job);
-        if (analysed) rescore();
+        if (analysed) markStale();
       }
       waited += delay;
       if (waited >= POLL_CAP_MS) return setStalledFor(key);
@@ -121,15 +124,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [key, deleted, initial.id, rescore]);
+  }, [key, deleted, initial.id, markStale]);
 
   function updateDescription(value: string) {
     setDescription(value);
-    bumpRevision();
+    markStale();
     queueSave("description", async (options) => {
       const saved = await patchJob(initial.id, { description: value }, options);
       if (!saved.ok) toast.error(saved.message);
-      scheduleScore();
     });
   }
 
@@ -142,9 +144,9 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
         files: j.files.some((f) => f.id === file.id) ? j.files.map((f) => (f.id === file.id ? file : f)) : [...j.files, file],
       }));
       const analysisChanged = file.analysisStatus === "READY" && (previous?.analysisStatus !== "READY" || previous.analysis !== file.analysis);
-      if (analysisChanged) rescore();
+      if (analysisChanged) markStale();
     },
-    [rescore],
+    [markStale],
   );
 
   const onFileRemoved = React.useCallback(
@@ -154,9 +156,9 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
         files: j.files.filter((f) => f.id !== fileId),
         skills: j.skills.map((s) => (s.fileIds.includes(fileId) ? { ...s, fileIds: s.fileIds.filter((id) => id !== fileId) } : s)),
       }));
-      rescore();
+      markStale();
     },
-    [rescore],
+    [markStale],
   );
 
   const onSkillChange = React.useCallback((skill: JobSkillView) => {
