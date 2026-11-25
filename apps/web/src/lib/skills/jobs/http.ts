@@ -32,6 +32,9 @@ export function jobErrorResponse(error: unknown): Response | null {
     );
   }
   if (error instanceof E.DescriptionTooShortError) return errorResponse(`${tooShortMessage(error.length)}.`, "DESCRIPTION_TOO_SHORT", 400);
+  if (error instanceof E.PerUseLabelTooLongError) {
+    return errorResponse(`An input's name can be up to ${JOB_LIMITS.perUseLabelChars} characters.`, "VALIDATION_ERROR", 400);
+  }
   if (error instanceof E.EnhanceInputTooShortError) {
     return errorResponse(`Write at least ${JOB_LIMITS.enhanceMinWords} words about the task first.`, "VALIDATION_ERROR", 400);
   }

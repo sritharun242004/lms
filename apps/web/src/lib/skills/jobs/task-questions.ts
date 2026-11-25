@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { writeTaskQuestions } from "@/lib/ai/claude";
 import { consumeAiUsage } from "@/lib/ai/usage";
 import { JOB_LIMITS } from "../limits";
-import { DescriptionTooShortError, JobNotFoundError, QuestionNotFoundError, TooManyQuestionsError } from "./errors";
+import { DescriptionTooShortError, JobNotFoundError, PerUseLabelTooLongError, QuestionNotFoundError, TooManyQuestionsError } from "./errors";
 import { buildQuestionsMessage } from "./instructions";
 import { findOwnedJob, loadJobView, questionOrder, toQuestionView } from "./jobs";
 import { cleanQuestionSet, normalizeQuestionText } from "./questions";
@@ -161,6 +161,7 @@ export async function updateQuestion(jobId: string, userId: string, questionId: 
   const row = await prisma.skillJobQuestion.findFirst({ where: { id: questionId, jobId } });
   if (!row) throw new QuestionNotFoundError();
   const kind = patch.kind ?? row.kind;
+  if (kind === "PER_USE" && patch.text !== undefined && patch.text.trim().length > JOB_LIMITS.perUseLabelChars) throw new PerUseLabelTooLongError();
   if (kind !== row.kind) await assertRoom(jobId, kind);
   const data = {
     text: patch.text !== undefined ? patch.text.trim() : row.text,

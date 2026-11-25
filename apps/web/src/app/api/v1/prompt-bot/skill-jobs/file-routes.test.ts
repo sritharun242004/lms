@@ -86,7 +86,7 @@ describe("POST /skill-jobs/[id]/files", () => {
     expect(res.status).toBe(201);
     expect((await res.json()).data).toEqual(VIEW);
     const input = mocks.storeJobFile.mock.calls[0][0];
-    expect(input).toMatchObject({ jobId: "j1", userId: "u1", fileName: "Q3 deck.pptx" });
+    expect(input).toMatchObject({ jobId: "j1", userId: "u1", fileName: "Q3 deck.pptx", questionId: null });
     expect([...input.bytes]).toEqual([1, 2, 3]);
     expect(mocks.runFileAnalysis).not.toHaveBeenCalled();
     await mocks.after.mock.calls[0][0]();

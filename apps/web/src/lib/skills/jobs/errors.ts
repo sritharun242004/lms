@@ -108,6 +108,13 @@ export class EnhanceInputTooShortError extends NamedError {
   }
 }
 
+/** A PATCH renamed a per-use input past JOB_LIMITS.perUseLabelChars (the body alone cannot know the row's kind). */
+export class PerUseLabelTooLongError extends NamedError {
+  constructor() {
+    super("Per-use label too long");
+  }
+}
+
 /** A Prisma unique-index violation (P2002): a concurrent request won the race the app-level check lost. */
 export const isUniqueViolation = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";

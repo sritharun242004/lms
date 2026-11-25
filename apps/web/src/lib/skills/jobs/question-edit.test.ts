@@ -22,7 +22,7 @@ vi.mock("@/lib/db/prisma", () => ({
 vi.mock("@/lib/ai/claude", () => ({ writeTaskQuestions: vi.fn(), scoreQuestions: vi.fn() }));
 vi.mock("@/lib/ai/usage", () => ({ consumeAiUsage: vi.fn() }));
 
-import { JobNotFoundError, QuestionNotFoundError, TooManyQuestionsError } from "./errors";
+import { JobNotFoundError, PerUseLabelTooLongError, QuestionNotFoundError, TooManyQuestionsError } from "./errors";
 import { addQuestion, deleteQuestion, updateQuestion } from "./task-questions";
 
 const NOW = new Date("2026-11-25T12:00:00Z");
@@ -117,6 +117,12 @@ describe("updateQuestion", () => {
     await updateQuestion("j1", "u1", "q1", { kind: "FIXED" });
     expect(mocks.qUpdate.mock.calls[0][0].data).toMatchObject({ kind: "FIXED", required: true });
     expect(mocks.fileUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a per-use label over 120 characters", async () => {
+    mocks.qFindFirst.mockResolvedValue(row({ kind: "PER_USE", wantsFiles: false, fileHint: null, fileNote: "" }));
+    await expect(updateQuestion("j1", "u1", "q1", { text: "x".repeat(121) })).rejects.toBeInstanceOf(PerUseLabelTooLongError);
+    expect(mocks.qUpdate).not.toHaveBeenCalled();
   });
 
   it("toggles required on a per-use input", async () => {
