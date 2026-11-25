@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   generateJobSkillDraft: vi.fn(),
   activeFiles: vi.fn(),
   jobQuestionContext: vi.fn(),
+  jobPerUseInputs: vi.fn(),
   purgeUnreferencedFiles: vi.fn(),
   loadSkillView: vi.fn(),
 }));
@@ -25,7 +26,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 vi.mock("@/lib/ai/usage", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/usage")>()), consumeAiUsage: mocks.consumeAiUsage }));
 vi.mock("@/lib/ai/claude", () => ({ generateJobSkillDraft: mocks.generateJobSkillDraft }));
-vi.mock("./jobs", () => ({ activeFiles: mocks.activeFiles, jobQuestionContext: mocks.jobQuestionContext }));
+vi.mock("./jobs", () => ({ activeFiles: mocks.activeFiles, jobQuestionContext: mocks.jobQuestionContext, jobPerUseInputs: mocks.jobPerUseInputs }));
 vi.mock("./files", () => ({ purgeUnreferencedFiles: mocks.purgeUnreferencedFiles }));
 vi.mock("./skills", () => ({ loadSkillView: mocks.loadSkillView }));
 
@@ -45,7 +46,7 @@ const skillRow = (over: Record<string, unknown> = {}) => ({
   validationErrors: [],
   fileIds: ["f1"],
   latestVersion: 0,
-  job: { title: "Monthly board update", description: "Every month I turn my notes into the board update." },
+  job: { title: "Monthly board update", description: "Every month I turn my notes into the board update.", outputType: "board update deck" },
   ...over,
 });
 const fileRow = (over: Record<string, unknown> = {}) => ({
@@ -57,6 +58,7 @@ const fileRow = (over: Record<string, unknown> = {}) => ({
   analysis: "## Colours\n\n- Navy #1F4E79",
   analysisStatus: "READY",
   analysisStartedAt: null,
+  questionId: null,
   ...over,
 });
 const VALID: JobSkillDraft = {
@@ -89,6 +91,7 @@ beforeEach(() => {
   mocks.consumeAiUsage.mockResolvedValue(undefined);
   mocks.activeFiles.mockResolvedValue([fileRow()]);
   mocks.jobQuestionContext.mockResolvedValue([]);
+  mocks.jobPerUseInputs.mockResolvedValue([]);
   mocks.purgeUnreferencedFiles.mockResolvedValue(0);
   mocks.loadSkillView.mockResolvedValue({ id: "s1", status: "GENERATING" });
 });
@@ -225,8 +228,33 @@ describe("runJobSkillGeneration", () => {
     const data = mocks.versionCreate.mock.calls[0][0].data;
     expect(data.assetFileIds).toEqual(["f2", "f1"]);
     const guide = data.files.find((f: { path: string }) => f.path === "references/style-guide.md").content;
-    expect(guide).toContain("## Logo.png\n\nBundled as assets/logo.png.\n\nNo analysis is available for this file.");
+    expect(guide).toContain("### Logo.png\n\nBundled as assets/logo.png.\n\nNo analysis is available for this file.");
     expect(guide).not.toContain("stale text");
+  });
+
+  it("asks for the per-use inputs in the prompt and writes exactly one Before you start section", async () => {
+    mocks.jobQuestionContext.mockResolvedValue([
+      { id: "q1", text: "Which deck do you start from?", guidance: "Name it.", answer: "The Q3 deck.", score: 3, notRelevant: false },
+    ]);
+    mocks.jobPerUseInputs.mockResolvedValue([{ label: "Month", hint: "e.g. March 2026", required: true }, { label: "Board chair", hint: "", required: false }]);
+    mocks.activeFiles.mockResolvedValue([fileRow({ questionId: "q1" })]);
+    mocks.generateJobSkillDraft.mockResolvedValue({
+      ...VALID,
+      body: "# Board update\n\n## Before you start — ask the user for\n\n- The model's own list\n\n## Steps\n\nFollow `references/style-guide.md`.",
+    });
+    await runJobSkillGeneration("j1", "s1", "u1");
+    const [message] = mocks.generateJobSkillDraft.mock.calls[0];
+    expect(message).toContain("output_type: board update deck");
+    expect(message).toContain("- Month (required): e.g. March 2026\n- Board chair (if available)");
+    expect(message).toContain('<question n="1" text="Which deck do you start from?">');
+    expect(message).toMatch(/<question n="1"[^]*<file name="Q3 deck.pptx"[^]*<\/question>/);
+    const files = mocks.versionCreate.mock.calls[0][0].data.files;
+    const skillMd = files[0].content as string;
+    expect(skillMd.match(/^## Before you start — ask the user for$/gm)).toHaveLength(1);
+    expect(skillMd).toContain("- **Month** (required): e.g. March 2026\n- **Board chair** (if available)");
+    expect(skillMd).not.toContain("The model's own list");
+    expect(skillMd).toContain('Added for the question "Which deck do you start from?".');
+    expect(files[1].content).toContain('## For "Which deck do you start from?"\n\n### Q3 deck.pptx');
   });
 
   it("records the generic failure, logs only the error name and never throws", async () => {

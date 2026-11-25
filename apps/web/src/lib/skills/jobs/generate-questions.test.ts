@@ -69,10 +69,10 @@ describe("generateQuestionsForTask", () => {
     });
     expect(await generateQuestionsForTask("j1", "u1")).toEqual({ id: "j1" });
     expect(mocks.jobFindFirst.mock.calls[0][0].where).toEqual({ id: "j1", userId: "u1" });
-    const ops = mocks.transaction.mock.calls[0][0] as { op: string; args: any }[];
+    const ops = mocks.transaction.mock.calls[0][0] as { op: string; args: { data?: unknown; where?: unknown } }[];
     expect(ops.map((o) => o.op)).toEqual(["q.deleteMany", "q.createMany", "job.update"]);
-    const rows = ops[1].args.data;
-    expect(rows.map((r: any) => [r.order, r.kind, r.text])).toEqual([
+    const rows = ops[1].args.data as Record<string, unknown>[];
+    expect(rows.map((r) => [r.order, r.kind, r.text])).toEqual([
       [0, "FIXED", "Which SLA template do you start from?"],
       [1, "FIXED", "When is it used?"],
       [2, "FIXED", "What are the steps?"],
@@ -100,7 +100,7 @@ describe("generateQuestionsForTask", () => {
     expect(mocks.writeTaskQuestions.mock.calls[0][0]).toContain(
       "<existing_questions>\n- [fixed] When is it used? (answered)\n- [fixed] Old?\n- [fixed] Mine?\n</existing_questions>",
     );
-    const ops = mocks.transaction.mock.calls[0][0] as { op: string; args: any }[];
+    const ops = mocks.transaction.mock.calls[0][0] as { op: string; args: { data?: unknown; where?: unknown } }[];
     expect(ops.map((o) => o.op)).toEqual(["q.deleteMany", "q.updateMany", "q.updateMany", "q.createMany", "job.update"]);
     expect(ops[0].args).toEqual({ where: { jobId: "j1", id: { in: ["q2"] } } });
     expect(ops[1].args).toEqual({

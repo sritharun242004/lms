@@ -32,9 +32,7 @@ import {
   activeFiles,
   createJob,
   deleteJob,
-  jobScoringBase,
   loadJobView,
-  runJobScoring,
   toFileView,
   toSkillView,
   updateJob,
@@ -242,65 +240,6 @@ describe("create, update and delete", () => {
     expect(mocks.jobDelete).toHaveBeenCalledWith({ where: { id: "j1" } });
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     await expect(deleteJob("j1", "u2")).rejects.toBeInstanceOf(JobNotFoundError);
-  });
-});
-
-describe("jobScoringBase", () => {
-  it("reads the title, description and the start of each ready analysis", () => {
-    const base = jobScoringBase({ title: "Board update", description: "I make the deck." }, [
-      { fileName: "deck.pptx", analysis: "a".repeat(2000), analysisStatus: "READY" },
-      { fileName: "broken.pdf", analysis: "should not appear", analysisStatus: "FAILED" },
-      { fileName: "pending.png", analysis: null, analysisStatus: "PENDING" },
-    ]);
-    expect(base.startsWith("Job: Board update\nI make the deck.")).toBe(true);
-    expect(base).toContain(`File: deck.pptx\n${"a".repeat(1500)}`);
-    expect(base).not.toContain("a".repeat(1501));
-    expect(base).not.toContain("broken.pdf");
-    expect(base).not.toContain("pending.png");
-  });
-
-  it("caps the whole base at 12 000 characters", () => {
-    const files = Array.from({ length: 10 }, (_, i) => ({ fileName: `f${i}`, analysis: "b".repeat(1500), analysisStatus: "READY" }));
-    expect(jobScoringBase({ title: "t", description: "c".repeat(5000) }, files)).toHaveLength(12_000);
-  });
-});
-
-describe("runJobScoring", () => {
-  it("scores the job with its files and applies the result when the revision is current", async () => {
-    mocks.jobFindFirst
-      .mockResolvedValueOnce(jobRow({ files: [{ fileName: "deck.pptx", analysis: "#1F4E79 headings", analysisStatus: "READY" }] }))
-      .mockResolvedValueOnce({ scoreRevision: 3 })
-      .mockResolvedValueOnce(jobRow());
-    mocks.scoreQuestions.mockResolvedValue([{ questionId: "pbq_skill_2", score: 2, reason: "Partly" }]);
-    const result = await runJobScoring("j1", "u1", 3);
-    expect(mocks.answerCreateMany).toHaveBeenCalledWith({
-      data: [
-        { jobId: "j1", questionId: "pbq_skill_1" },
-        { jobId: "j1", questionId: "pbq_skill_2" },
-      ],
-      skipDuplicates: true,
-    });
-    expect(mocks.consumeAiUsage).toHaveBeenCalledWith("u1", "score");
-    expect(mocks.scoreQuestions.mock.calls[0][0]).toContain("#1F4E79 headings");
-    expect(mocks.answerUpdate).toHaveBeenCalledWith({
-      where: { jobId_questionId: { jobId: "j1", questionId: "pbq_skill_2" } },
-      data: { score: 2, reason: "Partly", scoredAt: expect.any(Date) },
-    });
-    expect(mocks.jobUpdate).toHaveBeenCalledWith({ where: { id: "j1" }, data: { scoreRevision: 3 } });
-    expect(result.applied).toBe(true);
-  });
-
-  it("does not apply a stale revision", async () => {
-    mocks.jobFindFirst.mockResolvedValueOnce(jobRow()).mockResolvedValueOnce({ scoreRevision: 7 });
-    mocks.scoreQuestions.mockResolvedValue([]);
-    expect(await runJobScoring("j1", "u1", 3)).toMatchObject({ applied: false, revision: 7 });
-    expect(mocks.transaction).not.toHaveBeenCalled();
-  });
-
-  it("refuses someone else's job before spending a unit", async () => {
-    mocks.jobFindFirst.mockResolvedValueOnce(null);
-    await expect(runJobScoring("j1", "u2", 0)).rejects.toBeInstanceOf(JobNotFoundError);
-    expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
   });
 });
 

@@ -1,14 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
-import { scoreAndApply, toAnswerView, type AnswerView } from "@/lib/prompt-bot/score-run";
+import { scoreAndApply, type AnswerView } from "@/lib/prompt-bot/score-run";
 import { titleFrom } from "@/lib/prompt-bot/sessions";
 import { JOB_LIMITS } from "../limits";
-import { loadSkillMatrix } from "../matrix";
 import type { SkillItemStatus } from "../types";
 import { JobNotFoundError } from "./errors";
 import { ANALYSIS_INTERRUPTED_MESSAGE, GENERATION_INTERRUPTED_MESSAGE, isAnalysing, isGenerating } from "./staleness";
-import type { AnalysisStatus, FileHint, JobFileView, JobSkillView, JobView, PerUseInput, TaskQuestionView } from "./types";
+import type { AnalysisStatus, FileHint, JobFileView, JobSkillView, JobView, PerUseInput, ScoreReply, TaskQuestionView } from "./types";
 
 /** Lists and views never read a file's bytes or its facts. */
 export const fileViewOmit = { data: true, facts: true } as const satisfies Prisma.SkillJobFileOmit;
@@ -147,48 +146,52 @@ export async function deleteJob(jobId: string, userId: string): Promise<void> {
   await prisma.skillJob.delete({ where: { id: jobId } });
 }
 
-/** What the scorer reads as the "prompt": the job plus the start of each ready analysis (spec, Questions and Scoring). */
-export function jobScoringBase(
-  job: { title: string; description: string },
-  files: { fileName: string; analysis: string | null; analysisStatus: string }[],
-): string {
-  const parts = [`Job: ${job.title.trim()}\n${job.description.trim()}`];
-  for (const file of files) {
+type ScoringFile = { fileName: string; analysis: string | null; analysisStatus: string; questionId: string | null };
+
+/**
+ * What the scorer reads as the "prompt" (spec 2026-11-25 tasks, Scoring): the task, then the start of each ready
+ * analysis grouped under the question it answers, then the general files; capped at JOB_LIMITS.scoringBaseChars.
+ */
+export function jobScoringBase(job: { title: string; description: string }, questions: { id: string; text: string }[], files: ScoringFile[]): string {
+  const ready = files.flatMap((file) => {
     const analysis = file.analysis?.trim();
-    if (file.analysisStatus === "READY" && analysis) parts.push(`File: ${file.fileName}\n${analysis.slice(0, JOB_LIMITS.analysisExcerptChars)}`);
+    return file.analysisStatus === "READY" && analysis ? [{ ...file, excerpt: analysis.slice(0, JOB_LIMITS.analysisExcerptChars) }] : [];
+  });
+  const block = (list: typeof ready) => list.map((file) => `${file.fileName}\n${file.excerpt}`).join("\n\n");
+  const ids = new Set(questions.map((q) => q.id));
+  const parts = [`Task: ${job.title.trim()}\n${job.description.trim()}`];
+  for (const question of questions) {
+    const own = ready.filter((file) => file.questionId === question.id);
+    if (own.length > 0) parts.push(`Files for "${question.text}":\n${block(own)}`);
   }
+  const general = ready.filter((file) => !file.questionId || !ids.has(file.questionId));
+  if (general.length > 0) parts.push(`General files:\n${block(general)}`);
   return parts.join("\n\n").slice(0, JOB_LIMITS.scoringBaseChars);
 }
 
-export async function ensureJobAnswerRows(jobId: string, questionIds: string[]): Promise<void> {
-  if (questionIds.length === 0) return;
-  await prisma.skillJobAnswer.createMany({ data: questionIds.map((questionId) => ({ jobId, questionId })), skipDuplicates: true });
-}
-
-/** The enhancer's scoring flow for one job, applied only if `revision` is not stale. */
-export async function runJobScoring(jobId: string, userId: string, revision: number): Promise<{ applied: boolean; revision: number; answers: AnswerView[] }> {
+/** The enhancer's scoring flow over the task's FIXED questions, applied only if `revision` is not stale. No questions, no unit. */
+export async function runJobScoring(jobId: string, userId: string, revision: number): Promise<ScoreReply> {
   const job = await prisma.skillJob.findFirst({
     where: { id: jobId, userId },
     include: {
-      answers: true,
-      files: { where: { deletedAt: null }, select: { fileName: true, analysis: true, analysisStatus: true }, orderBy: { createdAt: "asc" } },
+      questions: { where: { kind: "FIXED" }, orderBy: questionOrder },
+      files: { where: { deletedAt: null }, select: { fileName: true, analysis: true, analysisStatus: true, questionId: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!job) throw new JobNotFoundError();
-  const matrix = await loadSkillMatrix();
-  const active = new Set(matrix.questions.map((q) => q.id));
+  if (job.questions.length === 0) return { applied: false, revision: job.scoreRevision, answers: [] };
   return scoreAndApply({
     userId,
     revision,
-    scoringBase: jobScoringBase(job, job.files),
-    questions: matrix.questions,
-    answers: job.answers.filter((a) => active.has(a.questionId)).map(toAnswerView),
-    ensureRows: () => ensureJobAnswerRows(jobId, matrix.questions.map((q) => q.id)),
+    scoringBase: jobScoringBase(job, job.questions, job.files),
+    questions: job.questions,
+    answers: job.questions.map(toQuestionAnswer),
+    ensureRows: async () => {},
     readRevision: async () => (await prisma.skillJob.findFirst({ where: { id: jobId, userId }, select: { scoreRevision: true } }))?.scoreRevision ?? null,
     applyOps: (results, scoredAt, next) => [
       ...results.map((r) =>
-        prisma.skillJobAnswer.update({
-          where: { jobId_questionId: { jobId, questionId: r.questionId } },
+        prisma.skillJobQuestion.updateMany({
+          where: { id: r.questionId, jobId, kind: "FIXED" },
           data: { score: r.score, reason: r.reason, scoredAt },
         }),
       ),

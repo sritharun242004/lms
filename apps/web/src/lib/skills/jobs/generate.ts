@@ -8,7 +8,7 @@ import { assembleJobSkill, planAssets, validateJobSkill } from "./assemble";
 import { AlreadyGeneratingError, EmptyDescriptionError, FilesAnalysingError, SkillNotFoundError } from "./errors";
 import { purgeUnreferencedFiles } from "./files";
 import { buildJobGenerateMessage, buildJobRetryMessage } from "./instructions";
-import { activeFiles, jobQuestionContext } from "./jobs";
+import { activeFiles, jobPerUseInputs, jobQuestionContext } from "./jobs";
 import { loadSkillView } from "./skills";
 import { generationCutoff, isAnalysing, isGenerating } from "./staleness";
 import type { JobSkillView } from "./types";
@@ -27,7 +27,7 @@ function findOwnedSkill(jobId: string, skillId: string, userId: string) {
       validationErrors: true,
       fileIds: true,
       latestVersion: true,
-      job: { select: { title: true, description: true } },
+      job: { select: { title: true, description: true, outputType: true } },
     },
   });
 }
@@ -99,22 +99,27 @@ export async function runJobSkillGeneration(jobId: string, skillId: string, user
         size: f.size,
         // Only a finished analysis is used; an interrupted or failed one is reported as missing.
         analysis: f.analysisStatus === "READY" ? f.analysis : null,
+        questionId: f.questionId,
       })),
     );
+    const [questions, perUse] = await Promise.all([jobQuestionContext(jobId), jobPerUseInputs(jobId)]);
     const message = buildJobGenerateMessage({
       title: skill.job.title,
       description: skill.job.description,
-      questions: await jobQuestionContext(jobId),
+      outputType: skill.job.outputType,
+      questions,
+      perUse,
       skill: { name: skill.name, purpose: skill.purpose },
       files: plan,
     });
+    const context = { questions: questions.map((q) => ({ id: q.id, text: q.text })), perUse };
 
     let draft = await generateJobSkillDraft(message);
-    let built = assembleJobSkill(skill.name, draft, plan);
+    let built = assembleJobSkill(skill.name, draft, plan, context);
     let errors = validateJobSkill(skill.name, built.files, built.assets);
     if (errors.length > 0) {
       draft = await generateJobSkillDraft(buildJobRetryMessage(message, draft, errors));
-      built = assembleJobSkill(skill.name, draft, plan);
+      built = assembleJobSkill(skill.name, draft, plan, context);
       errors = validateJobSkill(skill.name, built.files, built.assets);
     }
     if (errors.length > 0) {

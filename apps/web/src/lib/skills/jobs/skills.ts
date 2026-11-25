@@ -16,7 +16,7 @@ import {
 } from "./errors";
 import { purgeUnreferencedFiles } from "./files";
 import { buildSuggestMessage } from "./instructions";
-import { activeFiles, jobQuestionContext, loadJobView, skillInclude, toFileView, toSkillView } from "./jobs";
+import { activeFiles, jobPerUseInputs, jobQuestionContext, loadJobView, skillInclude, toFileView, toSkillView } from "./jobs";
 import { isAnalysing, isGenerating } from "./staleness";
 import type { JobSkillView, JobView, RawSuggestions } from "./types";
 
@@ -75,6 +75,7 @@ export async function suggestForJob(jobId: string, userId: string, now = new Dat
       id: true,
       title: true,
       description: true,
+      outputType: true,
       skills: { select: { id: true, name: true, purpose: true, status: true, generationStartedAt: true, latestVersion: true, order: true }, orderBy: { order: "asc" } },
     },
   });
@@ -89,11 +90,21 @@ export async function suggestForJob(jobId: string, userId: string, now = new Dat
 
   const fileViews = files.map((f) => toFileView(f, now));
   const activeFileIds = fileViews.map((f) => f.id);
+  const [questions, perUse] = await Promise.all([jobQuestionContext(jobId), jobPerUseInputs(jobId)]);
   const message = buildSuggestMessage({
     title: job.title,
     description: job.description,
-    questions: await jobQuestionContext(jobId),
-    files: fileViews.map((f) => ({ id: f.id, fileName: f.fileName, kind: f.kind, size: f.size, analysis: f.analysisStatus === "READY" ? f.analysis : null })),
+    outputType: job.outputType,
+    questions,
+    perUse,
+    files: fileViews.map((f) => ({
+      id: f.id,
+      fileName: f.fileName,
+      kind: f.kind,
+      size: f.size,
+      analysis: f.analysisStatus === "READY" ? f.analysis : null,
+      questionId: f.questionId,
+    })),
     built: kept.map((s) => ({ name: s.name, purpose: s.purpose })),
   });
   await consumeAiUsage(userId, "skill_split", now);

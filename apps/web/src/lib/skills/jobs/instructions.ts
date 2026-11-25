@@ -1,11 +1,12 @@
-/** The Jobs flow's instructions to Claude (spec: File Analysis Pipeline stage 3, Suggest Skills, Generate). */
+/** The Skills Builder's instructions to Claude (jobs spec: File Analysis Pipeline stage 3, Suggest, Generate; tasks spec: Enhance, Questions). */
 import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
 import type { FileFacts, SkillFileKind } from "../files/types";
 import { JOB_LIMITS } from "../limits";
 import { megabytes } from "./format";
-import type { JobSkillDraft } from "./types";
+import type { JobSkillDraft, PerUseInput } from "./types";
 
-export type PromptFile = { id: string; fileName: string; kind: SkillFileKind; size: number; analysis: string | null };
+/** questionId: the FIXED question the file answers; null (or a question not in the list) = a general file. */
+export type PromptFile = { id: string; fileName: string; kind: SkillFileKind; size: number; analysis: string | null; questionId: string | null };
 export type ShippedFile = PromptFile & ({ shipping: "bundled"; path: string } | { shipping: "analysis-only"; reason: "too-large" | "over-budget" });
 
 export const ANALYSE_SYSTEM = `You write a style guide that another AI assistant will follow to produce new work that looks and reads exactly like the file you are given. The reader is that AI, not a person.
@@ -20,25 +21,28 @@ Write Markdown with these sections, in this order:
 
 The facts were read from the file by a parser and are ground truth: use their hex values, font names and sizes exactly. Anything you only see in a PDF or an image and that is not in the facts must be marked "(approximate)". Never invent colours, fonts, numbers or names. Leave out a detail you cannot support rather than guess. Keep it to about 600 words. Output only the style guide.`;
 
-export const SUGGEST_SYSTEM = `You help a senior leader turn one recurring job into their own Agent Skills: folders of instructions and files that an AI assistant loads whenever the job comes up, so it is done their way every time.
+export const SUGGEST_SYSTEM = `You help a senior leader turn one recurring task into their own Agent Skills: folders of instructions and files that an AI assistant loads whenever the task comes up, so it is done their way every time.
 
-From the job description, their answers, and the files they uploaded, propose the skills that capture this job:
-- Usually exactly one skill. Propose more only when the job has clearly separate parts with different inputs, outputs or audiences.
-- Never split one job into its steps, and never propose a skill for a one-off task.
+From the task description, the output type, each question with its answer and the files attached to it, and the general files, propose the skills that capture this task:
+- Usually exactly one skill. Propose more only when the task has clearly separate parts with different inputs, outputs or audiences.
+- Never split one task into its steps, and never propose a skill for a one-off piece of work.
 - Never repeat a skill listed under already built; propose only genuinely different parts, or none.
 - name: short kebab-case, for example board-update-deck.
 - purpose: one sentence saying what the skill produces and when it is used.
-- fileIds: the ids of the uploaded files this skill should reuse (templates it produces from, references it follows). Use only ids from the files list.
+- fileIds: the ids of the uploaded files this skill should reuse (templates it produces from, references it follows). Use only ids from the files listed.
+- The inputs in <ask_each_time> change every run: the skill asks for them at the start of every run. They are never answered now and never decide how many skills there are.
 
 Use only what the person wrote and what the files show. Never invent facts about them, their company or their numbers.`;
 
-export const GENERATE_JOB_SYSTEM = `You write one Agent Skill: a folder that AI assistants such as Claude, Cursor and Codex load when a task matches. It captures a recurring job exactly as this person does it today. Return the skill as structured fields; the server writes the files.
+export const GENERATE_JOB_SYSTEM = `You write one Agent Skill: a folder that AI assistants such as Claude, Cursor and Codex load when a task matches. It captures a recurring task exactly as this person does it today. Return the skill as structured fields; the server writes the files.
 
 - description: what the skill does and when to use it, in one paragraph of at most 1000 characters, phrased so the assistant reliably picks it up. Name the situations, requests and phrases that should trigger it. Never use the characters < or >.
-- body: the SKILL.md instructions in Markdown, in the imperative, ideally under 500 lines. Write the job's steps as the person does them today, with the inputs they start from and the output they hand over. Explain why each instruction matters rather than writing rigid ALWAYS or NEVER rules.
+- body: the SKILL.md instructions in Markdown, in the imperative, ideally under 500 lines. Write the task's steps as the person does them today, with the inputs they start from and the output they hand over. Explain why each instruction matters rather than writing rigid ALWAYS or NEVER rules. When <task> names an output_type, write for that kind of output.
+- Questions: each question's answer and its files describe that part of the work; a file attached to a question shows what that answer looks like in practice. The fixed answers and their files become the skill's standing instructions and references.
+- Per-use inputs: the inputs in <ask_each_time> change every time the skill runs. Never fill them in, guess them or invent values. Refer to them by their labels in the steps where they are used, for example "Put the client name on the cover". Do not write a "Before you start" section: the server adds it.
 - Look and voice: tell the assistant to follow references/style-guide.md for colours, fonts, layouts, structure and tone whenever the skill uses files. Never write references/style-guide.md yourself: the server writes it from the file analyses.
 - Templates: when a file is bundled at assets/<name> and is a template (a deck, document or workbook), tell the assistant to start from that file and reuse its masters, layouts, styles and theme rather than recreating the design. A file marked analysis only is not in the skill; rely on the style guide for it.
-- Never reference a file that is not listed in the files section.
+- Never reference a file that is not listed in the questions or the general files.
 - references: other stable context (background about the person, team or domain, worked examples) as Markdown files under references/, loaded only when needed.
 - scripts: include a script only when a deterministic, repeatable helper is clearly useful. Scripts must not make network calls and must not read credentials, keys, tokens or environment secrets. Give each script a one-line purpose.
 - compatibility: tools or runtimes the skill needs, or an empty string.
@@ -109,21 +113,6 @@ Never invent facts about the person, their company, their clients or their numbe
 const attrSafe = (value: string) => value.replace(/["<>&]/g, "").replace(/\s+/g, " ").trim();
 const excerpt = (analysis: string | null) => (analysis?.trim() ? analysis.trim().slice(0, JOB_LIMITS.analysisExcerptChars) : null);
 
-function answeredAndGaps(questions: PromptQuestionContext[]) {
-  const relevant = questions.filter((q) => !q.notRelevant);
-  const answered = relevant
-    .filter((q) => q.answer.trim())
-    .map((q) => `Q: ${q.text}\nA: ${q.answer.trim()}`)
-    .join("\n\n");
-  const gaps = relevant
-    .filter((q) => q.score < 3)
-    .map((q) => `- ${q.text} (${q.guidance})`)
-    .join("\n");
-  return { answered: answered || "(none)", gaps: gaps || "(none)" };
-}
-
-const jobSection = (title: string, description: string) => `<job>\ntitle: ${title.trim() || "(untitled)"}\n\n${description.trim()}\n</job>`;
-
 export function buildAnalysisText(input: { fileName: string; kind: SkillFileKind; facts: FileFacts | null }): string {
   const facts = input.facts ? JSON.stringify(input.facts, null, 1) : "(none: read the file itself)";
   return [
@@ -134,26 +123,68 @@ export function buildAnalysisText(input: { fileName: string; kind: SkillFileKind
   ].join("\n");
 }
 
-export function buildSuggestMessage(input: {
+/** Questions scored below 3, with their guidance. */
+function gapsText(questions: PromptQuestionContext[]): string {
+  const gaps = questions
+    .filter((q) => !q.notRelevant && q.score < 3)
+    .map((q) => `- ${q.text} (${q.guidance})`)
+    .join("\n");
+  return gaps || "(none)";
+}
+
+/** The per-use inputs, said to be asked at every run (spec 2026-11-25 tasks, Step 3). */
+function askEachTimeSection(perUse: PerUseInput[]): string {
+  if (perUse.length === 0) return "<ask_each_time>\n(none)\n</ask_each_time>";
+  const lines = perUse.map((p) => `- ${p.label.trim()} (${p.required ? "required" : "if available"})${p.hint.trim() ? `: ${p.hint.trim()}` : ""}`);
+  return [
+    "<ask_each_time>",
+    "These change every run: the skill asks for them at the start of every run. They are never answered now.",
+    ...lines,
+    "</ask_each_time>",
+  ].join("\n");
+}
+
+/** Splits files between the questions they answer (in question order) and the general files. */
+function byQuestion<F extends { questionId: string | null }>(questions: PromptQuestionContext[], files: F[]) {
+  const ids = new Set(questions.map((q) => q.id));
+  return {
+    of: (questionId: string) => files.filter((f) => f.questionId === questionId),
+    general: files.filter((f) => !f.questionId || !ids.has(f.questionId)),
+  };
+}
+
+function questionBlocks<F extends { questionId: string | null }>(questions: PromptQuestionContext[], files: F[], render: (own: F[]) => string): string {
+  const groups = byQuestion(questions, files);
+  const blocks = questions
+    .filter((q) => !q.notRelevant)
+    .map((q, i) => {
+      const own = render(groups.of(q.id));
+      return [`<question n="${i + 1}" text="${attrSafe(q.text)}">`, `<answer>\n${q.answer.trim() || "(not answered yet)"}\n</answer>`, ...(own ? [own] : []), "</question>"].join("\n");
+    });
+  return `<questions>\n${blocks.join("\n\n") || "(none)"}\n</questions>`;
+}
+
+type TaskPromptInput = {
   title: string;
   description: string;
+  outputType: string | null;
+  /** FIXED questions with their answers, in order. */
   questions: PromptQuestionContext[];
-  files: PromptFile[];
-  built: { name: string; purpose: string }[];
-}): string {
-  const { answered, gaps } = answeredAndGaps(input.questions);
-  const files = input.files
-    .map((f) => {
-      const analysis = excerpt(f.analysis);
-      return `- id: ${f.id}\n  name: ${attrSafe(f.fileName)}\n  kind: ${f.kind}\n  size: ${megabytes(f.size)}\n  <analysis>\n${analysis ?? "(no analysis yet)"}\n  </analysis>`;
-    })
-    .join("\n\n");
+  perUse: PerUseInput[];
+};
+
+const suggestFileLine = (f: PromptFile) =>
+  `- id: ${f.id}\n  name: ${attrSafe(f.fileName)}\n  kind: ${f.kind}\n  size: ${megabytes(f.size)}\n  <analysis>\n${excerpt(f.analysis) ?? "(no analysis yet)"}\n  </analysis>`;
+
+export function buildSuggestMessage(input: TaskPromptInput & { files: PromptFile[]; built: { name: string; purpose: string }[] }): string {
+  const general = byQuestion(input.questions, input.files).general;
   const built = input.built.map((b) => `- ${b.name}: ${b.purpose}`).join("\n");
   return [
-    jobSection(input.title, input.description),
-    `<answers>\n${answered}\n</answers>`,
-    `<gaps>\n${gaps}\n</gaps>`,
-    `<files>\n${files || "(none)"}\n</files>`,
+    taskSection(input.title, input.description, input.outputType),
+    questionBlocks(input.questions, input.files, (own) => (own.length > 0 ? `<files>\n${own.map(suggestFileLine).join("\n\n")}\n</files>` : "")),
+    `<general_files>\n${general.map(suggestFileLine).join("\n\n") || "(none)"}\n</general_files>`,
+    `<gaps>\n${gapsText(input.questions)}\n</gaps>`,
+    askEachTimeSection(input.perUse),
     `<already_built>\n${built || "(none)"}\n</already_built>`,
   ].join("\n\n");
 }
@@ -163,26 +194,18 @@ function shippingText(file: ShippedFile): string {
   return file.reason === "too-large" ? "analysis only (too large to bundle)" : "analysis only (over the 25 MB bundle budget)";
 }
 
-export function buildJobGenerateMessage(input: {
-  title: string;
-  description: string;
-  questions: PromptQuestionContext[];
-  skill: { name: string; purpose: string };
-  files: ShippedFile[];
-}): string {
-  const { answered, gaps } = answeredAndGaps(input.questions);
-  const files = input.files
-    .map(
-      (f) =>
-        `<file name="${attrSafe(f.fileName)}" kind="${f.kind}" shipping="${shippingText(f)}">\n${f.analysis?.trim() || "No analysis available."}\n</file>`,
-    )
-    .join("\n\n");
+const generateFileTag = (f: ShippedFile) =>
+  `<file name="${attrSafe(f.fileName)}" kind="${f.kind}" shipping="${shippingText(f)}">\n${f.analysis?.trim() || "No analysis available."}\n</file>`;
+
+export function buildJobGenerateMessage(input: TaskPromptInput & { skill: { name: string; purpose: string }; files: ShippedFile[] }): string {
+  const general = byQuestion(input.questions, input.files).general;
   return [
-    jobSection(input.title, input.description),
-    `<answers>\n${answered}\n</answers>`,
-    `<gaps>\n${gaps}\n</gaps>`,
+    taskSection(input.title, input.description, input.outputType),
+    questionBlocks(input.questions, input.files, (own) => own.map(generateFileTag).join("\n\n")),
+    `<general_files>\n${general.map(generateFileTag).join("\n\n") || "(none)"}\n</general_files>`,
+    `<gaps>\n${gapsText(input.questions)}\n</gaps>`,
+    askEachTimeSection(input.perUse),
     `<skill>\nname: ${input.skill.name}\npurpose: ${input.skill.purpose.trim()}\n</skill>`,
-    `<files>\n${files || "(none)"}\n</files>`,
   ].join("\n\n");
 }
 

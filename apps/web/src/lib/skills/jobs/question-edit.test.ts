@@ -39,7 +39,7 @@ beforeEach(() => {
   mocks.qAggregate.mockResolvedValue({ _max: { order: 6 } });
   mocks.qCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => row({ id: "new", ...data }));
   mocks.qUpdate.mockImplementation((args: { data: Record<string, unknown> }) => ({ op: "q.update", args, then: undefined }));
-  mocks.transaction.mockImplementation(async (ops: unknown[]) => [row({ kind: "PER_USE", wantsFiles: false, fileHint: null, fileNote: "" }), { count: 2 }]);
+  mocks.transaction.mockImplementation(async () => [row({ kind: "PER_USE", wantsFiles: false, fileHint: null, fileNote: "" }), { count: 2 }]);
 });
 
 describe("addQuestion", () => {
