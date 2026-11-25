@@ -1,7 +1,10 @@
-// Local stand-in for the Anthropic Messages API, for Prompt Bot end-to-end runs
-// without an API key. Speaks the real wire formats: SSE for streaming, JSON text
-// for structured outputs. Run: node scripts/fake-anthropic.mjs (port 4010), then
-// start the app with ANTHROPIC_BASE_URL=http://127.0.0.1:4010 ANTHROPIC_API_KEY=test.
+// Local stand-in for the Anthropic Messages API, for Prompt Bot and Skills Builder end-to-end
+// runs without an API key. Speaks the real wire formats: SSE for streaming, JSON for everything
+// else (plain text for file analysis, JSON text for structured outputs).
+// Run: node scripts/fake-anthropic.mjs (port 4010), then start the app with
+//   ANTHROPIC_BASE_URL=http://127.0.0.1:4010 ANTHROPIC_API_KEY=test
+// FAKE_FIRST_INVALID=1 makes the first job-skill draft fail validation (exercises the retry).
+// Logs only which kind of call arrived, never request text.
 import http from "node:http";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
@@ -40,6 +43,29 @@ Before you write, ask me these questions and wait for my answers:
 Then write the email and offer two alternative subject lines.
 `;
 
+// The six sections ANALYSE_SYSTEM asks for, with real hex values.
+const ANALYSIS = `## Colours
+- Primary navy \`#1F4E79\` for titles and chart series one.
+- Accent orange \`#E07A1F\` for highlights and call-outs.
+- Background white \`#FFFFFF\`, body text near-black \`#1A1A1A\`.
+
+## Fonts
+- Headings: Montserrat, bold.
+- Body: Source Sans Pro, 11–18 pt.
+
+## Layout
+16:9 slides (13.33 × 7.5 in). Layouts used: Title Slide, Title and Content, Two Content.
+
+## Structure
+Title slide, then one slide per topic: revenue and runway (chart), hiring plan (table).
+
+## Tone and content
+Numbers first, short bullet points, no surprises.
+
+## Reusing this file
+Start from the original file and reuse its master and layouts instead of recreating the design.
+`;
+
 function scoreFor(user) {
   const questions = [...user.matchAll(/- id: (\S+)\n {2}question: (.*)\n/g)];
   const written = user.split("<text>")[1] ?? "";
@@ -50,44 +76,60 @@ function scoreFor(user) {
   }));
 }
 
-const VALID_DRAFT = {
-  name: "ignored-by-the-server",
+const VALID_JOB_DRAFT = {
   description:
-    'Drafts the monthly board update from rough notes: numbers first, "no surprises" tone. Use when asked for a board update, an investor update or a monthly summary.',
+    'Writes the monthly board update from rough notes and this month\'s numbers, in the house style: numbers first, "no surprises". Use when asked for a board update, an investor update or a monthly summary deck.',
   compatibility: "",
   body:
-    "# Board update writer\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Run `scripts/word_count.py` on the draft and keep it under 400 words.\n",
-  references: [{ path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" }],
+    "# Board update writer\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
+  references: [
+    { path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" },
+    // The server writes references/style-guide.md itself and must drop this one.
+    { path: "style-guide.md", content: "# A style guide the model should not have written\n" },
+  ],
   scripts: [{ path: "scripts/word_count.py", content: "import sys\nprint(len(sys.stdin.read().split()))\n", purpose: "Counts the words in a draft read from standard input." }],
-  assets: [],
 };
 
+/** Every block type in the first user message, so analysis calls can be told apart without reading their text. */
+function blockTypes(content) {
+  return Array.isArray(content) ? content.map((block) => block?.type).filter((type) => typeof type === "string") : ["text"];
+}
+
+/** The text the app wrote into the first user message (string content, or the text blocks of an array). */
+function userText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((block) => block?.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join("\n");
+}
+
 // Skills Builder shapes, recognised by the JSON schema the app sends.
-// FAKE_FIRST_INVALID=1 makes the first generate call fail validation (exercises the retry).
 function skillsStructured(props, user) {
-  if ("customSkills" in props) {
-    console.log("[fake] split");
+  if ("skills" in props) {
+    console.log("[fake] suggest");
+    const ids = [...new Set([...user.matchAll(/- id: (\S+)/g)].map((m) => m[1]))];
     return {
-      customSkills: [
-        { name: "Board Update Writer", purpose: "Drafts the monthly board update from my notes." },
-        { name: "board update writer", purpose: "A duplicate name, to check that names are made unique." },
-      ],
-      catalogMatches: [
-        { slug: "impeccable", why: "Polishes the dashboards you review every week." },
-        { slug: "not-in-the-catalog", why: "Must be dropped." },
+      skills: [
+        { name: "Board Update Writer", purpose: "Writes the monthly board update and deck from my notes and numbers.", fileIds: [...ids, "file_that_does_not_exist"] },
+        { name: "board update writer", purpose: "A near-duplicate name, to check that names are made unique.", fileIds: ids.slice(0, 1) },
       ],
     };
   }
-  if ("body" in props) {
+  if ("body" in props && !("assets" in props)) {
     const retry = user.includes("<validation_errors>");
     console.log(`[fake] generate${retry ? " (retry)" : ""}`);
-    return process.env.FAKE_FIRST_INVALID && !retry ? { ...VALID_DRAFT, description: "Uses <angle> brackets" } : VALID_DRAFT;
+    return process.env.FAKE_FIRST_INVALID && !retry ? { ...VALID_JOB_DRAFT, description: "Uses <angle> brackets, which the validator rejects" } : VALID_JOB_DRAFT;
   }
   return null;
 }
 
 function structured(system, user) {
-  if (system.includes("assess how well")) return { scores: scoreFor(user) };
+  if (system.includes("assess how well")) {
+    console.log("[fake] score");
+    return { scores: scoreFor(user) };
+  }
   return { note: "unknown structured request" };
 }
 
@@ -95,22 +137,42 @@ function send(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function message(res, id, model, text, outputTokens) {
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      id, type: "message", role: "assistant", model,
+      content: [{ type: "text", text }],
+      stop_reason: "end_turn", stop_sequence: null,
+      usage: { input_tokens: 100, output_tokens: outputTokens },
+    }),
+  );
+}
+
 http
   .createServer((req, res) => {
-    let raw = "";
-    req.on("data", (c) => (raw += c));
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
     req.on("end", async () => {
-      if (!req.url?.startsWith("/v1/messages")) {
+      if (req.method !== "POST" || !req.url?.startsWith("/v1/messages")) {
         res.writeHead(404).end();
         return;
       }
-      const body = JSON.parse(raw || "{}");
+      let body;
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
       const system = typeof body.system === "string" ? body.system : JSON.stringify(body.system ?? "");
       const first = body.messages?.[0]?.content;
-      const user = typeof first === "string" ? first : JSON.stringify(first ?? "");
+      const user = userText(first);
       const model = body.model ?? "claude-haiku-4-5";
       const id = `msg_fake_${Date.now()}`;
+
       if (body.stream) {
+        console.log("[fake] enhance");
         res.writeHead(200, { "content-type": "text/event-stream" });
         send(res, "message_start", {
           type: "message_start",
@@ -127,17 +189,20 @@ http
         res.end();
         return;
       }
+
+      // File analysis: plain text reply (no output_config.format); the block types say what was sent.
+      if (system.includes("style guide") && !body.output_config?.format) {
+        const types = blockTypes(first);
+        const kind = types.includes("document") ? "pdf" : types.includes("image") ? "image" : "text";
+        console.log(`[fake] analyse ${kind}`);
+        await new Promise((r) => setTimeout(r, 400)); // long enough for the UI to show "Analysing…"
+        message(res, id, model, ANALYSIS, 300);
+        return;
+      }
+
       const props = body.output_config?.format?.schema?.properties ?? {};
       const payload = skillsStructured(props, user) ?? structured(system, user);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({
-          id, type: "message", role: "assistant", model,
-          content: [{ type: "text", text: JSON.stringify(payload) }],
-          stop_reason: "end_turn", stop_sequence: null,
-          usage: { input_tokens: 100, output_tokens: 80 },
-        }),
-      );
+      message(res, id, model, JSON.stringify(payload), 80);
     });
   })
   .listen(PORT, "127.0.0.1", () => console.log(`fake anthropic on http://127.0.0.1:${PORT}`));

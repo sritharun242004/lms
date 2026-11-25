@@ -132,7 +132,7 @@ describe("Workspace", () => {
     await tick(0);
     expect((screen.getByLabelText("Your prompt") as HTMLTextAreaElement).value).toBe("Saved prompt");
     expect(answerBox().value).toBe("saved answer");
-    expect(screen.getByText("2/3")).toBeTruthy();
+    expect(screen.getAllByText("2/3").length).toBeGreaterThan(0);
   });
 
   it("keeps what the user typed if the saved session arrives after an edit", async () => {
@@ -147,28 +147,20 @@ describe("Workspace", () => {
     expect(answerBox().value).toBe("typed now");
   });
 
-  it("discards a score response computed before a newer edit", async () => {
-    let release!: (r: Response) => void;
-    route = (call) => {
-      if (call.url.endsWith("/score")) return new Promise<Response>((r) => (release = r));
-      return json({ saved: true });
-    };
+  it("saves while typing but never scores until asked", async () => {
     await mount();
     type(answerBox(), "hello");
-    await tick(600); // save
-    await tick(1500); // score fires and is held
-    expect(calls.some((c) => c.url.endsWith("/score"))).toBe(true);
-    type(answerBox(), "hello2");
-    await act(async () => {
-      release(json({ applied: true, revision: 1, answers: [{ questionId: "q1", answer: "", score: 3, reason: "stale", notRelevant: true }] }));
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(answerBox().value).toBe("hello2");
-    expect(screen.queryByText("3/3")).toBeNull();
-    expect(screen.queryByText("stale")).toBeNull();
+    type(screen.getByLabelText("Your prompt"), "Write an email to the board");
+    await tick(600);
+    await tick(10_000);
+    expect(calls.some((c) => c.method === "PUT")).toBe(true);
+    expect(calls.some((c) => c.method === "PATCH")).toBe(true);
+    expect(calls.some((c) => c.url.endsWith("/score"))).toBe(false);
+    // The prompt changed, so Check all is offered instead.
+    expect((screen.getByRole("button", { name: /^Check all/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("applies only score and reason from an accepted score response", async () => {
+  it("checks on Check answer: sends the pending save first, then applies only score and reason", async () => {
     route = (call) => {
       if (call.url.endsWith("/score")) {
         return json({ applied: true, revision: 1, answers: [{ questionId: "q1", answer: "server", score: 3, reason: "good", notRelevant: true }] });
@@ -177,13 +169,27 @@ describe("Workspace", () => {
     };
     await mount();
     type(answerBox(), "local");
-    await tick(600);
-    await tick(1500);
+    fireEvent.click(screen.getByRole("button", { name: "Check answer: First question" }));
     await tick(0);
+    const put = calls.findIndex((c) => c.method === "PUT");
+    const score = calls.findIndex((c) => c.url.endsWith("/score"));
+    expect(put).toBeGreaterThan(-1);
+    expect(score).toBeGreaterThan(put);
+    expect(calls[score].body).toBe(JSON.stringify({ revision: 1 }));
     expect(answerBox().value).toBe("local");
-    expect(screen.getByText("good")).toBeTruthy();
-    expect(screen.getByText("3/3")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Mark not relevant: First question/ })).toBeTruthy();
+    expect(screen.getByText(/good/, { selector: "p" }).textContent).toMatch(/3\/3\s*—\s*good/);
+    expect(screen.queryByRole("button", { name: /Mark not relevant/ })).toBeNull();
+    expect((screen.getByRole("button", { name: "Checked: First question" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("checks on Ctrl+Enter in the answer box and keeps focus there", async () => {
+    await mount();
+    type(answerBox(), "local");
+    answerBox().focus();
+    fireEvent.keyDown(answerBox(), { key: "Enter", ctrlKey: true });
+    await tick(0);
+    expect(calls.some((c) => c.url.endsWith("/score"))).toBe(true);
+    expect(document.activeElement).toBe(answerBox());
   });
 
   it("serializes same-field saves so the latest text is sent last", async () => {

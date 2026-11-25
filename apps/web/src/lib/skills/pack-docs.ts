@@ -1,32 +1,37 @@
-export type Recommendation = { name: string; why: string; sourceUrl: string; license: string; installNotes: string };
-export type PackDocInput = {
+export type ReadmeInput = {
   title: string;
   description: string;
   role: string | null;
-  skills: { name: string; purpose: string }[];
-  recommendations: Recommendation[];
+  skills: { name: string; purpose: string; version?: number }[];
+  /** True when any skill bundles original files under assets/. */
+  hasAssets: boolean;
 };
 
-export function renderReadme(input: PackDocInput): string {
+/** README.md at the pack root (spec: Versions and Downloads). Used for job packs and legacy packs. */
+export function renderReadme(input: ReadmeInput): string {
   return [
     `# ${input.title}`,
     "",
-    "Reusable AI skills built with Prompt Bot's Skills Builder.",
+    "Agent Skills built with Prompt Bot's Skills Builder.",
     "",
-    "## What this pack is for",
+    "## What this job is",
     "",
     input.description.trim(),
     ...(input.role ? ["", `Role: ${input.role}`] : []),
     "",
     "## Skills in this pack",
     "",
-    ...input.skills.map((s) => `- \`${s.name}\`: ${s.purpose}`),
+    ...input.skills.map((s) => `- \`${s.name}\`${s.version ? ` (v${s.version})` : ""}: ${s.purpose}`),
     "",
     "## Install",
     "",
     "### Claude.ai / Claude Desktop",
     "",
-    "Open Settings → Capabilities → Skills and upload each zip from `upload-to-claude/`. Claude.ai accepts one skill per upload.",
+    "First turn on Settings → Capabilities → Create and edit files (skills need it). Then open Plugins → Add → Upload plugin and upload each zip from `upload-to-claude/` (one skill per upload). It appears in your plugins as a Skill · By you.",
+    "",
+    "## Use it",
+    "",
+    "Just ask Claude for the job in your own words and attach your latest files — Claude picks the skill up automatically from its description. To be sure, name it: \"Use my <skill> skill\". In Claude Code you can also type `/<skill>`.",
     "",
     "### Claude Code",
     "",
@@ -36,38 +41,12 @@ export function renderReadme(input: PackDocInput): string {
     "",
     "Copy each `skills/<skill>` folder into that tool's skills folder, as its documentation describes.",
     "",
-    "## Recommended existing skills",
-    "",
-    input.recommendations.length
-      ? "Existing public skills that fit this work are listed in `recommended-skills.md`. Install them from their own sources."
-      : "No existing skills were recommended for this pack (see `recommended-skills.md`).",
-    "",
     "## Before you run anything",
     "",
     "Review any files in `scripts/` before running them.",
     "",
-  ].join("\n");
-}
-
-export function renderRecommended(recommendations: Recommendation[]): string {
-  const header = [
-    "# Recommended existing skills",
-    "",
-    "These public skills were matched to your work. They are not included in this pack: install each one from its source.",
-    "",
-  ];
-  if (recommendations.length === 0) return [...header, "No existing skills were recommended for this pack.", ""].join("\n");
-  return [
-    ...header,
-    ...recommendations.flatMap((r) => [
-      `## ${r.name}`,
-      "",
-      r.why,
-      "",
-      `- Source: ${r.sourceUrl}`,
-      `- License: ${r.license}`,
-      `- Install: ${r.installNotes || "See the source repository."}`,
-      "",
-    ]),
+    ...(input.hasAssets
+      ? ["## About the files in assets/", "", "These are your original files, included so the skill can reuse your templates.", ""]
+      : []),
   ].join("\n");
 }

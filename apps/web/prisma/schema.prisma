@@ -118,6 +118,7 @@ model User {
   aiUsage            AiUsageDaily[]     @relation("AiUsageOwner")
   skillPacks         SkillPack[]         @relation("SkillPackOwner")
   skillCatalogEntries SkillCatalogEntry[] @relation("SkillCatalogCreator")
+  skillJobs          SkillJob[]          @relation("SkillJobOwner")
   themePreference    String?    @map("theme_preference")
   createdForms        Form[]
   questionTemplates   FormQuestionTemplate[]
@@ -716,6 +717,7 @@ model PromptMatrixQuestion {
   matrix   PromptMatrix    @relation(fields: [matrixId], references: [id], onDelete: Cascade)
   answers  PromptBotAnswer[]
   skillAnswers SkillItemAnswer[]
+  skillJobAnswers SkillJobAnswer[]
   @@index([matrixId, order])
   @@map("prompt_matrix_questions")
 }
@@ -819,6 +821,7 @@ model SkillPackItem {
   packId              String             @map("pack_id")
   order               Int
   kind                SkillItemKind
+  /// Deprecated 2026-11-25: unused since the Jobs redesign; kept so no data is dropped.
   catalogEntryId      String?            @map("catalog_entry_id")
   name                String
   purpose             String
@@ -851,6 +854,7 @@ model SkillItemAnswer {
   @@map("skill_item_answers")
 }
 
+/// Deprecated 2026-11-25: unused since the Jobs redesign; kept so no data is dropped.
 model SkillCatalogEntry {
   id           String          @id @default(cuid())
   slug         String          @unique
@@ -868,6 +872,135 @@ model SkillCatalogEntry {
   createdBy    User?           @relation("SkillCatalogCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items        SkillPackItem[]
   @@map("skill_catalog_entries")
+}
+
+// ============================================================================
+// Prompt Bot — Skills Builder jobs (2026-11-25 redesign)
+// ============================================================================
+
+enum SkillJobFileKind {
+  PPTX
+  DOCX
+  XLSX
+  PDF
+  PNG
+  JPEG
+}
+
+enum SkillAnalysisStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model SkillJob {
+  id            String           @id @default(cuid())
+  userId        String           @map("user_id")
+  title         String           @default("Untitled job")
+  description   String           @default("")
+  scoreRevision Int              @default(0) @map("score_revision")
+  suggestedAt   DateTime?        @map("suggested_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  user          User             @relation("SkillJobOwner", fields: [userId], references: [id], onDelete: Cascade)
+  answers       SkillJobAnswer[]
+  files         SkillJobFile[]
+  skills        SkillJobSkill[]
+
+  @@index([userId, updatedAt])
+  @@map("skill_jobs")
+}
+
+model SkillJobAnswer {
+  id          String               @id @default(cuid())
+  jobId       String               @map("job_id")
+  questionId  String               @map("question_id")
+  answer      String               @default("")
+  score       Int                  @default(0)
+  reason      String?
+  notRelevant Boolean              @default(false) @map("not_relevant")
+  scoredAt    DateTime?            @map("scored_at")
+  job         SkillJob             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  question    PromptMatrixQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, questionId])
+  @@index([questionId])
+  @@map("skill_job_answers")
+}
+
+model SkillJobFile {
+  id                String              @id @default(cuid())
+  jobId             String              @map("job_id")
+  /// As uploaded, for display only.
+  fileName          String              @map("file_name")
+  /// Server-made safe name: the file's name under assets/.
+  assetName         String              @map("asset_name")
+  kind              SkillJobFileKind
+  /// Canonical for the kind, never the browser's claim.
+  mimeType          String              @map("mime_type")
+  size              Int
+  sha256            String
+  data              Bytes
+  /// Deterministic extraction (FileFacts).
+  facts             Json?
+  /// Readable style guide: the AI's, or the user's edit.
+  analysis          String?
+  analysisStatus    SkillAnalysisStatus @default(PENDING) @map("analysis_status")
+  analysisStartedAt DateTime?           @map("analysis_started_at")
+  analysisEdited    Boolean             @default(false) @map("analysis_edited")
+  analysisError     String?             @map("analysis_error")
+  /// Removed from the job but kept while an older version bundles it.
+  deletedAt         DateTime?           @map("deleted_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  job               SkillJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, assetName])
+  @@index([jobId, createdAt])
+  @@map("skill_job_files")
+}
+
+model SkillJobSkill {
+  id                  String          @id @default(cuid())
+  jobId               String          @map("job_id")
+  order               Int
+  /// Kebab-case; owns the folder of the next version.
+  name                String
+  purpose             String
+  fileIds             String[]        @default([]) @map("file_ids")
+  status              SkillItemStatus @default(DRAFT)
+  validationErrors    String[]        @default([]) @map("validation_errors")
+  generationStartedAt DateTime?       @map("generation_started_at")
+  latestVersion       Int             @default(0) @map("latest_version")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  job                 SkillJob        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  versions            SkillVersion[]
+
+  @@unique([jobId, name])
+  @@index([jobId, order])
+  @@map("skill_job_skills")
+}
+
+/// Immutable: nothing updates a version row.
+model SkillVersion {
+  id           String        @id @default(cuid())
+  skillId      String        @map("skill_id")
+  version      Int
+  /// The folder and SKILL.md name of this version.
+  name         String
+  description  String
+  /// Text files: [{ path, content }].
+  files        Json
+  /// Bundled originals: [{ fileId, path, fileName, bytes }].
+  assets       Json
+  /// The same ids as `assets`, for indexed lookups.
+  assetFileIds String[]      @default([]) @map("asset_file_ids")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  skill        SkillJobSkill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, version])
+  @@map("skill_versions")
 }
 
 // ============================================================================

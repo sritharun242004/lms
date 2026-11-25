@@ -6,7 +6,9 @@ import { isFocusedGroupPath } from "@/lib/cms/task-requirements";
 export function AppFrame({ header, children }: { header: React.ReactNode; children: React.ReactNode }) {
   const focused = isFocusedGroupPath(usePathname());
   return (
-    <div className="relative flex min-h-svh flex-col overflow-x-hidden text-foreground">
+    // `overflow-x-clip`, not `-hidden`: hidden makes this div a scroll container that never scrolls,
+    // which stops the sticky header and sticky side panels (Prompt Bot) from sticking.
+    <div className="relative flex min-h-svh flex-col overflow-x-clip text-foreground">
       <div className="ambient-orb -top-40 -right-32 size-[36rem] bg-primary/20" />
       <div className="ambient-orb -bottom-52 -left-40 size-[34rem] bg-brand-200/55 [animation-delay:-8s]" />
       {!focused && header}

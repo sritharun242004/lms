@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StatusBar } from "./status-bar";
@@ -19,33 +19,31 @@ describe("StatusBar", () => {
 });
 
 describe("QuestionRow", () => {
-  const base = { index: 1, text: "Who is the target audience?", reason: "Audience named but not specific", active: false, onSelect: vi.fn(), onToggleRelevant: vi.fn() };
+  const base = { index: 1, text: "Who is the target audience?", reason: "Audience named but not specific", active: false, onSelect: vi.fn() };
 
   it("auto-ticks only at 3/3", () => {
-    const { rerender } = render(createElement(QuestionRow, { ...base, score: 2, notRelevant: false }));
+    const { rerender } = render(createElement(QuestionRow, { ...base, score: 2 }));
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
-    rerender(createElement(QuestionRow, { ...base, score: 3, notRelevant: false }));
+    rerender(createElement(QuestionRow, { ...base, score: 3 }));
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
     expect(screen.getByText("3/3")).toBeTruthy();
   });
 
   it("collapses the note of a fully answered row until it is selected", () => {
     const note = () => screen.getByText(base.reason);
-    const { rerender } = render(createElement(QuestionRow, { ...base, score: 2, notRelevant: false }));
+    const { rerender } = render(createElement(QuestionRow, { ...base, score: 2 }));
     expect(note().getAttribute("data-collapsed")).toBe("false");
-    rerender(createElement(QuestionRow, { ...base, score: 3, notRelevant: false }));
+    rerender(createElement(QuestionRow, { ...base, score: 3 }));
     expect(note().getAttribute("data-collapsed")).toBe("true");
     expect(note().getAttribute("title")).toBe(base.reason);
-    rerender(createElement(QuestionRow, { ...base, score: 3, notRelevant: false, active: true }));
+    rerender(createElement(QuestionRow, { ...base, score: 3, active: true }));
     expect(note().getAttribute("data-collapsed")).toBe("false");
   });
 
-  it("shows not-relevant questions dimmed with a restore action", () => {
-    const onToggleRelevant = vi.fn();
-    render(createElement(QuestionRow, { ...base, score: 0, notRelevant: true, onToggleRelevant }));
-    fireEvent.click(screen.getByRole("button", { name: /mark relevant again/i }));
-    expect(onToggleRelevant).toHaveBeenCalled();
-    expect(screen.getByText(/not relevant/i)).toBeTruthy();
+  it("offers no way to skip a question", () => {
+    render(createElement(QuestionRow, { ...base, score: 0 }));
+    expect(screen.queryByRole("button", { name: /not relevant|relevant again/i })).toBeNull();
+    expect(screen.queryByText(/not relevant/i)).toBeNull();
   });
 });
 

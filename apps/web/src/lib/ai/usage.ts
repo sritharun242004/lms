@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 
-export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate";
-export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate"];
-export const DEFAULT_LIMITS: Record<AiFeature, number> = { score: 300, enhance: 30, skill_split: 10, skill_generate: 20 };
+export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate" | "skill_analyze";
+export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate", "skill_analyze"];
+export const DEFAULT_LIMITS: Record<AiFeature, number> = { score: 300, enhance: 30, skill_split: 10, skill_generate: 20, skill_analyze: 40 };
 
 export class LimitReachedError extends Error {
   constructor(
@@ -50,4 +50,12 @@ export async function consumeAiUsage(userId: string, feature: AiFeature, now = n
     await prisma.aiUsageDaily.update({ where: { userId_day_feature: key }, data: { count: { decrement: 1 } } });
     throw new LimitReachedError(feature, nextUtcMidnight(now));
   }
+}
+
+/** Hands back one unit spent on `now`'s day, for a call that was counted but will never run. Never below zero. */
+export async function refundAiUsage(userId: string, feature: AiFeature, now = new Date()): Promise<void> {
+  await prisma.aiUsageDaily.updateMany({
+    where: { userId, day: utcDay(now), feature, count: { gt: 0 } },
+    data: { count: { decrement: 1 } },
+  });
 }

@@ -1,13 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { BEST_MODEL, FAST_MODEL, AiNotConfiguredError, isAiConfigured } from "./config";
-import { AiResponseError } from "./errors";
+import { AiBadRequestError, AiResponseError } from "./errors";
 import { sanitizeScores, type ScoreResult } from "@/lib/prompt-bot/scoring";
 import { ENHANCE_SYSTEM, SCORE_SYSTEM } from "@/lib/prompt-bot/instructions";
-import type { SkillDraft } from "@/lib/skills/assemble";
-import { buildSplitMessage, GENERATE_SYSTEM, SPLIT_SYSTEM } from "@/lib/skills/instructions";
-import { GENERATION_TIMEOUT_MS } from "@/lib/skills/limits";
-import type { RawSplit } from "@/lib/skills/split";
+import { ANALYSIS_TIMEOUT_MS, GENERATION_TIMEOUT_MS, JOB_LIMITS, SUGGEST_TIMEOUT_MS } from "@/lib/skills/limits";
+import { ANALYSE_SYSTEM, GENERATE_JOB_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
+import type { JobSkillDraft, RawSuggestions } from "@/lib/skills/jobs/types";
 
 let client: Anthropic | null = null;
 
@@ -122,11 +121,6 @@ export function streamEnhancement(message: string, signal?: AbortSignal) {
   };
 }
 
-const SplitReply = z.object({
-  customSkills: z.array(z.object({ name: z.string(), purpose: z.string() })),
-  catalogMatches: z.array(z.object({ slug: z.string(), why: z.string() })),
-});
-
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
   properties,
@@ -135,62 +129,102 @@ const object = (properties: Record<string, unknown>) => ({
 });
 const STRING = { type: "string" };
 
-/** The split runs inside a request (120 s cap): one attempt, 100 s. */
-const SPLIT_REQUEST = { timeout: 100_000, maxRetries: 0 };
-/** Generation runs in after(); two attempts stay inside the stale window (limits.ts). */
-const GENERATE_REQUEST = { timeout: GENERATION_TIMEOUT_MS, maxRetries: 0 };
+// ---------------------------------------------------------------------------
+// Skills Builder jobs (spec 2026-11-25)
+// ---------------------------------------------------------------------------
 
-/** Proposes custom skills and catalog matches (spec, Split). The caller applies cleanSplit. */
-export async function splitWork(input: {
-  description: string;
-  role: string | null;
-  catalog: { slug: string; name: string; description: string }[];
-}): Promise<RawSplit> {
+/** What one file analysis sends: the facts text, plus the PDF or (resized) image itself when there is one. */
+export type AnalysisContent = {
+  text: string;
+  document?: { base64: string; title: string };
+  image?: { base64: string; mediaType: "image/png" | "image/jpeg" };
+};
+
+/** Analysis runs in after(): one 90 s attempt plus one SDK retry, inside the 5-minute stale window. */
+const ANALYSE_REQUEST = { timeout: ANALYSIS_TIMEOUT_MS, maxRetries: 1 };
+/** Suggest runs inside a request (120 s cap): one attempt. */
+const SUGGEST_REQUEST = { timeout: SUGGEST_TIMEOUT_MS, maxRetries: 0 };
+/** Job generation runs in after(); two attempts stay inside the generation stale window. */
+const JOB_GENERATE_REQUEST = { timeout: GENERATION_TIMEOUT_MS, maxRetries: 0 };
+
+/** Writes the readable style guide for one uploaded file (plain Markdown, Haiku). Document/image blocks go before the text. */
+export async function analyseFile(content: AnalysisContent): Promise<string> {
+  const blocks: Anthropic.ContentBlockParam[] = [];
+  if (content.document) {
+    blocks.push({
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: content.document.base64 },
+      title: content.document.title,
+    });
+  }
+  if (content.image) {
+    blocks.push({ type: "image", source: { type: "base64", media_type: content.image.mediaType, data: content.image.base64 } });
+  }
+  blocks.push({ type: "text", text: content.text });
+  const response = await getClient()
+    .messages.create({ model: FAST_MODEL, max_tokens: 3000, system: ANALYSE_SYSTEM, messages: [{ role: "user", content: blocks }] }, ANALYSE_REQUEST)
+    .catch((error: unknown) => {
+      // Callers decide what a refused request means (an unreadable PDF) without depending on the SDK.
+      throw error instanceof Anthropic.BadRequestError ? new AiBadRequestError({ cause: error }) : error;
+    });
+  if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") {
+    throw new AiResponseError(`Claude stopped with ${response.stop_reason}`);
+  }
+  const text = (response.content as ReadonlyArray<{ type: string; text?: string }>)
+    .filter((block) => block.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join("")
+    .trim();
+  if (!text) throw new AiResponseError("Claude returned no analysis");
+  return text.slice(0, JOB_LIMITS.analysisChars);
+}
+
+const SuggestReply = z.object({
+  skills: z.array(z.object({ name: z.string(), purpose: z.string(), fileIds: z.array(z.string()) })),
+});
+
+/** Proposes the skills for one job (spec, Suggest Skills). The caller applies cleanSuggestions. */
+export async function suggestJobSkills(message: string): Promise<RawSuggestions> {
   return structured({
     model: BEST_MODEL,
     fallback: true,
-    requestOptions: SPLIT_REQUEST,
-    system: SPLIT_SYSTEM,
-    user: buildSplitMessage(input),
+    requestOptions: SUGGEST_REQUEST,
+    system: SUGGEST_SYSTEM,
+    user: message,
     schema: object({
-      customSkills: { type: "array", items: object({ name: STRING, purpose: STRING }) },
-      catalogMatches: { type: "array", items: object({ slug: STRING, why: STRING }) },
+      skills: { type: "array", items: object({ name: STRING, purpose: STRING, fileIds: { type: "array", items: STRING } }) },
     }),
-    parse: SplitReply,
+    parse: SuggestReply,
     maxTokens: 4000,
   });
 }
 
-const DraftFile = z.object({ path: z.string(), content: z.string() });
-const DraftReply = z.object({
-  name: z.string(),
+const JobFile = z.object({ path: z.string(), content: z.string() });
+const JobDraftReply = z.object({
   description: z.string(),
   compatibility: z.string(),
   body: z.string(),
-  references: z.array(DraftFile),
-  scripts: z.array(DraftFile.extend({ purpose: z.string() })),
-  assets: z.array(DraftFile),
+  references: z.array(JobFile),
+  scripts: z.array(JobFile.extend({ purpose: z.string() })),
 });
 
-/** Writes one skill as structured fields (spec, Generate). The server assembles and validates the files. */
-export async function generateSkillDraft(message: string): Promise<SkillDraft> {
+/** Writes one job skill as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
+export async function generateJobSkillDraft(message: string): Promise<JobSkillDraft> {
   const file = object({ path: STRING, content: STRING });
   return structured({
     model: BEST_MODEL,
     fallback: true,
-    requestOptions: GENERATE_REQUEST,
-    system: GENERATE_SYSTEM,
+    requestOptions: JOB_GENERATE_REQUEST,
+    system: GENERATE_JOB_SYSTEM,
     user: message,
     schema: object({
-      name: STRING,
       description: STRING,
       compatibility: STRING,
       body: STRING,
       references: { type: "array", items: file },
       scripts: { type: "array", items: object({ path: STRING, content: STRING, purpose: STRING }) },
-      assets: { type: "array", items: file },
     }),
-    parse: DraftReply,
+    parse: JobDraftReply,
     maxTokens: 16000,
   });
 }

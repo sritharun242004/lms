@@ -1,5 +1,5 @@
 "use client";
-import { Check, EyeOff, RotateCcw } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBar } from "./status-bar";
 
@@ -10,10 +10,8 @@ type Props = {
   lead?: string;
   score: number;
   reason: string | null;
-  notRelevant: boolean;
   active: boolean;
   onSelect(): void;
-  onToggleRelevant(): void;
 };
 
 /** Read-only tick that animates in at 3/3. The native checkbox stays in the tree for its role and name. */
@@ -34,8 +32,8 @@ function Tick({ ticked, label }: { ticked: boolean; label: string }) {
   );
 }
 
-export function QuestionRow({ index, text, lead, score, reason, notRelevant, active, onSelect, onToggleRelevant }: Props) {
-  const ticked = !notRelevant && score >= 3;
+export function QuestionRow({ index, text, lead, score, reason, active, onSelect }: Props) {
+  const ticked = score >= 3;
   // A 3/3 note is collapsed to one faded line beside the bar (shown on hover or focus, full text in
   // its title) until the row is selected; other notes stay visible, clamped to two lines.
   const collapsed = ticked && !active;
@@ -45,7 +43,6 @@ export function QuestionRow({ index, text, lead, score, reason, notRelevant, act
         // `!`: globals.css sets border-color on every element outside a layer, which beats plain utilities.
         "group rounded-2xl border px-2.5 py-1.5 transition-colors duration-200",
         active ? "border-primary/40! bg-primary/5" : "border-transparent! hover:bg-white/55 dark:hover:bg-white/5",
-        notRelevant && "opacity-55",
       )}
     >
       <div className="flex items-start gap-2.5">
@@ -61,36 +58,24 @@ export function QuestionRow({ index, text, lead, score, reason, notRelevant, act
             {lead && <span className="mr-1 font-semibold text-primary dark:text-brand-400">{lead}:</span>}
             {text}
           </span>
-          {notRelevant ? (
-            <span className="mt-0.5 block text-xs text-muted-foreground">Not relevant for this prompt</span>
-          ) : (
-            <span className="mt-1 flex min-w-0 items-center gap-2">
-              <StatusBar score={score} label={text} />
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{score}/3</span>
-              {collapsed && reason && (
-                <span
-                  data-collapsed="true"
-                  title={reason}
-                  className="min-w-0 truncate text-xs text-muted-foreground opacity-0 transition-opacity duration-150 ease-out group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
-                >
-                  {reason}
-                </span>
-              )}
-            </span>
-          )}
-          {!notRelevant && !collapsed && reason && (
+          <span className="mt-1 flex min-w-0 items-center gap-2">
+            <StatusBar score={score} label={text} />
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{score}/3</span>
+            {collapsed && reason && (
+              <span
+                data-collapsed="true"
+                title={reason}
+                className="min-w-0 truncate text-xs text-muted-foreground opacity-0 transition-opacity duration-150 ease-out group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+              >
+                {reason}
+              </span>
+            )}
+          </span>
+          {!collapsed && reason && (
             <span data-collapsed="false" className={cn("mt-0.5 block text-xs leading-snug text-muted-foreground", !active && "line-clamp-2")}>
               {reason}
             </span>
           )}
-        </button>
-        <button
-          type="button"
-          onClick={onToggleRelevant}
-          aria-label={notRelevant ? `Mark relevant again: ${text}` : `Mark not relevant: ${text}`}
-          className="-mr-1 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-[opacity,color] duration-150 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-        >
-          {notRelevant ? <RotateCcw className="size-4" aria-hidden /> : <EyeOff className="size-4" aria-hidden />}
         </button>
       </div>
     </li>
