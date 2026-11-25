@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
   jobCreate: vi.fn(),
   jobUpdate: vi.fn(),
+  jobUpdateMany: vi.fn(),
   jobDelete: vi.fn(),
   answerCreateMany: vi.fn(),
   answerUpdate: vi.fn(),
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
-    skillJob: { findFirst: mocks.jobFindFirst, create: mocks.jobCreate, update: mocks.jobUpdate, delete: mocks.jobDelete },
+    skillJob: { findFirst: mocks.jobFindFirst, create: mocks.jobCreate, update: mocks.jobUpdate, updateMany: mocks.jobUpdateMany, delete: mocks.jobDelete },
     skillJobAnswer: { createMany: mocks.answerCreateMany, update: mocks.answerUpdate, upsert: mocks.answerUpsert, findMany: mocks.answerFindMany },
     skillJobFile: { findMany: mocks.fileFindMany },
     promptMatrix: { findFirst: mocks.matrixFindFirst },
@@ -133,6 +134,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.matrixFindFirst.mockResolvedValue(MATRIX);
   mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
+  mocks.jobUpdateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("toFileView", () => {
@@ -244,7 +246,7 @@ describe("create, update and delete", () => {
   it("updates only the owner's job and returns the view", async () => {
     mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", title: "t", description: "d" }).mockResolvedValueOnce(jobRow({ title: "New" }));
     const view = await updateJob("j1", "u1", { title: "New" });
-    expect(mocks.jobUpdate).toHaveBeenCalledWith({ where: { id: "j1" }, data: { title: "New" } });
+    expect(mocks.jobUpdateMany).toHaveBeenCalledWith({ where: { id: "j1" }, data: { title: "New" } });
     expect(view.title).toBe("New");
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     await expect(updateJob("j1", "u2", { title: "x" })).rejects.toBeInstanceOf(JobNotFoundError);

@@ -4,10 +4,18 @@ import type { PromptQuestionContext } from "@/lib/prompt-bot/instructions";
 import { scoreAndApply, type AnswerView } from "@/lib/prompt-bot/score-run";
 import { titleFrom } from "@/lib/prompt-bot/sessions";
 import { JOB_LIMITS } from "../limits";
-import { effectivePlugin } from "../plugin-names";
+import { normalizeSkillName, oneLine } from "../names";
+import { effectivePlugin, PLUGIN_NAME_FALLBACK } from "../plugin-names";
 import type { SkillItemStatus } from "../types";
-import { JobNotFoundError } from "./errors";
-import { ANALYSIS_INTERRUPTED_MESSAGE, GENERATION_INTERRUPTED_MESSAGE, isAnalysing, isGenerating, PLUGIN_GENERATION_INTERRUPTED_MESSAGE } from "./staleness";
+import { JobNotFoundError, PluginGeneratingError } from "./errors";
+import {
+  ANALYSIS_INTERRUPTED_MESSAGE,
+  GENERATION_INTERRUPTED_MESSAGE,
+  generationCutoff,
+  isAnalysing,
+  isGenerating,
+  PLUGIN_GENERATION_INTERRUPTED_MESSAGE,
+} from "./staleness";
 import type { AnalysisStatus, FileHint, JobFileView, JobSkillView, JobView, PerUseInput, PluginView, ScoreReply, TaskQuestionView } from "./types";
 
 /** Lists and views never read a file's bytes or its facts. */
@@ -188,12 +196,30 @@ export async function createJob(userId: string, input: { title?: string; descrip
   return job.id;
 }
 
-export async function updateJob(jobId: string, userId: string, patch: { title?: string; description?: string }): Promise<JobView> {
+export type JobPatch = { title?: string; description?: string; company?: string; pluginName?: string | null; pluginDisplayName?: string | null };
+
+/** Where a plugin is not being generated: never claimed, finished, or a stale (interrupted) claim. */
+export const notGeneratingPlugin = (now = new Date()): Prisma.SkillJobWhereInput[] => [
+  { pluginStatus: { not: "GENERATING" } },
+  { pluginGenerationStartedAt: null },
+  { pluginGenerationStartedAt: { lte: generationCutoff(now) } },
+];
+
+/** `pluginName` / `pluginDisplayName`: null resets to the default; renaming waits for a running generation (409). */
+export async function updateJob(jobId: string, userId: string, patch: JobPatch): Promise<JobView> {
   if (!(await findOwnedJob(jobId, userId))) throw new JobNotFoundError();
-  const data: Prisma.SkillJobUpdateInput = {};
+  const data: Prisma.SkillJobUpdateManyMutationInput = {};
   if (patch.title !== undefined) data.title = patch.title.trim();
   if (patch.description !== undefined) data.description = patch.description;
-  await prisma.skillJob.update({ where: { id: jobId }, data });
+  if (patch.company !== undefined) data.company = oneLine(patch.company, JOB_LIMITS.companyChars);
+  if (patch.pluginName !== undefined) data.pluginName = patch.pluginName === null ? null : normalizeSkillName(patch.pluginName, PLUGIN_NAME_FALLBACK);
+  if (patch.pluginDisplayName !== undefined) {
+    data.pluginDisplayName = patch.pluginDisplayName === null ? null : oneLine(patch.pluginDisplayName, JOB_LIMITS.pluginDisplayNameChars) || null;
+  }
+  const renames = patch.pluginName !== undefined || patch.pluginDisplayName !== undefined;
+  const where: Prisma.SkillJobWhereInput = renames ? { id: jobId, OR: notGeneratingPlugin() } : { id: jobId };
+  const { count } = await prisma.skillJob.updateMany({ where, data });
+  if (count === 0) throw renames ? new PluginGeneratingError() : new JobNotFoundError();
   const view = await loadJobView(jobId, userId);
   if (!view) throw new JobNotFoundError();
   return view;

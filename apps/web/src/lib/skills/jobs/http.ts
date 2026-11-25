@@ -41,6 +41,7 @@ export function jobErrorResponse(error: unknown): Response | null {
   }
   if (error instanceof E.AlreadyAnalysingError) return conflict("ALREADY_ANALYSING", "This file is still being analysed. Wait for it to finish.");
   if (error instanceof E.AlreadyGeneratingError) return conflict("ALREADY_GENERATING", "A skill in this task is being written. Wait for it to finish.");
+  if (error instanceof E.PluginGeneratingError) return conflict("ALREADY_GENERATING", "Your plugin is being written. Wait for it to finish.");
   if (error instanceof E.FilesAnalysingError) return conflict("FILES_ANALYSING", "Wait until your files have been analysed.");
   if (error instanceof E.TooManyFilesError) {
     return conflict("TOO_MANY_FILES", `A task can have at most ${JOB_LIMITS.filesPerJob} files. Remove one to add another.`);

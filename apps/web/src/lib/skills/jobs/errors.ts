@@ -36,6 +36,12 @@ export class AlreadyGeneratingError extends NamedError {
     super("A skill is being written");
   }
 }
+/** The plugin is being generated (a fresh claim): its names and skills are fixed until it finishes. */
+export class PluginGeneratingError extends NamedError {
+  constructor() {
+    super("The plugin is being written");
+  }
+}
 export class FilesAnalysingError extends NamedError {
   constructor() {
     super("Files are still being analysed");
