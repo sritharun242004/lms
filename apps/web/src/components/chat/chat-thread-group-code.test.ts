@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 
 import { createElement, type ComponentType, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatThread } from "./chat-thread";
+import { useChatSocket } from "@/hooks/use-chat-socket";
 
 const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
@@ -57,7 +58,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
-function renderThread(canManage: boolean, groupCode: string | null, participant = false) {
+function renderThread(canManage: boolean, groupCode: string | null, participant = false, promptBotEnabled = false) {
   const Thread = ChatThread as unknown as ComponentType<Record<string, unknown>>;
   return render(
     createElement(Thread, {
@@ -69,6 +70,7 @@ function renderThread(canManage: boolean, groupCode: string | null, participant 
       currentUser: participant ? { id: "user-1", name: "Participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false } : undefined,
       canManage,
       groupCode,
+      promptBotEnabled,
       initialMessages: [],
       initialHasMore: false,
       backHref: canManage ? "/dashboard" : null,
@@ -81,7 +83,30 @@ describe("group-code chat header", () => {
     renderThread(false, null, true);
 
     expect(screen.getByTestId("participant-logout")).toBeTruthy();
-    // Hidden for participants for now (PROMPT_BOT_BUTTON_FOR_PARTICIPANTS = false).
+  });
+
+  it("shows a participant Prompt Bot only in a group an admin turned it on for", () => {
+    renderThread(false, null, true, false);
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+    cleanup();
+
+    renderThread(false, null, true, true);
+    expect(screen.getByRole("link", { name: "Prompt Bot" })).toBeTruthy();
+  });
+
+  it("shows or hides the participant Prompt Bot live when an admin flips the switch mid-meeting", () => {
+    renderThread(false, null, true, false);
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+    const handlers = vi.mocked(useChatSocket).mock.calls.at(-1)![1];
+
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Design cohort", description: "Weekly work", promptBotEnabled: true }));
+    expect(screen.getByRole("link", { name: "Prompt Bot" })).toBeTruthy();
+
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Design cohort", description: "Weekly work", promptBotEnabled: false }));
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+
+    // A rename (no promptBotEnabled in the event) leaves it as it is.
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Renamed", description: "Weekly work" }));
     expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
   });
 

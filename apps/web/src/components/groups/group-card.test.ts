@@ -33,6 +33,7 @@ describe("dashboard group-card navigation", () => {
           memberIds: [],
           inviteCode: null,
           canManage: true,
+          promptBotEnabled: false,
         },
         onChanged: vi.fn(),
       })
@@ -57,6 +58,7 @@ describe("dashboard group-card navigation", () => {
           memberIds: ["user-1"],
           inviteCode: null,
           canManage: true,
+          promptBotEnabled: false,
         },
         onChanged: vi.fn(),
         isActive: true,
@@ -83,6 +85,7 @@ describe("dashboard group-card navigation", () => {
           memberIds: ["user-1"],
           inviteCode: null,
           canManage: true,
+          promptBotEnabled: false,
         },
         onChanged: vi.fn(),
         isActive: false,
@@ -91,5 +94,21 @@ describe("dashboard group-card navigation", () => {
 
     expect(screen.getByText(/last active/i)).toBeTruthy();
     expect(screen.queryByText(/active now/i)).toBeNull();
+  });
+
+  it("shows the Prompt Bot switch only where the viewer may change it (admins)", () => {
+    const group = {
+      id: "group-7", name: "Cohort", description: null, wallpaperUrl: null, avatarUrl: null,
+      createdAt: "2026-08-18T00:00:00.000Z", lastActivityAt: "2026-08-18T00:00:00.000Z",
+      mentorName: "Asha Coach", memberCount: 2, memberIds: [], inviteCode: null,
+      canManage: true, promptBotEnabled: true,
+    };
+    render(createElement(GroupCard, { group, onChanged: vi.fn() }));
+    expect(screen.queryByRole("switch", { name: "Prompt Bot for participants" })).toBeNull();
+    cleanup();
+
+    render(createElement(GroupCard, { group, onChanged: vi.fn(), canTogglePromptBot: true }));
+    const toggle = screen.getByRole("switch", { name: "Prompt Bot for participants" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 });

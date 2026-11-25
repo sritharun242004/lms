@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   revokeRefreshToken: vi.fn(),
   storeRefreshToken: vi.fn(),
   findUser: vi.fn(),
+  countMemberships: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -18,7 +19,9 @@ vi.mock("@/lib/auth", () => ({
   getRefreshCookieOptions: () => ({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 604800 }),
 }));
 
-vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findUnique: mocks.findUser } } }));
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: { user: { findUnique: mocks.findUser }, groupMember: { count: mocks.countMemberships } },
+}));
 
 import { proxy } from "./proxy";
 
@@ -35,6 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.verifyAccessToken.mockReturnValue(null);
   mocks.revokeRefreshToken.mockResolvedValue(undefined);
+  mocks.countMemberships.mockResolvedValue(0);
   mocks.findUser.mockResolvedValue({
     id: "u1", name: "User", email: "user@example.com", role: "MENTOR",
     isActive: true, authVersion: 0,
@@ -67,10 +71,48 @@ describe("portal-aware proxy redirects", () => {
     expect(response.headers.get("location")).toBe(`http://localhost${expected}`);
   });
 
-  it.each(["ADMIN", "MENTOR", "MENTEE"] as const)("lets an authenticated %s user reach /prompt-bot", async (role) => {
-    const response = await proxy(request("/prompt-bot/abc", role));
+  it.each(["ADMIN", "MENTOR"] as const)("always lets staff (%s) reach Prompt Bot pages and APIs", async (role) => {
+    for (const path of ["/prompt-bot/abc", "/api/v1/prompt-bot/sessions"]) {
+      const response = await proxy(request(path, role));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    }
+    expect(mocks.countMemberships).not.toHaveBeenCalled();
+  });
 
-    expect(response.headers.get("location")).toBeNull();
+  it("sends a participant without a Prompt Bot group from the pages back to chat", async () => {
+    for (const path of ["/prompt-bot", "/prompt-bot/skills"]) {
+      const response = await proxy(request(path, "MENTEE"));
+      expect(response.headers.get("location")).toBe("http://localhost/chat");
+    }
+  });
+
+  it("refuses a participant without a Prompt Bot group on the APIs with 403", async () => {
+    const response = await proxy(request("/api/v1/prompt-bot/sessions", "MENTEE"));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Prompt Bot isn't turned on for your group." },
+    });
+    expect(mocks.countMemberships).toHaveBeenCalledWith({
+      where: { userId: "u1", group: { promptBotEnabled: true } },
+    });
+  });
+
+  it("lets a participant in a Prompt Bot group through to pages and APIs", async () => {
+    mocks.countMemberships.mockResolvedValue(1);
+    for (const path of ["/prompt-bot/abc", "/api/v1/prompt-bot/sessions"]) {
+      const response = await proxy(request(path, "MENTEE"));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("does not gate look-alike paths or charge other participant routes a lookup", async () => {
+    await proxy(request("/prompt-botany", "MENTEE"));
+    await proxy(request("/chat/group-1", "MENTEE"));
+    expect(mocks.countMemberships).not.toHaveBeenCalled();
   });
 
   it("refuses silent refresh for an inactive account and clears the stale session", async () => {

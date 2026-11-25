@@ -172,6 +172,8 @@ export const updateGroupSchema = z.object({
     .max(1000, "Description must be at most 1000 characters")
     .trim()
     .optional(),
+  // ADMIN-only: the route refuses anyone else who sends it.
+  promptBotEnabled: z.boolean().optional(),
 });
 
 export const joinGroupSchema = z.object({

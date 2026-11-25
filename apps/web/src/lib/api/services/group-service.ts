@@ -14,6 +14,8 @@ export interface GroupCard {
   memberIds: string[];
   inviteCode: { id: string; code: string; isActive: boolean; usageCount: number } | null;
   canManage: boolean;
+  /** Admin switch: participants in this group can open Prompt Bot. */
+  promptBotEnabled: boolean;
 }
 
 export interface GroupMemberEntry {
@@ -86,7 +88,7 @@ export const groupService = {
   create: (input: CreateGroupInput) => apiClient.post<GroupCard>("/groups", input),
 
   update: (id: string, input: UpdateGroupInput) =>
-    apiClient.patch<{ id: string; name: string; description: string | null }>(
+    apiClient.patch<{ id: string; name: string; description: string | null; promptBotEnabled: boolean }>(
       `/groups/${id}`,
       input
     ),

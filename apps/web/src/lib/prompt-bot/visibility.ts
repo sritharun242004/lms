@@ -1,10 +1,9 @@
 /**
- * Whether participants (MENTEE) see the Prompt Bot header button.
- * Hidden for now; flip to true to show participants the featured button again.
- * This only hides the entry point — /prompt-bot itself stays reachable for every role.
+ * Client-safe Prompt Bot visibility rules (no database access).
+ * Server-side access is `canUsePromptBot` in ./access.
  */
-export const PROMPT_BOT_BUTTON_FOR_PARTICIPANTS = false;
 
-export function showsPromptBotButton(role: string): boolean {
-  return role !== "MENTEE" || PROMPT_BOT_BUTTON_FOR_PARTICIPANTS;
+/** Chat-header rule for one group: participants see the button only where an admin turned it on. */
+export function showsPromptBotInGroup(role: string, groupPromptBotEnabled: boolean): boolean {
+  return role !== "MENTEE" || groupPromptBotEnabled;
 }

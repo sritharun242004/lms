@@ -15,6 +15,7 @@ const group = (overrides: Partial<GroupCard>): GroupCard => ({
   memberIds: [],
   inviteCode: null,
   canManage: true,
+  promptBotEnabled: false,
   ...overrides,
 });
 

@@ -24,7 +24,7 @@ function group(canManage = true) {
     id: 'group-42', name: 'Design cohort', description: null, wallpaperUrl: null,
     avatarUrl: null, createdAt: '2026-08-18T00:00:00.000Z',
     lastActivityAt: '2026-08-21T10:00:00.000Z', mentorName: 'Asha Coach',
-    memberCount: 4, memberIds: [], inviteCode: null, canManage,
+    memberCount: 4, memberIds: [], inviteCode: null, canManage, promptBotEnabled: false,
   };
 }
 

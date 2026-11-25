@@ -11,6 +11,7 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
       description: true,
       wallpaperUrl: true,
       avatarUrl: true,
+      promptBotEnabled: true,
       createdAt: true,
       updatedAt: true,
       createdBy: { select: { name: true } },
@@ -44,6 +45,7 @@ export async function getManagedGroups(opts: { userId?: string } = {}): Promise<
     memberIds: g.members.map((m: (typeof g.members)[number]) => m.userId),
     inviteCode: g.inviteCodes[0] ?? null,
     canManage: true,
+    promptBotEnabled: g.promptBotEnabled,
   }));
 }
 
@@ -76,6 +78,7 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
           description: true,
           wallpaperUrl: true,
           avatarUrl: true,
+          promptBotEnabled: true,
           createdAt: true,
           updatedAt: true,
           createdBy: { select: { name: true } },
@@ -105,5 +108,6 @@ export async function getJoinedGroups(menteeId: string): Promise<GroupCard[]> {
     memberIds: m.group.members.map((mem: (typeof m.group.members)[number]) => mem.userId),
     inviteCode: null,
     canManage: false,
+    promptBotEnabled: m.group.promptBotEnabled,
   }));
 }

@@ -15,9 +15,11 @@ import { useGroupPresence } from '@/hooks/use-group-presence';
 export function GroupsSection({
   groups,
   canCreate,
+  canTogglePromptBot = false,
 }: {
   groups: GroupCardData[];
   canCreate: boolean;
+  canTogglePromptBot?: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
@@ -70,6 +72,7 @@ export function GroupsSection({
               key={g.id}
               group={g}
               onChanged={refresh}
+              canTogglePromptBot={canTogglePromptBot}
               isActive={groupPresence.get(g.id)?.isActive ?? false}
               lastActivityAt={groupPresence.get(g.id)?.lastActiveAt ?? g.lastActivityAt}
             />

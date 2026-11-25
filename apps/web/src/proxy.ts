@@ -13,6 +13,7 @@ import {
 import { prisma } from "@/lib/db/prisma";
 import { isAuthVersionCurrent, isValidJwtSessionClaims, type UserRole } from "@cms/shared";
 import { sanitizeReturnPath } from "@/lib/auth/portal-navigation";
+import { PROMPT_BOT_DISABLED_MESSAGE, canUsePromptBot } from "@/lib/prompt-bot/access";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -81,6 +82,13 @@ const ROLE_ROUTES: Record<string, UserRole[]> = {
   "/questions": ["ADMIN", "MENTOR"] as UserRole[],
   "/prompt-bot": ["ADMIN", "MENTOR", "MENTEE"] as UserRole[],
 };
+
+// Prompt Bot pages and APIs: participants need a group an admin turned it on for.
+const PROMPT_BOT_PREFIXES = ["/prompt-bot", "/api/v1/prompt-bot"];
+
+function isPromptBotPath(pathname: string): boolean {
+  return PROMPT_BOT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
+}
 
 // Landing page redirect by role — mentees have no dashboard, chat is their home.
 const ROLE_DASHBOARD: Record<string, string> = {
@@ -283,6 +291,20 @@ export async function proxy(request: NextRequest) {
           return withRotatedCookies(NextResponse.redirect(new URL(dashboard, request.url)));
         }
         break;
+      }
+    }
+
+    // Only participants on Prompt Bot paths pay for this lookup; staff skip it.
+    if (payload.role === "MENTEE" && isPromptBotPath(pathname)) {
+      if (!(await canUsePromptBot({ id: payload.sub, role: payload.role }))) {
+        return withRotatedCookies(
+          isApiRoute
+            ? NextResponse.json(
+                { success: false, error: { code: "FORBIDDEN", message: PROMPT_BOT_DISABLED_MESSAGE } },
+                { status: 403 }
+              )
+            : NextResponse.redirect(new URL("/chat", request.url))
+        );
       }
     }
 

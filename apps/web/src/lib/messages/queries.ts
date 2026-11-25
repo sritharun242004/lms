@@ -32,6 +32,7 @@ export async function getGroupHeader(groupId: string) {
       name: true,
       description: true,
       avatarUrl: true,
+      promptBotEnabled: true,
       _count: { select: { members: true } },
     },
   });
