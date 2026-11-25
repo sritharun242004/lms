@@ -185,7 +185,7 @@ export const JOB_DRAFT = {
     'Writes the monthly board update from rough notes and this month\'s numbers, in the house style: numbers first, "no surprises". Use when asked for a board update, an investor update or a monthly summary deck.',
   compatibility: "",
   body:
-    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\n## How this skill works\n\n1. A model-written workflow, which the server replaces with its own.\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
+    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\n## How this skill works\n\n1. A model-written workflow, which the server replaces with its own.\n\n## Steps\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
   references: [
     { path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" },
     // The server writes references/style-guide.md itself and must drop this one.

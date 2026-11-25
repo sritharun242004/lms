@@ -39,3 +39,20 @@ export function standAloneNote(displayName: string, mainName: string, step: numb
   const name = oneLine(displayName).replace(/\*/g, "");
   return `> Part of the **${name}** plugin. Use this skill alone when you only need this part; the \`${mainName}\` skill also runs it as step ${step} of the whole job.`;
 }
+
+export type StructureSkill = WorkflowSub & { role: "MAIN" | "SUB" };
+
+/** What the server adds to each skill of a plugin: the workflow for the main skill, the stand-alone note for each sub-skill. */
+export function pluginSkillSections(
+  plugin: { name: string; displayName: string },
+  skills: readonly StructureSkill[],
+  hasPerUse: boolean,
+): Map<string, { role: "MAIN"; section: string } | { role: "SUB"; note: string }> {
+  const main = skills.find((s) => s.role === "MAIN");
+  const subs = skills.filter((s) => s.role === "SUB");
+  const steps = workflowSteps(subs, hasPerUse);
+  const out = new Map<string, { role: "MAIN"; section: string } | { role: "SUB"; note: string }>();
+  if (main) out.set(main.name, { role: "MAIN", section: howThisSkillWorksSection(plugin, subs, hasPerUse) });
+  for (const sub of subs) out.set(sub.name, { role: "SUB", note: standAloneNote(plugin.displayName, main?.name ?? "main", steps.get(sub.name)!) });
+  return out;
+}
