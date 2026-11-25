@@ -295,6 +295,13 @@ describe("JobWorkspace description", () => {
 });
 
 describe("JobWorkspace header", () => {
+  it("gives the title a minimum width so the actions wrap below it on phones instead of truncating it", async () => {
+    await mount();
+    // jsdom has no layout: assert the flex basis that makes the header wrap at 360-390 px (seen in the e2e run as "M…").
+    const titleBox = screen.getByRole("heading", { level: 1 }).closest("header > div");
+    expect(titleBox?.className).toMatch(/\bbasis-/);
+  });
+
   it("renames the job", async () => {
     mocks.patchJob.mockResolvedValue(ok({ ...JOB, title: "Board pack" }));
     await mount();

@@ -248,7 +248,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-64">
           {editingTitle ? (
             <form onSubmit={saveTitle} className="max-w-xl">
               <label htmlFor="job-title" className="sr-only">
