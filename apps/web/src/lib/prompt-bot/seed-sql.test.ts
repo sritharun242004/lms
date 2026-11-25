@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_MATRICES } from "./builtin-matrices";
-import { matrixSeedSql, retirementSql, sqlLiteral } from "./seed-sql";
+import { matrixSeedSql, restorationSql, retirementSql, sqlLiteral } from "./seed-sql";
 
 const ENHANCER_SQL = readFileSync(
   path.join(__dirname, "../../../prisma/migrations/20261124150000_add_prompt_bot/migration.sql"),
@@ -40,5 +40,25 @@ describe("seed SQL helpers", () => {
       `UPDATE "prompt_matrices" SET "is_active" = false, "updated_at" = NOW() WHERE "id" = 'm1';`,
       `UPDATE "prompt_matrix_questions" SET "is_active" = false WHERE "id" = 'q2';`,
     ]);
+  });
+
+  it("switches a question back on with its source text and 0-based position, and refuses inactive or unknown ids", () => {
+    const m = {
+      id: "m1",
+      slug: "s",
+      name: "N",
+      description: "d",
+      kind: "CORE" as const,
+      questions: [
+        { id: "q1", text: "t", guidance: "g", element: null },
+        { id: "q2", text: "it's next", guidance: "g", element: null },
+        { id: "q3", text: "t", guidance: "g", element: null, isActive: false },
+      ],
+    };
+    expect(restorationSql(m, ["q2"])).toEqual([
+      `UPDATE "prompt_matrix_questions" SET "is_active" = true, "text" = 'it''s next', "order" = 1 WHERE "id" = 'q2';`,
+    ]);
+    expect(() => restorationSql(m, ["q3"])).toThrow();
+    expect(() => restorationSql(m, ["nope"])).toThrow();
   });
 });

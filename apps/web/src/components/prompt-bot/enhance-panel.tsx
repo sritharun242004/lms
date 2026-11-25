@@ -33,7 +33,9 @@ const PROMPT_TYPE = [
   "[&_h3]:mt-5 [&_h3]:border-t [&_h3]:border-border/70 [&_h3]:pt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-foreground",
   "[&_h3:first-child]:mt-0 [&_h3:first-child]:border-t-0 [&_h3:first-child]:pt-0",
   "[&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-foreground",
-  "[&_p]:mt-1.5 [&_ul]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mt-1 [&_li]:pl-0.5",
+  "[&_p]:mt-1.5 [&_ul]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mt-1 [&_li]:pl-1",
+  // Numbered steps (the Plan): quiet tabular numerals, and loose items or sub-lists keep the list's rhythm.
+  "[&_li]:marker:text-muted-foreground [&_ol>li]:marker:tabular-nums [&_ol>li]:marker:font-medium [&_li>p:first-child]:mt-0 [&_li_ul]:mt-1 [&_li_ol]:mt-1",
   "[&_strong]:font-semibold [&_strong]:text-foreground [&_blockquote]:mt-2 [&_blockquote]:border-l [&_blockquote]:border-border [&_blockquote]:pl-3",
   "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 dark:[&_a]:text-brand-400",
   "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs dark:[&_code]:bg-white/10",

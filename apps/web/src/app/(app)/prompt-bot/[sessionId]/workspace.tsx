@@ -144,7 +144,8 @@ export function Workspace({ initial }: { initial: SessionView }) {
   }, [initial.id]);
 
   const active = questions.find((q) => q.id === activeId) ?? null;
-  const groups = view.matrices.map((m) => ({ id: m.id, title: m.name, questions: m.questions }));
+  // The last core question (by order) reads "Finally: …", as on the Design Think deck.
+  const groups = view.matrices.map((m) => ({ id: m.id, title: m.name, questions: m.questions, closingLead: "Finally" }));
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
