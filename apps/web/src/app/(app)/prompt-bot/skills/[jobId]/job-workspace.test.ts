@@ -132,6 +132,23 @@ describe("JobWorkspace steps", () => {
     expect(window.location.hash).toBe("#skills");
   });
 
+  it("moves between steps with Back and Next buttons at the bottom", async () => {
+    window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
+    window.matchMedia = vi.fn(() => ({ matches: false })) as unknown as typeof window.matchMedia;
+    await mount();
+    const nav = () => within(screen.getByRole("navigation", { name: "Step navigation" }));
+    expect(nav().queryByRole("button", { name: /Back/ })).toBeNull();
+    fireEvent.click(nav().getByRole("button", { name: "Next: Files" }));
+    expect(window.location.hash).toBe("#files");
+    expect(window.scrollTo).toHaveBeenCalled();
+    fireEvent.click(nav().getByRole("button", { name: "Next: Questions" }));
+    fireEvent.click(nav().getByRole("button", { name: "Next: Skills" }));
+    expect(window.location.hash).toBe("#skills");
+    expect(nav().queryByRole("button", { name: /Next/ })).toBeNull();
+    fireEvent.click(nav().getByRole("button", { name: "Back: Questions" }));
+    expect(window.location.hash).toBe("#questions");
+  });
+
   it("shows counts on the steps and the number of unanswered questions to the skills panel", async () => {
     await mount();
     expect(steps().getByRole("button", { name: /Files/ }).textContent).toContain("1");

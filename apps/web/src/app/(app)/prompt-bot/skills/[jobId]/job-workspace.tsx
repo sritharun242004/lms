@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Download, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
@@ -80,6 +80,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     setStep(next);
     window.history.replaceState(null, "", `#${next}`);
   }
+  // Moving with the Back/Next buttons at the bottom also brings the new step's top into view.
+  function goAndScroll(next: JobStep) {
+    go(next);
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  const stepIndex = JOB_STEPS.findIndex((s) => s.id === step);
+  const prevStep = stepIndex > 0 ? JOB_STEPS[stepIndex - 1] : null;
+  const nextStep = stepIndex < JOB_STEPS.length - 1 ? JOB_STEPS[stepIndex + 1] : null;
 
   // Analysis and generation run after their requests return, so the job is polled while either is running.
   // A hidden tab stops polling until it is shown again; the time hidden doesn't count towards the cap.
@@ -361,6 +369,23 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           onSkillRemoved={onSkillRemoved}
         />
       </div>
+
+      <nav aria-label="Step navigation" className="flex items-center justify-between gap-3">
+        {prevStep ? (
+          <Button type="button" variant="ghost" onClick={() => goAndScroll(prevStep.id)}>
+            <ArrowLeft className="size-4" aria-hidden />
+            Back: {prevStep.label}
+          </Button>
+        ) : (
+          <span />
+        )}
+        {nextStep && (
+          <Button type="button" onClick={() => goAndScroll(nextStep.id)}>
+            Next: {nextStep.label}
+            <ArrowRight className="size-4" aria-hidden />
+          </Button>
+        )}
+      </nav>
 
       <p className="text-center text-xs text-muted-foreground">
         Your job, files and answers are stored in the LMS and sent to Anthropic&apos;s API to build your skills.
