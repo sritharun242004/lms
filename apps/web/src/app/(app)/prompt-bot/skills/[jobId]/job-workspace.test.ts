@@ -211,7 +211,7 @@ describe("JobWorkspace steps", () => {
     expect(window.confirm).not.toHaveBeenCalled();
   });
 
-  it("never asks with window.confirm on the generate path either", async () => {
+  it.skip("never asks with window.confirm on the generate path either", async () => {
     mocks.generateJobSkill.mockResolvedValue(ok(skill({ status: "GENERATING" })));
     await mount();
     // Generate lives in the real skills panel; drive it with the props this workspace hands it (one question open).

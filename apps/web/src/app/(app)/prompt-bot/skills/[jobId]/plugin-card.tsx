@@ -58,9 +58,9 @@ export function PluginCard({ jobId, plugin, onChange }: Props) {
 
   return (
     <section aria-labelledby="plugin-heading" className="glass rounded-[1.75rem] p-4 sm:p-5">
-      <h2 id="plugin-heading" className="text-lg font-semibold text-balance">
-        Your plugin
-      </h2>
+      <h3 id="plugin-heading" className="text-base font-semibold text-balance">
+        Plugin name and ID
+      </h3>
       <p className="mt-0.5 text-sm text-pretty text-muted-foreground">One upload with every skill below. Name it before you generate.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <NameField

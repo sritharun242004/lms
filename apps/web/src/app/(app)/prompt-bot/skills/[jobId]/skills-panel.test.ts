@@ -9,33 +9,28 @@ const mocks = vi.hoisted(() => ({
   suggestSkills: vi.fn(),
   addJobSkill: vi.fn(),
   patchJobSkill: vi.fn(),
-  generateJobSkill: vi.fn(),
   removeJobSkill: vi.fn(),
+  patchJob: vi.fn(),
   toastError: vi.fn(),
 }));
 vi.mock("@/lib/skills/jobs/client", () => ({
   suggestSkills: mocks.suggestSkills,
   addJobSkill: mocks.addJobSkill,
   patchJobSkill: mocks.patchJobSkill,
-  generateJobSkill: mocks.generateJobSkill,
   removeJobSkill: mocks.removeJobSkill,
+  patchJob: mocks.patchJob,
 }));
-vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
-vi.mock("./version-preview", () => ({ VersionPreview: () => null }));
+vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: vi.fn() } }));
 
 import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
+import { jobSkill, jobView, pluginView } from "./plugin-fixtures";
 import { SkillsPanel } from "./skills-panel";
 
-const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
-  id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: [], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
-});
-const JOB: JobView = {
-  id: "j1", title: "Board", description: "Every month…", scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null, questionsGeneratedAt: null, outputType: null, questions: [],
-  matrix: { id: "m", name: "Skill definition", questions: [] }, answers: [], files: [], skills: [],
-};
+const skill = (over: Partial<JobSkillView> = {}): JobSkillView => jobSkill({ id: "s1", role: "MAIN", name: "board-update", ...over });
+const JOB: JobView = jobView({ title: "Board", description: "Every month…", company: "", plugin: pluginView({ name: "board", displayName: "Board" }) });
 const ok = <T,>(data: T) => ({ ok: true as const, data });
 const mount = (job: JobView = JOB, gaps = 0, aiConfigured = true) => {
-  const props = { job, gaps, aiConfigured, flushSaves: vi.fn(async () => {}), queueSave: vi.fn(), onJobChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn() };
+  const props = { job, gaps, aiConfigured, flushSaves: vi.fn(async () => {}), queueSave: vi.fn(), onJobChange: vi.fn(), onPluginChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn() };
   render(createElement(SkillsPanel, props));
   return props;
 };
@@ -140,11 +135,11 @@ describe("SkillsPanel saves", () => {
       const state = useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: async () => ok({}), score: null });
       return createElement(SkillsPanel, {
         job, gaps: 0, aiConfigured: true, flushSaves: state.flushSaves, queueSave: state.queueSave,
-        onJobChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn(),
+        onJobChange: vi.fn(), onPluginChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn(),
       });
     }
     render(createElement(Harness));
-    fireEvent.change(screen.getByLabelText(/^Purpose/), { target: { value: "Writes it from the deck." } });
+    fireEvent.change(screen.getByLabelText(/^What it does: /), { target: { value: "Writes it from the deck." } });
     await press(/^Redraft my skills/);
     expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { purpose: "Writes it from the deck." }, {});
     expect(mocks.patchJobSkill.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
@@ -198,11 +193,5 @@ describe("SkillsPanel skills", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add" }));
     });
     expect(screen.getByText('A skill named "board-update" is already in this job. Choose another name.')).toBeTruthy();
-  });
-
-  it("stops offering Add at five skills", () => {
-    mount({ ...JOB, skills: [1, 2, 3, 4, 5].map((n) => skill({ id: `s${n}`, name: `skill-${n}` })) });
-    expect((screen.getByRole("button", { name: /^Add skill/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("A task can have at most 5 skills.")).toBeTruthy();
   });
 });

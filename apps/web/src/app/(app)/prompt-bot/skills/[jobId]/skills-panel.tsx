@@ -9,7 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { addJobSkill, suggestSkills } from "@/lib/skills/jobs/client";
 import type { JobSkillView, JobView, PluginView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
-import { SkillCard, unansweredPhrase, type QueueSave } from "./skill-card";
+import { PluginCard } from "./plugin-card";
+import { PluginOverview } from "./plugin-overview";
+import { unansweredPhrase, type QueueSave } from "./skill-card";
 
 const INLINE_ADD_ERRORS = new Set(["DUPLICATE_NAME", "TOO_MANY_SKILLS", "VALIDATION_ERROR"]);
 const REPLACES_DRAFTS = "This replaces the skills you haven't generated yet.";
@@ -47,7 +49,7 @@ function suggestQuestion(gaps: number, drafts: number): SuggestQuestion | null {
 }
 
 /** Step 4: suggested and added skills, each generated into versions. */
-export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, onJobChange, onSkillChange, onSkillRemoved }: Props) {
+export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, onJobChange, onPluginChange, onSkillChange, onSkillRemoved }: Props) {
   const [suggesting, setSuggesting] = React.useState(false);
   const [adding, setAdding] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -141,24 +143,10 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
       )}
 
       {hasSkills && (
-        <ul className="flex flex-col gap-4">
-          {job.skills.map((s) => (
-            <li key={s.id}>
-              <SkillCard
-                jobId={job.id}
-                skill={s}
-                files={job.files}
-                gaps={gaps}
-                aiConfigured={aiConfigured}
-                flushSaves={flushSaves}
-                queueSave={queueSave}
-                onChange={onSkillChange}
-                onRemoved={onSkillRemoved}
-                registerFileSaves={registerFileSaves}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <PluginCard jobId={job.id} plugin={job.plugin} onChange={onPluginChange} />
+          <PluginOverview job={job} queueSave={queueSave} onSkillChange={onSkillChange} onSkillRemoved={onSkillRemoved} registerFileSaves={registerFileSaves} />
+        </>
       )}
 
       {adding ? (
