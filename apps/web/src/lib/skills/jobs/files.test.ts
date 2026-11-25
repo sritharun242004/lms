@@ -476,7 +476,8 @@ describe("deleteJobFile and purge (Review Focus 3)", () => {
     expect(sql).toContain('DELETE FROM "skill_job_files"');
     expect(sql).toContain('"deleted_at" IS NOT NULL');
     expect(sql).toContain('= ANY(v."asset_file_ids")');
-    expect(mocks.executeRaw.mock.calls[0].slice(1)).toEqual(["j1", "j1"]);
+    expect(sql).toContain('NOT EXISTS (SELECT 1 FROM "skill_plugin_versions" p WHERE p."job_id" = ? AND f."id" = ANY(p."asset_file_ids"))');
+    expect(mocks.executeRaw.mock.calls[0].slice(1)).toEqual(["j1", "j1", "j1"]);
   });
 });
 

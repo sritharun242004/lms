@@ -63,6 +63,12 @@ export class TooManySkillsError extends NamedError {
     super("Too many skills");
   }
 }
+/** The plugin's structure can't be generated (details.skills lists why, e.g. "Add at least 2 sub-skills."). */
+export class PluginInvalidError extends NamedError {
+  constructor(readonly reasons: string[]) {
+    super("The plugin's structure is not valid");
+  }
+}
 /** The main skill runs the whole plugin: it can be renamed, never removed. */
 export class MainRequiredError extends NamedError {
   constructor() {

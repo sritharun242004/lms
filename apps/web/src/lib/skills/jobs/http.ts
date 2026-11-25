@@ -52,6 +52,9 @@ export function jobErrorResponse(error: unknown): Response | null {
   if (error instanceof E.TooManySkillsError) {
     return conflict("TOO_MANY_SKILLS", `A plugin can have at most ${JOB_LIMITS.subSkillsMax} sub-skills.`);
   }
+  if (error instanceof E.PluginInvalidError) {
+    return errorResponse(error.reasons[0] ?? "This plugin can't be generated yet.", "PLUGIN_INVALID", 400, { skills: error.reasons });
+  }
   if (error instanceof E.MainRequiredError) return conflict("MAIN_REQUIRED", "The main skill can't be removed. Rename it instead.");
   if (error instanceof E.DuplicateNameError) {
     return conflict("DUPLICATE_NAME", `A skill named "${error.skillName}" is already in this task. Choose another name.`);

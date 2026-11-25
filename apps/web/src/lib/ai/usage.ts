@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 
-export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate" | "skill_analyze" | "skill_enhance" | "skill_questions";
-export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate", "skill_analyze", "skill_enhance", "skill_questions"];
+export type AiFeature = "score" | "enhance" | "skill_split" | "skill_generate" | "skill_analyze" | "skill_enhance" | "skill_questions" | "plugin_generate";
+export const AI_FEATURES: AiFeature[] = ["score", "enhance", "skill_split", "skill_generate", "skill_analyze", "skill_enhance", "skill_questions", "plugin_generate"];
 export const DEFAULT_LIMITS: Record<AiFeature, number> = {
   score: 300,
   enhance: 30,
@@ -10,6 +10,8 @@ export const DEFAULT_LIMITS: Record<AiFeature, number> = {
   skill_analyze: 40,
   skill_enhance: 30,
   skill_questions: 20,
+  /** One unit per plugin generation (3–7 model calls). */
+  plugin_generate: 10,
 };
 
 export class LimitReachedError extends Error {
