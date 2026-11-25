@@ -76,8 +76,13 @@ export function toSkillView(row: SkillViewRow, now = new Date()): JobSkillView {
   return {
     id: row.id,
     order: row.order,
+    // Track B placeholder until Track A3 maps the new columns (Track A's version wins at merge).
+    role: "SUB",
     name: row.name,
+    label: "",
     purpose: row.purpose,
+    focus: "",
+    step: "",
     fileIds: row.fileIds,
     status,
     validationErrors,
@@ -114,7 +119,19 @@ export async function loadJobView(jobId: string, userId: string, now = new Date(
     },
     answers: fixed.map(toQuestionAnswer),
     files: job.files.map((f) => toFileView(f, now)),
-    skills: job.skills.map((s) => toSkillView(s, now)),
+    // Track B placeholder until Track A3 (plugin columns): first skill is MAIN, plugin follows the title.
+    company: "",
+    plugin: {
+      name: job.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "my-plugin",
+      nameIsDefault: true,
+      displayName: job.title,
+      displayNameIsDefault: true,
+      status: "DRAFT",
+      validationErrors: [],
+      latestVersion: 0,
+      versions: [],
+    },
+    skills: job.skills.map((s, i) => ({ ...toSkillView(s, now), role: i === 0 ? ("MAIN" as const) : ("SUB" as const) })),
   };
 }
 

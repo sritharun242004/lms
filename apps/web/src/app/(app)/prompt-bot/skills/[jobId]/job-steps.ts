@@ -46,17 +46,20 @@ export function unansweredCount(questions: { id: string }[], answerFor: (id: str
   return unansweredQuestionIds(questions.map((q) => answerFor(q.id))).length;
 }
 
-/** What the page polls for: files being analysed and skills being written. Empty means nothing to wait for. */
+/**
+ * What the page polls for: files being analysed and the plugin being written. Empty means nothing to
+ * wait for. The plugin's part names the version it builds on, so a second Generate restarts polling.
+ */
 export function pollKey(job: JobView): string {
   return [
     ...job.files.filter((f) => f.analysisStatus === "PENDING").map((f) => `f:${f.id}`),
-    ...job.skills.filter((s) => s.status === "GENERATING").map((s) => `s:${s.id}`),
+    ...(job.plugin.status === "GENERATING" ? [`p:${job.plugin.latestVersion}`] : []),
   ].join(",");
 }
 
 /**
  * Applies a poll: only rows that were waiting and have finished change, and only their status fields,
- * so text the user is typing (description, purposes, names) is never overwritten by the server copy.
+ * so text the user is typing (description, names, purposes) is never overwritten by the server copy.
  */
 export function mergePolled(local: JobView, fresh: JobView): { job: JobView; analysed: boolean } {
   const freshFiles = new Map(fresh.files.map((f) => [f.id, f]));
@@ -67,11 +70,10 @@ export function mergePolled(local: JobView, fresh: JobView): { job: JobView; ana
     if (next.analysisStatus === "READY") analysed = true;
     return { ...f, analysisStatus: next.analysisStatus, analysis: next.analysis, analysisEdited: next.analysisEdited, analysisError: next.analysisError };
   });
-  const freshSkills = new Map(fresh.skills.map((s) => [s.id, s]));
-  const skills = local.skills.map((s) => {
-    const next = freshSkills.get(s.id);
-    if (s.status !== "GENERATING" || !next || next.status === "GENERATING") return s;
-    return { ...s, status: next.status, validationErrors: next.validationErrors, latestVersion: next.latestVersion, versions: next.versions };
-  });
-  return { job: { ...local, files, skills }, analysed };
+  const next = fresh.plugin;
+  const plugin =
+    local.plugin.status !== "GENERATING" || next.status === "GENERATING"
+      ? local.plugin
+      : { ...local.plugin, status: next.status, validationErrors: next.validationErrors, latestVersion: next.latestVersion, versions: next.versions };
+  return { job: { ...local, files, plugin }, analysed };
 }

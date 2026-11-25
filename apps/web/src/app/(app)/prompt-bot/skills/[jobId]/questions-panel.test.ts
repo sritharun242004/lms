@@ -27,6 +27,7 @@ vi.mock("./per-use-list", async () => {
 });
 
 import { QuestionsPanel } from "./questions-panel";
+import { pluginView } from "./plugin-fixtures";
 
 const q = (over: Partial<TaskQuestionView>): TaskQuestionView => ({
   id: "q1", order: 0, kind: "FIXED", text: "Which template do you start from?", guidance: "Name the file.", required: true,
@@ -45,7 +46,7 @@ const LONG = "x".repeat(520);
 const job = (over: Partial<JobView> = {}): JobView => ({
   id: "j1", title: "Board", description: LONG, scoreRevision: 0, updatedAt: "2026-11-25T10:00:00.000Z", suggestedAt: null,
   questionsGeneratedAt: "2026-11-25T11:00:00.000Z", outputType: "Instagram carousel", questions: QUESTIONS,
-  matrix: { id: "m", name: "x", questions: [] }, answers: [], files: [], skills: [], ...over,
+  matrix: { id: "m", name: "x", questions: [] }, answers: [], files: [], company: "", plugin: pluginView(), skills: [], ...over,
 });
 const ANSWERS: Record<string, AnswerView> = { q1: { questionId: "q1", answer: "Q3 deck", score: 3, reason: "Clear", notRelevant: false } };
 const ok = <T,>(data: T) => ({ ok: true as const, data });

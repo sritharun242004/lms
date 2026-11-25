@@ -7,7 +7,7 @@ import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { addJobSkill, suggestSkills } from "@/lib/skills/jobs/client";
-import type { JobSkillView, JobView } from "@/lib/skills/jobs/types";
+import type { JobSkillView, JobView, PluginView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { SkillCard, unansweredPhrase, type QueueSave } from "./skill-card";
 
@@ -22,6 +22,7 @@ type Props = {
   /** The workspace's save queue: a skill's purpose autosaves through it, so leaving the page or Suggest sends it. */
   queueSave: QueueSave;
   onJobChange(job: JobView): void;
+  onPluginChange(plugin: PluginView): void;
   onSkillChange(skill: JobSkillView): void;
   onSkillRemoved(skillId: string): void;
 };

@@ -12,7 +12,7 @@ import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { readiness } from "@/lib/prompt-bot/scoring";
 import { downloadZip } from "@/lib/skills/client";
 import { deleteJob, getJob, jobDownloadUrl, patchJob, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
-import type { JobFileView, JobSkillView, JobView, TaskQuestionView } from "@/lib/skills/jobs/types";
+import type { JobFileView, JobSkillView, JobView, PluginView, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { cn } from "@/lib/utils";
 import {
@@ -51,7 +51,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   /** Set when a poll finds the job gone (deleted in another tab): polling stops and the page says so. */
   const [deleted, setDeleted] = React.useState(false);
   /**
-   * Bumped whenever a row starts waiting again (re-analyse, Generate v2). A poll sent before that
+   * Bumped whenever a row starts waiting again (re-analyse, Generate plugin). A poll sent before that
    * would copy the row's older finished state back over it, so its reply is not merged.
    */
   const restarts = React.useRef(0);
@@ -221,7 +221,6 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   );
 
   const onSkillChange = React.useCallback((skill: JobSkillView) => {
-    if (skill.status === "GENERATING") restarts.current += 1;
     setJob((j) => ({
       ...j,
       skills: j.skills.some((s) => s.id === skill.id) ? j.skills.map((s) => (s.id === skill.id ? skill : s)) : [...j.skills, skill],
@@ -230,8 +229,14 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const onSkillRemoved = React.useCallback((skillId: string) => {
     setJob((j) => ({ ...j, skills: j.skills.filter((s) => s.id !== skillId) }));
   }, []);
+  /** Suggest (Create / Redraft) replaces the skills and resets the plugin's names. */
   const onJobChange = React.useCallback((next: JobView) => {
-    setJob((j) => ({ ...j, skills: next.skills, suggestedAt: next.suggestedAt }));
+    setJob((j) => ({ ...j, skills: next.skills, suggestedAt: next.suggestedAt, plugin: next.plugin }));
+  }, []);
+  /** A renamed plugin, or Generate's GENERATING reply: an older poll's finished copy must not overwrite it. */
+  const onPluginChange = React.useCallback((plugin: PluginView) => {
+    if (plugin.status === "GENERATING") restarts.current += 1;
+    setJob((j) => ({ ...j, plugin }));
   }, []);
 
   function startRename() {
@@ -439,6 +444,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           flushSaves={state.flushSaves}
           queueSave={queueSave}
           onJobChange={onJobChange}
+          onPluginChange={onPluginChange}
           onSkillChange={onSkillChange}
           onSkillRemoved={onSkillRemoved}
         />

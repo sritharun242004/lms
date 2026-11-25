@@ -86,17 +86,45 @@ export type JobFileDetail = JobFileView & { facts: FileFacts | null };
 
 export type VersionSummary = { version: number; name: string; createdAt: string; assets: number };
 
+/** Plugins (spec 2026-11-25 plugins, API Contract): MAIN runs the whole job and orchestrates every SUB. */
+export type SkillRole = "MAIN" | "SUB";
+
 export type JobSkillView = {
   id: string;
   order: number;
+  role: SkillRole;
   name: string;
+  /** Display label <= 60, e.g. "Grammar check". */
+  label: string;
   purpose: string;
+  /** Sub-skill: what it does and what it leaves to the main skill, <= 600. */
+  focus: string;
+  /** Sub-skill: its line in the main workflow, <= 160, e.g. "Analyse the source files". */
+  step: string;
   fileIds: string[];
   status: SkillItemStatus;
   validationErrors: string[];
   latestVersion: number;
-  /** Newest first. */
+  /** Legacy per-skill versions only (read-only), newest first. */
   versions: VersionSummary[];
+};
+
+export type PluginVersionSummary = { version: number; name: string; displayName: string; createdAt: string; skills: number; assets: number };
+
+export type PluginView = {
+  /** Effective id (default or set). */
+  name: string;
+  nameIsDefault: boolean;
+  /** Effective. */
+  displayName: string;
+  displayNameIsDefault: boolean;
+  /** DRAFT | GENERATING | READY | FAILED (stale GENERATING reads as FAILED). */
+  status: SkillItemStatus;
+  validationErrors: string[];
+  /** 0 = never generated. */
+  latestVersion: number;
+  /** Newest first, <= 20. */
+  versions: PluginVersionSummary[];
 };
 
 export type JobView = {
@@ -118,6 +146,10 @@ export type JobView = {
   answers: AnswerView[];
   /** Active files, oldest first. */
   files: JobFileView[];
+  /** <= 80; "" = none. */
+  company: string;
+  plugin: PluginView;
+  /** Main first. */
   skills: JobSkillView[];
 };
 
@@ -130,6 +162,32 @@ export type VersionDetail = {
   createdAt: string;
   files: SkillFile[];
   assets: VersionAsset[];
+};
+
+export type PluginSkillDetail = {
+  name: string;
+  role: SkillRole;
+  label: string;
+  purpose: string;
+  description: string;
+  files: SkillFile[];
+  assets: VersionAsset[];
+};
+export type PluginVersionDetail = {
+  version: number;
+  name: string;
+  displayName: string;
+  createdAt: string;
+  manifest: { name: string; displayName: string; version: string; description: string; author: { name: string } };
+  commands: SkillFile[];
+  skills: PluginSkillDetail[];
+};
+
+/** Suggest's raw reply. */
+export type RawPluginSuggestion = {
+  main: { name: string; label: string; purpose: string; fileIds: string[] };
+  /** In workflow order. */
+  subSkills: { name: string; label: string; purpose: string; focus: string; step: string; fileIds: string[] }[];
 };
 
 /** Suggest's structured reply before clean-up. */
