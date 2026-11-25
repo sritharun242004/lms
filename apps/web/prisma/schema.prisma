@@ -1397,12 +1397,17 @@ model FormAnswer {
 }
 
 model FormAnswerFile {
-  id        String   @id @default(cuid())
-  mimeType  String   @map("mime_type")
-  fileName  String   @map("file_name")
-  size      Int
-  data      Bytes
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  mimeType   String   @map("mime_type")
+  fileName   String   @map("file_name")
+  size       Int
+  // Exactly one of these holds the file: `storageKey` names an object in the
+  // form-uploads S3 bucket (large uploads, sent straight from the browser);
+  // `data` holds the bytes for small uploads when S3 isn't configured, and
+  // for every file uploaded before S3 existed.
+  data       Bytes?
+  storageKey String?  @unique @map("storage_key")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("form_answer_files")
 }

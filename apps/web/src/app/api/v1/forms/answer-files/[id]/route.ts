@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api/response";
-import { uploadedFileHeaders } from "@/lib/api/file-response";
+import { getAnswerFileDownload } from "@/lib/forms/answer-files";
+import { FormError } from "@/lib/forms/form-service";
 
 export async function GET(
   _req: NextRequest,
@@ -17,13 +17,18 @@ export async function GET(
   }
 
   const { id } = await params;
-  const file = await prisma.formAnswerFile.findUnique({ where: { id } });
-  if (!file) return errorResponse("File not found", "NOT_FOUND", 404);
-
-  return new NextResponse(new Uint8Array(file.data), {
-    headers: {
-      ...uploadedFileHeaders({ fileName: file.fileName, mimeType: file.mimeType, size: file.size, inline: true }),
-      "Cache-Control": "private, no-store",
-    },
-  });
+  try {
+    const download = await getAnswerFileDownload(id);
+    if (!download) return errorResponse("File not found", "NOT_FOUND", 404);
+    if (download.kind === "redirect") {
+      // A short-lived signed link straight to S3; never cached, since it expires.
+      return NextResponse.redirect(download.url, { status: 302, headers: { "Cache-Control": "private, no-store" } });
+    }
+    return new NextResponse(download.data, {
+      headers: { ...download.headers, "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    if (error instanceof FormError) return errorResponse(error.message, error.code, error.status);
+    throw error;
+  }
 }
