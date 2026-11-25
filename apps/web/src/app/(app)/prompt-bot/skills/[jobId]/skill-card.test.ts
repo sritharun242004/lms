@@ -13,6 +13,8 @@ vi.mock("@/lib/skills/jobs/client", () => ({
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 vi.mock("./version-preview", () => ({ VersionPreview: () => null }));
 
+import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
+import type { SaveOptions } from "@/lib/prompt-bot/client";
 import { SkillCard, unansweredPhrase } from "./skill-card";
 
 const FILES: JobFileView[] = [
@@ -27,9 +29,20 @@ const settle = (ms = 0) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
+/** The card with the workspace's real save queue, so autosaves behave as on the page. */
 const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = true) => {
-  const props = { jobId: "j1", skill: skill(over), files: FILES, gaps, aiConfigured, flushSaves: vi.fn(async () => {}), onChange: vi.fn(), onRemoved: vi.fn() };
-  render(createElement(SkillCard, props));
+  const saves = { current: null as null | ReturnType<typeof useMatrixAnswers> };
+  const props = {
+    jobId: "j1", skill: skill(over), files: FILES, gaps, aiConfigured,
+    flushSaves: vi.fn(() => saves.current!.flushSaves()),
+    queueSave: vi.fn((key: string, run: (options: SaveOptions) => Promise<void>) => saves.current!.queueSave(key, run)),
+    onChange: vi.fn(), onRemoved: vi.fn(),
+  };
+  function Harness() {
+    saves.current = useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: async () => ok({}), score: null });
+    return createElement(SkillCard, props);
+  }
+  render(createElement(Harness));
   await settle();
   return props;
 };
@@ -62,7 +75,7 @@ describe("unansweredPhrase", () => {
 describe("SkillCard generate", () => {
   it("generates at once, with no dialog, when every question is answered", async () => {
     const props = await mount();
-    await click(/^Generate$/);
+    await click(/^Generate: board-update$/);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(props.flushSaves).toHaveBeenCalledTimes(1);
     expect(props.flushSaves.mock.invocationCallOrder[0]).toBeLessThan(mocks.generateJobSkill.mock.invocationCallOrder[0]);
@@ -73,7 +86,7 @@ describe("SkillCard generate", () => {
 
   it("asks exactly once when questions are unanswered, and does nothing on cancel", async () => {
     await mount({ latestVersion: 2, status: "READY" }, 3);
-    await click(/^Generate v3$/);
+    await click(/^Generate v3: board-update$/);
     expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
     expect(screen.getByRole("alertdialog").textContent).toContain("3 questions unanswered — the skill will be more general. Generate anyway?");
     await act(async () => {
@@ -81,7 +94,7 @@ describe("SkillCard generate", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(mocks.generateJobSkill).not.toHaveBeenCalled();
-    await click(/^Generate v3$/);
+    await click(/^Generate v3: board-update$/);
     await act(async () => {
       fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Generate anyway" }));
       await vi.advanceTimersByTimeAsync(0);
@@ -94,7 +107,7 @@ describe("SkillCard generate", () => {
   it("shows the server's refusal", async () => {
     mocks.generateJobSkill.mockResolvedValue({ ok: false, code: "FILES_ANALYSING", message: "Wait until your files have been analysed." });
     await mount();
-    await click(/^Generate$/);
+    await click(/^Generate: board-update$/);
     expect(mocks.toastError).toHaveBeenCalledWith("Wait until your files have been analysed.");
   });
 
@@ -136,7 +149,7 @@ describe("SkillCard editing", () => {
   it("saves a rename on blur and shows the server's normalised name", async () => {
     mocks.patchJobSkill.mockResolvedValue(ok(skill({ name: "monthly-board-update" })));
     const props = await mount();
-    const input = screen.getByLabelText("Skill name") as HTMLInputElement;
+    const input = screen.getByLabelText("Skill name: board-update") as HTMLInputElement;
     expect(input.className).toContain("font-mono");
     fireEvent.change(input, { target: { value: "Monthly Board Update" } });
     await act(async () => {
@@ -151,7 +164,7 @@ describe("SkillCard editing", () => {
   it("shows a duplicate name inline", async () => {
     mocks.patchJobSkill.mockResolvedValue({ ok: false, code: "DUPLICATE_NAME", message: 'A skill named "weekly-report" is already in this job. Choose another name.' });
     await mount();
-    const input = screen.getByLabelText("Skill name");
+    const input = screen.getByLabelText("Skill name: board-update");
     fireEvent.change(input, { target: { value: "weekly-report" } });
     await act(async () => {
       fireEvent.blur(input);
@@ -160,18 +173,41 @@ describe("SkillCard editing", () => {
     expect(screen.getByText('A skill named "weekly-report" is already in this job. Choose another name.')).toBeTruthy();
     expect(input.getAttribute("aria-invalid")).toBe("true");
     expect(mocks.toastError).not.toHaveBeenCalled();
+    // A name the server refused can't be generated; fixing it re-enables Generate.
+    expect((screen.getByRole("button", { name: /^Generate/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(input, { target: { value: "weekly-report-2" } });
+    expect((screen.getByRole("button", { name: /^Generate/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("names the skill on its repeated controls for screen readers", async () => {
+    await mount({ status: "READY", latestVersion: 1 });
+    expect(screen.getByLabelText("Skill name: board-update")).toBeTruthy();
+    expect(screen.getByLabelText("Purpose: board-update")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Generate v2: board-update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove: board-update" })).toBeTruthy();
   });
 
   it("autosaves the purpose after a pause, and before generating", async () => {
     await mount();
-    fireEvent.change(screen.getByLabelText("Purpose"), { target: { value: "Writes the monthly board update." } });
+    fireEvent.change(screen.getByLabelText("Purpose: board-update"), { target: { value: "Writes the monthly board update." } });
     expect(mocks.patchJobSkill).not.toHaveBeenCalled();
     await settle(600);
     expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { purpose: "Writes the monthly board update." }, {});
-    fireEvent.change(screen.getByLabelText("Purpose"), { target: { value: "Writes it from the deck." } });
-    await click(/^Generate$/);
+    fireEvent.change(screen.getByLabelText("Purpose: board-update"), { target: { value: "Writes it from the deck." } });
+    await click(/^Generate: board-update$/);
     expect(mocks.patchJobSkill).toHaveBeenLastCalledWith("j1", "s1", { purpose: "Writes it from the deck." }, {});
     expect(mocks.patchJobSkill.mock.invocationCallOrder.at(-1)!).toBeLessThan(mocks.generateJobSkill.mock.invocationCallOrder[0]);
+  });
+
+  it("sends a typed purpose as a keepalive save when the page is left", async () => {
+    await mount();
+    fireEvent.change(screen.getByLabelText("Purpose: board-update"), { target: { value: "Writes it from the deck." } });
+    await act(async () => {
+      window.dispatchEvent(new Event("pagehide"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.patchJobSkill).toHaveBeenCalledTimes(1);
+    expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { purpose: "Writes it from the deck." }, { keepalive: true });
   });
 
   it("toggles which files the skill uses", async () => {
@@ -185,6 +221,47 @@ describe("SkillCard editing", () => {
     });
     expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { fileIds: ["f1", "f2"] });
     expect(props.onChange).toHaveBeenCalled();
+  });
+
+  it("keeps both of two quick file clicks, sending them one after another", async () => {
+    const replies: ((value: unknown) => void)[] = [];
+    mocks.patchJobSkill.mockImplementation(() => new Promise((resolve) => replies.push(resolve)));
+    const props = await mount({ fileIds: [] });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Q3 deck.pptx" }));
+      fireEvent.click(screen.getByRole("button", { name: "numbers.xlsx" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // Both chips show as chosen at once, and only the first PATCH is out.
+    expect(screen.getByRole("button", { name: "Q3 deck.pptx" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "numbers.xlsx" }).getAttribute("aria-pressed")).toBe("true");
+    expect(mocks.patchJobSkill).toHaveBeenCalledTimes(1);
+    expect(mocks.patchJobSkill).toHaveBeenLastCalledWith("j1", "s1", { fileIds: ["f1"] });
+    await act(async () => {
+      replies[0](ok(skill({ fileIds: ["f1"] })));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.patchJobSkill).toHaveBeenCalledTimes(2);
+    expect(mocks.patchJobSkill).toHaveBeenLastCalledWith("j1", "s1", { fileIds: ["f1", "f2"] });
+    expect(screen.getByRole("button", { name: "numbers.xlsx" }).getAttribute("aria-pressed")).toBe("true");
+    await act(async () => {
+      replies[1](ok(skill({ fileIds: ["f1", "f2"] })));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // The page takes the last server reply only.
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+    expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ fileIds: ["f1", "f2"] }));
+  });
+
+  it("goes back to the saved files when a file change is refused", async () => {
+    mocks.patchJobSkill.mockResolvedValue({ ok: false, code: "VALIDATION_ERROR", message: "That file is not in this job." });
+    await mount();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "numbers.xlsx" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.toastError).toHaveBeenCalledWith("That file is not in this job.");
+    expect(screen.getByRole("button", { name: "numbers.xlsx" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("removes the skill and its versions after a destructive confirm", async () => {

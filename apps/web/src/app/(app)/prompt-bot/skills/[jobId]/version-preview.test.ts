@@ -53,7 +53,7 @@ describe("VersionPreview", () => {
     await flush();
     expect(mocks.getVersion).toHaveBeenCalledWith("j1", "s1", 2);
     expect(screen.getByRole("heading", { name: "Version 2" })).toBeTruthy();
-    const options = Array.from((screen.getByLabelText("Version") as HTMLSelectElement).options).map((o) => o.textContent ?? "");
+    const options = Array.from((screen.getByLabelText("Version: board-update") as HTMLSelectElement).options).map((o) => o.textContent ?? "");
     expect(options).toHaveLength(2);
     expect(options[0].startsWith("v2 · ")).toBe(true);
     expect(options[1].startsWith("v1 · ")).toBe(true);
@@ -66,12 +66,12 @@ describe("VersionPreview", () => {
   it("previews an older version and remembers loaded ones", async () => {
     render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
     await flush();
-    fireEvent.change(screen.getByLabelText("Version"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Version: board-update"), { target: { value: "1" } });
     await flush();
     expect(mocks.getVersion).toHaveBeenLastCalledWith("j1", "s1", 1);
     expect(screen.getByRole("heading", { name: "Version 1" })).toBeTruthy();
     expect(screen.getByText("board-notes/")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Version"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Version: board-update"), { target: { value: "2" } });
     await flush();
     expect(mocks.getVersion).toHaveBeenCalledTimes(2);
   });
@@ -79,7 +79,7 @@ describe("VersionPreview", () => {
   it("downloads the selected version as an upload zip or a pack", async () => {
     render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
     await flush();
-    fireEvent.change(screen.getByLabelText("Version"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Version: board-update"), { target: { value: "1" } });
     await flush();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Download skill/ }));
@@ -89,6 +89,14 @@ describe("VersionPreview", () => {
       fireEvent.click(screen.getByRole("button", { name: /Download as pack/ }));
     });
     expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1/s1/1/pack");
+  });
+
+  it("names the skill on its version picker and downloads for screen readers", async () => {
+    render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
+    await flush();
+    expect(screen.getByLabelText("Version: board-update")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download skill: board-update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download as pack: board-update" })).toBeTruthy();
   });
 
   it("reports a refused download", async () => {
@@ -104,7 +112,7 @@ describe("VersionPreview", () => {
   it("jumps to a new version when one arrives", async () => {
     const view = render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
     await flush();
-    fireEvent.change(screen.getByLabelText("Version"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Version: board-update"), { target: { value: "1" } });
     await flush();
     view.rerender(
       createElement(VersionPreview, {
@@ -113,7 +121,7 @@ describe("VersionPreview", () => {
       }),
     );
     await flush();
-    expect((screen.getByLabelText("Version") as HTMLSelectElement).value).toBe("3");
+    expect((screen.getByLabelText("Version: board-update") as HTMLSelectElement).value).toBe("3");
     expect(mocks.getVersion).toHaveBeenLastCalledWith("j1", "s1", 3);
   });
 

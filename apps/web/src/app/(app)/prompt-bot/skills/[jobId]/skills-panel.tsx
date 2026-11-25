@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { addJobSkill, suggestSkills } from "@/lib/skills/jobs/client";
 import type { JobSkillView, JobView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
-import { SkillCard, unansweredPhrase } from "./skill-card";
+import { SkillCard, unansweredPhrase, type QueueSave } from "./skill-card";
 
 const INLINE_ADD_ERRORS = new Set(["DUPLICATE_NAME", "TOO_MANY_SKILLS", "VALIDATION_ERROR"]);
 const REPLACES_DRAFTS = "This replaces the skills you haven't generated yet.";
@@ -19,6 +19,8 @@ type Props = {
   gaps: number;
   aiConfigured: boolean;
   flushSaves(): Promise<void>;
+  /** The workspace's save queue: a skill's purpose autosaves through it, so leaving the page or Suggest sends it. */
+  queueSave: QueueSave;
   onJobChange(job: JobView): void;
   onSkillChange(skill: JobSkillView): void;
   onSkillRemoved(skillId: string): void;
@@ -44,7 +46,7 @@ function suggestQuestion(gaps: number, drafts: number): SuggestQuestion | null {
 }
 
 /** Step 4: suggested and added skills, each generated into versions. */
-export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, onJobChange, onSkillChange, onSkillRemoved }: Props) {
+export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, onJobChange, onSkillChange, onSkillRemoved }: Props) {
   const [suggesting, setSuggesting] = React.useState(false);
   const [adding, setAdding] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -134,6 +136,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, onJobChange, 
                 gaps={gaps}
                 aiConfigured={aiConfigured}
                 flushSaves={flushSaves}
+                queueSave={queueSave}
                 onChange={onSkillChange}
                 onRemoved={onSkillRemoved}
               />

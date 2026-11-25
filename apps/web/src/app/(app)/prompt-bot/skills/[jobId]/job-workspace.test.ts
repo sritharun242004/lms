@@ -117,6 +117,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("JobWorkspace steps", () => {
@@ -159,7 +160,7 @@ describe("JobWorkspace steps", () => {
     expect(props.gaps).toBe(1);
     const panel = render(createElement(RealSkillsPanel, props));
     await act(async () => {
-      fireEvent.click(within(panel.container).getByRole("button", { name: /^Generate$/ }));
+      fireEvent.click(within(panel.container).getByRole("button", { name: /^Generate: board-update$/ }));
       await vi.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
@@ -202,6 +203,53 @@ describe("JobWorkspace polling", () => {
     await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
     await settle(12 * 60_000);
     expect(screen.getByRole("status").textContent).toMatch(/Still working/);
+  });
+
+  it("keeps a re-analysis that started while an older poll was in flight", async () => {
+    let answer: (value: unknown) => void = () => {};
+    mocks.getJob.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, files: [file({ analysisStatus: "PENDING", analysis: null }), file({ id: "f2", fileName: "brief.docx" })] }));
+    await mount({ ...JOB, files: [file(), file({ id: "f2", fileName: "brief.docx", analysisStatus: "PENDING", analysis: null })] });
+    await settle(3000);
+    expect(mocks.getJob).toHaveBeenCalledTimes(1);
+    // The user re-analyses deck.pptx; the in-flight reply still has it READY.
+    await act(async () => {
+      (mocks.panels.files.onFileChange as (f: JobFileView) => void)(file({ analysisStatus: "PENDING", analysis: null }));
+      answer(ok({ ...JOB, files: [file(), file({ id: "f2", fileName: "brief.docx" })] }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText("deck.pptx:PENDING")).toBeTruthy();
+    await settle(3000);
+    expect(mocks.getJob).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("deck.pptx:PENDING")).toBeTruthy();
+    expect(screen.getByText("brief.docx:READY")).toBeTruthy();
+  });
+
+  it("stops polling and says so when the job was deleted elsewhere", async () => {
+    mocks.getJob.mockResolvedValue({ ok: false, code: "NOT_FOUND", message: "Job not found" });
+    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
+    await settle(3000);
+    expect(screen.getByRole("heading", { name: "This job was deleted" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Back to your jobs/ }).getAttribute("href")).toBe("/prompt-bot/skills");
+    await settle(60_000);
+    expect(mocks.getJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses while the page is hidden and resumes when it is shown", async () => {
+    let visibility: DocumentVisibilityState = "hidden";
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
+    mocks.getJob.mockResolvedValue(ok({ ...JOB, skills: [skill({ status: "GENERATING" })] }));
+    await mount({ ...JOB, skills: [skill({ status: "GENERATING" })] });
+    await settle(60_000);
+    expect(mocks.getJob).not.toHaveBeenCalled();
+    visibility = "visible";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mocks.getJob).toHaveBeenCalledTimes(1);
+    await settle(4500);
+    expect(mocks.getJob).toHaveBeenCalledTimes(2);
   });
 });
 

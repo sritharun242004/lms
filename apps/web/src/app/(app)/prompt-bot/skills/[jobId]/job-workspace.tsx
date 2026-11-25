@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
@@ -36,6 +37,13 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const titleCommitted = React.useRef(false);
   const [step, setStep] = React.useState<JobStep>("job");
   const [stalledFor, setStalledFor] = React.useState("");
+  /** Set when a poll finds the job gone (deleted in another tab): polling stops and the page says so. */
+  const [deleted, setDeleted] = React.useState(false);
+  /**
+   * Bumped whenever a row starts waiting again (re-analyse, Generate v2). A poll sent before that
+   * would copy the row's older finished state back over it, so its reply is not merged.
+   */
+  const restarts = React.useRef(0);
   const confirmRef = React.useRef<ConfirmDialogHandle>(null);
 
   // Without the AI key there is nothing to score with: edits still save, and the bars never report a failure.
@@ -71,18 +79,26 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   }
 
   // Analysis and generation run after their requests return, so the job is polled while either is running.
+  // A hidden tab stops polling until it is shown again; the time hidden doesn't count towards the cap.
   const key = pollKey(job);
   const stalled = key !== "" && stalledFor === key;
   React.useEffect(() => {
-    if (!key) return;
+    if (!key || deleted) return;
     let cancelled = false;
+    let paused = false;
     let timer: ReturnType<typeof setTimeout>;
     let delay = POLL_FIRST_MS;
     let waited = 0;
     const poll = async () => {
+      if (document.visibilityState === "hidden") {
+        paused = true;
+        return;
+      }
+      const sentAt = restarts.current;
       const result = await getJob(initial.id);
       if (cancelled) return;
-      if (result.ok) {
+      if (!result.ok && result.code === "NOT_FOUND") return setDeleted(true);
+      if (result.ok && sentAt === restarts.current) {
         const fresh = result.data;
         const { analysed } = mergePolled(jobRef.current, fresh);
         setJob((current) => mergePolled(current, fresh).job);
@@ -93,12 +109,19 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       delay = nextPollDelay(delay);
       timer = setTimeout(poll, delay);
     };
+    const onVisibility = () => {
+      if (!paused || document.visibilityState === "hidden") return;
+      paused = false;
+      void poll();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     timer = setTimeout(poll, delay);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [key, initial.id, rescore]);
+  }, [key, deleted, initial.id, rescore]);
 
   function updateDescription(value: string) {
     setDescription(value);
@@ -113,6 +136,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const onFileChange = React.useCallback(
     (file: JobFileView) => {
       const previous = jobRef.current.files.find((f) => f.id === file.id);
+      if (file.analysisStatus === "PENDING") restarts.current += 1;
       setJob((j) => ({
         ...j,
         files: j.files.some((f) => f.id === file.id) ? j.files.map((f) => (f.id === file.id ? file : f)) : [...j.files, file],
@@ -136,6 +160,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   );
 
   const onSkillChange = React.useCallback((skill: JobSkillView) => {
+    if (skill.status === "GENERATING") restarts.current += 1;
     setJob((j) => ({
       ...j,
       skills: j.skills.some((s) => s.id === skill.id) ? j.skills.map((s) => (s.id === skill.id ? skill : s)) : [...j.skills, skill],
@@ -202,6 +227,23 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
     skills: { value: String(job.skills.length), label: "skills" },
   };
+
+  if (deleted) {
+    return (
+      <div className="glass mx-auto flex max-w-xl flex-col items-center gap-3 rounded-[1.75rem] px-5 py-10 text-center">
+        <h1 className="text-xl font-semibold tracking-tight text-balance">This job was deleted</h1>
+        <p className="max-w-md text-sm text-pretty text-muted-foreground">
+          It may have been deleted in another tab or window. Its files, answers and skills are gone too.
+        </p>
+        <Button asChild size="lg" className="mt-1">
+          <Link href="/prompt-bot/skills">
+            <ArrowLeft className="size-4" aria-hidden />
+            Back to your jobs
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
@@ -311,6 +353,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           gaps={gaps}
           aiConfigured={aiConfigured}
           flushSaves={state.flushSaves}
+          queueSave={queueSave}
           onJobChange={onJobChange}
           onSkillChange={onSkillChange}
           onSkillRemoved={onSkillRemoved}

@@ -181,6 +181,42 @@ describe("FilesPanel uploads", () => {
     expect(screen.queryByText("locked.pdf")).toBeNull();
   });
 
+  it("announces upload progress politely", async () => {
+    mocks.uploadJobFile.mockImplementation(() => new Promise(() => {}));
+    mount([]);
+    await pick([new File(["a"], "deck.pptx"), new File(["b"], "brief.docx")]);
+    const statuses = within(screen.getByRole("list", { name: "Uploads" })).getAllByRole("status");
+    expect(statuses.map((s) => s.textContent)).toEqual(["Uploading…", "Waiting…"]);
+  });
+
+  it("keeps uploading the rest when one upload throws", async () => {
+    mocks.uploadJobFile
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(ok(file({ id: "f9", fileName: "brief.docx", analysisStatus: "PENDING" })));
+    const props = mount([]);
+    const deck = new File(["a"], "deck.pptx");
+    const brief = new File(["b"], "brief.docx");
+    await pick([deck, brief]);
+    await flush();
+    expect(mocks.uploadJobFile).toHaveBeenCalledTimes(2);
+    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", brief);
+    expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f9" }));
+    const row = screen.getByText("deck.pptx").closest("li")!;
+    expect(within(row).getByRole("alert").textContent).toMatch(/couldn.t upload/i);
+  });
+
+  it("keeps uploading the rest when the page fails to take an upload", async () => {
+    mocks.uploadJobFile.mockImplementation(async (_j: string, f: File) => ok(file({ id: f.name, fileName: f.name })));
+    const props = mount([]);
+    props.onFileChange.mockImplementationOnce(() => {
+      throw new Error("render failed");
+    });
+    await pick([new File(["a"], "deck.pptx"), new File(["b"], "brief.docx")]);
+    await flush();
+    expect(props.onFileChange).toHaveBeenCalledTimes(2);
+    expect(props.onFileChange).toHaveBeenLastCalledWith(expect.objectContaining({ id: "brief.docx" }));
+  });
+
   it("refuses a file over 20 MB without sending it", async () => {
     mount([]);
     const big = new File([new Uint8Array([1])], "huge.pptx");

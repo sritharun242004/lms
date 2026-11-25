@@ -28,6 +28,7 @@ const PROSE =
   "max-w-prose text-sm leading-relaxed text-pretty [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs dark:[&_code]:bg-white/10 [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:mt-1 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mt-2 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&>:first-child]:mt-0";
 /** Card actions: 44 px tall on phones, compact from sm up. */
 const ACTION = "min-h-11 sm:min-h-8";
+const UPLOAD_FAILED = "We couldn't upload this file. Refresh the page to see if it arrived, then try again.";
 
 type AskConfirm = ConfirmDialogHandle["open"];
 type UploadRow = { key: number; name: string; status: "waiting" | "uploading" | "failed"; message?: string };
@@ -59,14 +60,16 @@ export function FilesPanel({ jobId, files, aiConfigured, onFileChange, onFileRem
         continue;
       }
       setRows((all) => [...all, { key, name: file.name, status: "waiting" }]);
-      queue.current = queue.current.then(async () => {
-        patchRow(key, { status: "uploading" });
-        const result = await uploadJobFile(latest.current.jobId, file);
-        if (result.ok) {
-          dropRow(key);
+      // Each upload settles on its own row, so one that throws never stops the ones after it.
+      queue.current = queue.current
+        .then(async () => {
+          patchRow(key, { status: "uploading" });
+          const result = await uploadJobFile(latest.current.jobId, file);
+          if (!result.ok) return patchRow(key, { status: "failed", message: result.message });
           latest.current.onFileChange(result.data);
-        } else patchRow(key, { status: "failed", message: result.message });
-      });
+          dropRow(key);
+        })
+        .catch(() => patchRow(key, { status: "failed", message: UPLOAD_FAILED }));
     }
   }
 
@@ -157,7 +160,7 @@ function UploadRows({ rows, onDismiss }: { rows: UploadRow[]; onDismiss(key: num
               <p className="truncate font-medium" title={row.name}>
                 {row.name}
               </p>
-              <p className={cn("text-xs text-pretty", failed ? "text-destructive" : "text-muted-foreground")} role={failed ? "alert" : undefined}>
+              <p className={cn("text-xs text-pretty", failed ? "text-destructive" : "text-muted-foreground")} role={failed ? "alert" : "status"}>
                 {failed ? row.message : row.status === "uploading" ? "Uploading…" : "Waiting…"}
               </p>
             </div>

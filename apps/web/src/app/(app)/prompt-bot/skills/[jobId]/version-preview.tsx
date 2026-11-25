@@ -59,7 +59,7 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <label htmlFor={selectId} className="block text-xs font-medium text-muted-foreground">
-            Version
+            Version<span className="sr-only">: {skill.name}</span>
           </label>
           <span className="relative mt-1 inline-block">
             <select
@@ -80,11 +80,11 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download("upload")}>
             {downloading === "upload" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
-            Download skill
+            Download skill<span className="sr-only">: {skill.name}</span>
           </Button>
           <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download("pack")}>
             {downloading === "pack" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <PackageOpen className="size-4" aria-hidden />}
-            Download as pack
+            Download as pack<span className="sr-only">: {skill.name}</span>
           </Button>
         </div>
       </div>

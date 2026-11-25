@@ -33,8 +33,8 @@ export function SkillFilesView({ files, assets = NO_ASSETS }: { files: SkillFile
       <div className="min-w-0">
         {current && <p className="truncate font-mono text-sm">{current}</p>}
         {file?.path.startsWith("scripts/") && (
-          <p role="note" className="mt-3 flex items-start gap-2 rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <p role="note" className="mt-3 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-sm text-pretty">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             Review scripts before running them. The LMS never runs them for you.
           </p>
         )}

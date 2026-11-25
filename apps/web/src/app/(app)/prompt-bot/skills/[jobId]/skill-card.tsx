@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SAVE_DELAY_MS } from "@/components/prompt-bot/use-matrix-answers";
 import type { SaveOptions } from "@/lib/prompt-bot/client";
 import { generateJobSkill, patchJobSkill, removeJobSkill } from "@/lib/skills/jobs/client";
 import type { JobFileView, JobSkillView } from "@/lib/skills/jobs/types";
@@ -19,6 +18,9 @@ const INLINE_NAME_ERRORS = new Set(["DUPLICATE_NAME", "ALREADY_GENERATING", "VAL
 
 export const unansweredPhrase = (gaps: number) => `${gaps} question${gaps === 1 ? "" : "s"} unanswered`;
 
+/** The workspace's save queue (useMatrixAnswers): debounced per key, sent on Suggest, Generate and when the page is left. */
+export type QueueSave = (key: string, run: (options: SaveOptions) => Promise<void>) => void;
+
 type Props = {
   jobId: string;
   skill: JobSkillView;
@@ -26,19 +28,24 @@ type Props = {
   gaps: number;
   aiConfigured: boolean;
   flushSaves(): Promise<void>;
+  queueSave: QueueSave;
   onChange(skill: JobSkillView): void;
   onRemoved(skillId: string): void;
 };
 
 /** One skill: name, purpose, files, status, Generate, then its versions. */
-export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves, onChange, onRemoved }: Props) {
+export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves, queueSave, onChange, onRemoved }: Props) {
   const [name, setName] = React.useState(skill.name);
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [purpose, setPurpose] = React.useState(skill.purpose);
   const [busy, setBusy] = React.useState<"generate" | "remove" | null>(null);
   const confirmRef = React.useRef<ConfirmDialogHandle>(null);
-  const purposeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingPurpose = React.useRef<string | null>(null);
+  // File chips show the latest choice at once. Their PATCHes go one at a time, in click order, and
+  // only the last reply is handed to the page, so quick clicks never undo each other.
+  const [chosenFiles, setChosenFiles] = React.useState<string[] | null>(null);
+  const chosenRef = React.useRef<string[] | null>(null);
+  const fileSaves = React.useRef<{ tail: Promise<void>; ticket: number; saved: JobSkillView | null }>({ tail: Promise.resolve(), ticket: 0, saved: null });
+  const fileIds = chosenFiles ?? skill.fileIds;
   const generating = skill.status === "GENERATING";
   const latest = skill.versions[0] ?? null;
   const renamed = skill.latestVersion > 0 && latest !== null && latest.name !== skill.name;
@@ -48,32 +55,15 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
     purpose: `skill-purpose-${skill.id}`,
   };
 
-  const savePurpose = React.useCallback(
-    async (options: SaveOptions = {}) => {
-      if (purposeTimer.current) clearTimeout(purposeTimer.current);
-      purposeTimer.current = null;
-      const value = pendingPurpose.current;
-      pendingPurpose.current = null;
-      if (value === null || !value.trim()) return;
+  function updatePurpose(value: string) {
+    setPurpose(value);
+    // A blank purpose is never sent; queueing a no-op drops an earlier value still waiting.
+    queueSave(`skill:${skill.id}:purpose`, async (options) => {
+      if (!value.trim()) return;
       const result = await patchJobSkill(jobId, skill.id, { purpose: value }, options);
       if (!result.ok) toast.error(result.message);
       else onChange(result.data);
-    },
-    [jobId, skill.id, onChange],
-  );
-  // Leaving the page or the step never drops a typed purpose. A ref, so a new
-  // onChange from the parent does not flush (and so un-debounce) the save.
-  const savePurposeRef = React.useRef(savePurpose);
-  React.useEffect(() => {
-    savePurposeRef.current = savePurpose;
-  });
-  React.useEffect(() => () => void savePurposeRef.current({ keepalive: true }), []);
-
-  function updatePurpose(value: string) {
-    setPurpose(value);
-    pendingPurpose.current = value;
-    if (purposeTimer.current) clearTimeout(purposeTimer.current);
-    purposeTimer.current = setTimeout(() => void savePurpose(), SAVE_DELAY_MS);
+    });
   }
 
   async function saveName() {
@@ -97,11 +87,24 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
     onChange(result.data);
   }
 
-  async function toggleFile(fileId: string) {
-    const next = skill.fileIds.includes(fileId) ? skill.fileIds.filter((id) => id !== fileId) : [...skill.fileIds, fileId];
-    const result = await patchJobSkill(jobId, skill.id, { fileIds: next });
-    if (!result.ok) return void toast.error(result.message);
-    onChange(result.data);
+  function toggleFile(fileId: string) {
+    const current = chosenRef.current ?? skill.fileIds;
+    const next = current.includes(fileId) ? current.filter((id) => id !== fileId) : [...current, fileId];
+    chosenRef.current = next;
+    setChosenFiles(next);
+    const saves = fileSaves.current;
+    const ticket = ++saves.ticket;
+    saves.tail = saves.tail.then(async () => {
+      const result = await patchJobSkill(jobId, skill.id, { fileIds: next });
+      if (result.ok) saves.saved = result.data;
+      else toast.error(result.message);
+      if (ticket !== saves.ticket) return;
+      // The last click has its reply: show what the server kept (the last accepted change).
+      chosenRef.current = null;
+      setChosenFiles(null);
+      if (saves.saved) onChange(saves.saved);
+      saves.saved = null;
+    });
   }
 
   async function generate() {
@@ -115,7 +118,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
     }
     setBusy("generate");
     await flushSaves();
-    await savePurpose();
+    await fileSaves.current.tail;
     const result = await generateJobSkill(jobId, skill.id);
     setBusy(null);
     if (!result.ok) return void toast.error(result.message);
@@ -142,7 +145,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <label htmlFor={ids.name} className="sr-only">
-            Skill name
+            {`Skill name: ${skill.name}`}
           </label>
           <Input
             id={ids.name}
@@ -179,7 +182,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
       </div>
 
       <label htmlFor={ids.purpose} className="mt-4 block text-sm font-medium">
-        Purpose
+        Purpose<span className="sr-only">: {skill.name}</span>
       </label>
       <Textarea
         id={ids.purpose}
@@ -187,7 +190,6 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
         maxLength={JOB_LIMITS.skillPurposeChars}
         disabled={generating}
         onChange={(e) => updatePurpose(e.target.value)}
-        onBlur={() => void savePurpose()}
         className="mt-2 min-h-20 bg-white/60 dark:bg-white/5"
       />
 
@@ -198,7 +200,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {files.map((f) => {
-              const on = skill.fileIds.includes(f.id);
+              const on = fileIds.includes(f.id);
               return (
                 <button
                   key={f.id}
@@ -256,9 +258,15 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
           <Trash2 className="size-4" aria-hidden />
           Remove<span className="sr-only">: {skill.name}</span>
         </Button>
-        <Button size="lg" disabled={generating || busy !== null || !aiConfigured} onClick={() => void generate()}>
+        <Button
+          size="lg"
+          disabled={generating || busy !== null || !aiConfigured || nameError !== null}
+          aria-describedby={nameError ? ids.nameError : undefined}
+          onClick={() => void generate()}
+        >
           {busy === "generate" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Wand2 className="size-4" aria-hidden />}
           {skill.latestVersion === 0 ? "Generate" : `Generate v${skill.latestVersion + 1}`}
+          <span className="sr-only">: {skill.name}</span>
         </Button>
       </div>
 

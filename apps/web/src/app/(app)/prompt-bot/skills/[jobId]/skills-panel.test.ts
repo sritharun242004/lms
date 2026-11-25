@@ -23,6 +23,7 @@ vi.mock("@/lib/skills/jobs/client", () => ({
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 vi.mock("./version-preview", () => ({ VersionPreview: () => null }));
 
+import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { SkillsPanel } from "./skills-panel";
 
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
@@ -34,7 +35,7 @@ const JOB: JobView = {
 };
 const ok = <T,>(data: T) => ({ ok: true as const, data });
 const mount = (job: JobView = JOB, gaps = 0, aiConfigured = true) => {
-  const props = { job, gaps, aiConfigured, flushSaves: vi.fn(async () => {}), onJobChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn() };
+  const props = { job, gaps, aiConfigured, flushSaves: vi.fn(async () => {}), queueSave: vi.fn(), onJobChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn() };
   render(createElement(SkillsPanel, props));
   return props;
 };
@@ -131,10 +132,29 @@ describe("SkillsPanel suggest", () => {
   });
 });
 
+describe("SkillsPanel saves", () => {
+  it("sends a purpose still waiting to save before suggesting", async () => {
+    mocks.patchJobSkill.mockImplementation(async () => ok(skill({ purpose: "Writes it from the deck." })));
+    const job = { ...JOB, skills: [skill({ latestVersion: 1, status: "READY" as const })] };
+    function Harness() {
+      const state = useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: async () => ok({}), score: null });
+      return createElement(SkillsPanel, {
+        job, gaps: 0, aiConfigured: true, flushSaves: state.flushSaves, queueSave: state.queueSave,
+        onJobChange: vi.fn(), onSkillChange: vi.fn(), onSkillRemoved: vi.fn(),
+      });
+    }
+    render(createElement(Harness));
+    fireEvent.change(screen.getByLabelText(/^Purpose/), { target: { value: "Writes it from the deck." } });
+    await press(/^Suggest again/);
+    expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { purpose: "Writes it from the deck." }, {});
+    expect(mocks.patchJobSkill.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
+  });
+});
+
 describe("SkillsPanel skills", () => {
   it("lists a card per skill", () => {
     mount({ ...JOB, skills: [skill(), skill({ id: "s2", name: "weekly-report" })] });
-    expect((screen.getAllByLabelText("Skill name") as HTMLInputElement[]).map((i) => i.value)).toEqual(["board-update", "weekly-report"]);
+    expect((screen.getAllByLabelText(/^Skill name/) as HTMLInputElement[]).map((i) => i.value)).toEqual(["board-update", "weekly-report"]);
   });
 
   it("adds a skill by hand", async () => {
