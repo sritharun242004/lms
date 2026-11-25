@@ -11,7 +11,7 @@ import { NotConfigured } from "@/components/prompt-bot/not-configured";
 import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { readiness } from "@/lib/prompt-bot/scoring";
 import { downloadZip } from "@/lib/skills/client";
-import { deleteJob, getJob, jobDownloadUrl, patchJob, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
+import { deleteJob, getJob, patchJob, pluginDownloadUrl, saveJobAnswer, scoreJob } from "@/lib/skills/jobs/client";
 import type { JobFileView, JobSkillView, JobView, PluginView, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { cn } from "@/lib/utils";
@@ -287,10 +287,10 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   }
 
   const [downloading, setDownloading] = React.useState(false);
-  async function downloadAll() {
-    if (downloading) return;
+  async function downloadPlugin() {
+    if (downloading || job.plugin.latestVersion === 0) return;
     setDownloading(true);
-    const result = await downloadZip(jobDownloadUrl(job.id));
+    const result = await downloadZip(pluginDownloadUrl(job.id, job.plugin.latestVersion, "plugin"));
     setDownloading(false);
     if (!result.ok) toast.error(result.message);
   }
@@ -300,7 +300,7 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
   const ready = readiness(fixed.map((q) => state.answerFor(q.id)));
   const gaps = unansweredCount(fixed, state.answerFor);
   const shortId = taskShortMessageId(job.id);
-  const canDownload = job.skills.some((s) => s.latestVersion > 0);
+  const canDownload = job.plugin.latestVersion > 0;
   const badges: Record<JobStep, { value: string; label: string } | null> = {
     task: null,
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
@@ -360,10 +360,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <Button size="lg" disabled={!canDownload || downloading} aria-busy={downloading || undefined} onClick={() => void downloadAll()}>
-            {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
-            Download all skills
-          </Button>
+          {canDownload && (
+            <Button size="lg" disabled={downloading} aria-busy={downloading || undefined} onClick={() => void downloadPlugin()}>
+              {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
+              Download plugin<span className="sr-only">{`, latest version (v${job.plugin.latestVersion})`}</span>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

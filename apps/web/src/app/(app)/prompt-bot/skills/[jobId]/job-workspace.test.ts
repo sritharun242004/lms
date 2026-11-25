@@ -31,7 +31,7 @@ vi.mock("@/lib/skills/jobs/client", () => ({
   removeJobSkill: mocks.removeJobSkill,
   addJobSkill: mocks.addJobSkill,
   suggestSkills: mocks.suggestSkills,
-  jobDownloadUrl: (id: string) => `/dl/${id}`,
+  pluginDownloadUrl: (id: string, version: number, format: string) => `/dl/${id}/${version}/${format}`,
 }));
 vi.mock("@/lib/skills/client", () => ({ downloadZip: mocks.downloadZip }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
@@ -504,15 +504,16 @@ describe("JobWorkspace header", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Monthly board update" })).toBeTruthy();
   });
 
-  it("downloads all skills only when one has a version", async () => {
+  it("offers Download plugin once the plugin has a version, and downloads the latest plugin zip", async () => {
     await mount();
-    expect((screen.getByRole("button", { name: /Download all skills/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: /Download/ })).toBeNull();
     cleanup();
-    await mount({ ...JOB, skills: [skill({ status: "READY", latestVersion: 1 })] });
+    await mount({ ...JOB, plugin: pluginView({ status: "READY", latestVersion: 3 }) });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Download all skills/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Download plugin/ }));
     });
-    expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1");
+    expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1/3/plugin");
+    expect(steps().getByRole("button", { name: /Skills/ }).textContent).toContain("(done)");
   });
 
   it("deletes the job only after a destructive confirm", async () => {

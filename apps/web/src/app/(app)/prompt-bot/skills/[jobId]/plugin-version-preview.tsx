@@ -11,10 +11,17 @@ import { when } from "./version-when";
 /** A version past the last pluginVersionsKept is deleted; the list on screen can still offer it until the page reloads. */
 export const PLUGIN_VERSION_PRUNED_MESSAGE = `This version is no longer kept (only the last ${JOB_LIMITS.pluginVersionsKept} are kept).`;
 
-type Props = { jobId: string; plugin: PluginView; children?: (version: number) => React.ReactNode };
+type Props = {
+  jobId: string;
+  plugin: PluginView;
+  /** The selected version's actions (downloads), beside the picker. */
+  children?: (version: number) => React.ReactNode;
+  /** Shown under the picker, above the files (the How to use callout). */
+  note?: React.ReactNode;
+};
 
 /** The plugin's versions: pick one, preview its files. Versions never change, so loaded ones are kept. */
-export function PluginVersionPreview({ jobId, plugin, children }: Props) {
+export function PluginVersionPreview({ jobId, plugin, children, note }: Props) {
   const newest = plugin.versions[0]?.version ?? plugin.latestVersion;
   const [seenLatest, setSeenLatest] = React.useState(plugin.latestVersion);
   const [selected, setSelected] = React.useState(newest);
@@ -69,6 +76,7 @@ export function PluginVersionPreview({ jobId, plugin, children }: Props) {
         </div>
         {children?.(selected)}
       </div>
+      {note && <div className="mt-3">{note}</div>}
 
       <div className="mt-4 border-t border-border/60 pt-4">
         {detail ? (

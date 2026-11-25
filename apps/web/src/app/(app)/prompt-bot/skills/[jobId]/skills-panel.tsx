@@ -9,6 +9,7 @@ import type { JobSkillView, JobView, PluginView } from "@/lib/skills/jobs/types"
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { AddSubSkill } from "./add-sub-skill-form";
 import { PluginCard } from "./plugin-card";
+import { HowToUsePlugin, PluginDownloads } from "./plugin-downloads";
 import { PluginGenerate } from "./plugin-generate";
 import { PluginOverview, splitSkills } from "./plugin-overview";
 import { PluginVersionPreview } from "./plugin-version-preview";
@@ -120,7 +121,11 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
       <PluginOverview job={job} queueSave={queueSave} onSkillChange={onSkillChange} onSkillRemoved={onSkillRemoved} registerFileSaves={registerFileSaves} />
       <AddSubSkill jobId={job.id} full={subs.length >= JOB_LIMITS.subSkillsMax} locked={locked} onAdded={onSkillChange} />
       <PluginGenerate job={job} gaps={gaps} aiConfigured={aiConfigured} settleSaves={settleSaves} onPluginChange={onPluginChange} />
-      {job.plugin.versions.length > 0 && <PluginVersionPreview jobId={job.id} plugin={job.plugin} />}
+      {job.plugin.versions.length > 0 && (
+        <PluginVersionPreview jobId={job.id} plugin={job.plugin} note={<HowToUsePlugin plugin={job.plugin.name} example={subs[0]?.name ?? job.skills[0].name} />}>
+          {(version) => <PluginDownloads jobId={job.id} version={version} />}
+        </PluginVersionPreview>
+      )}
       <ConfirmDialog ref={confirmRef} />
     </section>
   );
