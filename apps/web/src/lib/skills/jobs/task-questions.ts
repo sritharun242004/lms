@@ -4,12 +4,12 @@ import { prisma } from "@/lib/db/prisma";
 import { writeTaskQuestions } from "@/lib/ai/claude";
 import { consumeAiUsage } from "@/lib/ai/usage";
 import { JOB_LIMITS } from "../limits";
-import { DescriptionTooShortError, JobNotFoundError } from "./errors";
+import { DescriptionTooShortError, JobNotFoundError, QuestionNotFoundError, TooManyQuestionsError } from "./errors";
 import { buildQuestionsMessage } from "./instructions";
-import { loadJobView, questionOrder } from "./jobs";
+import { findOwnedJob, loadJobView, questionOrder, toQuestionView } from "./jobs";
 import { cleanQuestionSet, normalizeQuestionText } from "./questions";
 import { descriptionLength } from "./task-text";
-import type { FileHint, JobView, QuestionKind, QuestionSource } from "./types";
+import type { FileHint, JobView, QuestionInput, QuestionKind, QuestionSource, TaskQuestionView } from "./types";
 
 /** A stored row as the regeneration plan sees it. */
 export type ExistingRow = { id: string; kind: QuestionKind; text: string; source: QuestionSource };
@@ -117,4 +117,77 @@ export async function generateQuestionsForTask(jobId: string, userId: string): P
   const view = await loadJobView(jobId, userId);
   if (!view) throw new JobNotFoundError();
   return view;
+}
+
+// ---------------------------------------------------------------------------
+// The person's own edits (spec, Editing)
+// ---------------------------------------------------------------------------
+
+const capOf = (kind: QuestionKind) => (kind === "FIXED" ? JOB_LIMITS.questionsPerTask : JOB_LIMITS.perUseInputsPerTask);
+
+async function assertRoom(jobId: string, kind: QuestionKind): Promise<void> {
+  if ((await prisma.skillJobQuestion.count({ where: { jobId, kind } })) >= capOf(kind)) throw new TooManyQuestionsError(kind);
+}
+
+/** Per-use rows never take files; wantsFiles false clears the hint and the note. FIXED rows are always required. */
+function fileFields(kind: QuestionKind, wantsFiles: boolean, fileHint: FileHint | null, fileNote: string) {
+  const wants = kind === "FIXED" && wantsFiles;
+  return { wantsFiles: wants, fileHint: wants ? fileHint : null, fileNote: wants ? fileNote.trim() : "" };
+}
+
+export async function addQuestion(jobId: string, userId: string, input: QuestionInput): Promise<TaskQuestionView> {
+  if (!(await findOwnedJob(jobId, userId))) throw new JobNotFoundError();
+  const kind = input.kind ?? "FIXED";
+  await assertRoom(jobId, kind);
+  const max = await prisma.skillJobQuestion.aggregate({ where: { jobId }, _max: { order: true } });
+  const row = await prisma.skillJobQuestion.create({
+    data: {
+      jobId,
+      order: (max._max.order ?? -1) + 1,
+      kind,
+      source: "USER",
+      text: input.text.trim(),
+      guidance: (input.guidance ?? "").trim(),
+      required: kind === "PER_USE" ? (input.required ?? true) : true,
+      ...fileFields(kind, input.wantsFiles ?? false, input.fileHint ?? null, input.fileNote ?? ""),
+    },
+  });
+  return toQuestionView(row);
+}
+
+/** Edits a question; a kind change checks the target list's cap, and FIXED -> PER_USE makes its files general. The answer stays. */
+export async function updateQuestion(jobId: string, userId: string, questionId: string, patch: Partial<QuestionInput>): Promise<TaskQuestionView> {
+  if (!(await findOwnedJob(jobId, userId))) throw new JobNotFoundError();
+  const row = await prisma.skillJobQuestion.findFirst({ where: { id: questionId, jobId } });
+  if (!row) throw new QuestionNotFoundError();
+  const kind = patch.kind ?? row.kind;
+  if (kind !== row.kind) await assertRoom(jobId, kind);
+  const data = {
+    text: patch.text !== undefined ? patch.text.trim() : row.text,
+    guidance: patch.guidance !== undefined ? patch.guidance.trim() : row.guidance,
+    kind,
+    required: kind === "PER_USE" ? (patch.required ?? (row.kind === "PER_USE" ? row.required : true)) : true,
+    ...fileFields(
+      kind,
+      patch.wantsFiles ?? row.wantsFiles,
+      patch.fileHint !== undefined ? patch.fileHint : ((row.fileHint as FileHint | null) ?? null),
+      patch.fileNote ?? row.fileNote,
+    ),
+  };
+  const update = prisma.skillJobQuestion.update({ where: { id: questionId }, data });
+  if (row.kind === "FIXED" && kind === "PER_USE") {
+    const [updated] = await prisma.$transaction([
+      update,
+      prisma.skillJobFile.updateMany({ where: { jobId, questionId }, data: { questionId: null } }),
+    ]);
+    return toQuestionView(updated);
+  }
+  return toQuestionView(await update);
+}
+
+/** Deletes a question and its answer; the foreign key (SET NULL) moves its files to General files. */
+export async function deleteQuestion(jobId: string, userId: string, questionId: string): Promise<void> {
+  if (!(await findOwnedJob(jobId, userId))) throw new JobNotFoundError();
+  const { count } = await prisma.skillJobQuestion.deleteMany({ where: { id: questionId, jobId } });
+  if (count === 0) throw new QuestionNotFoundError();
 }
