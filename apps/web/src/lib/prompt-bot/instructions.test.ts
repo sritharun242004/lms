@@ -25,15 +25,15 @@ describe("prompt bot instructions", () => {
 
   const rule = (heading: string) => ENHANCE_SYSTEM.split("\n").find((line) => line.startsWith(`- ## ${heading}:`))!;
 
-  it("asks for the detailed-prompt sections in order, Persona, Context and Instructions always", () => {
-    const order = ["Persona", "Context", "Data/Details", "Plan", "Instructions"];
+  it("asks for the six Elements of LLM Prompts in order, Persona, Context, Output Expectations and Iteration Request always", () => {
+    const order = ["Persona", "Context", "Data", "Output Expectations", "Iteration Request", "Examples"];
     const positions = order.map((h) => ENHANCE_SYSTEM.indexOf(`## ${h}\n`));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona, ## Context and ## Instructions/);
-    expect(ENHANCE_SYSTEM).toMatch(/Omit ## Data\/Details or ## Plan only when there is truly nothing/);
+    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona, ## Context, ## Output Expectations and ## Iteration Request/);
+    expect(ENHANCE_SYSTEM).toMatch(/## Examples only when the person gave a template, sample or style/);
     expect(ENHANCE_SYSTEM).toMatch(/Use no other headings/);
-    for (const legacy of ["## Data\n", "## Output expectations", "## Iteration request", "## Examples"]) {
+    for (const legacy of ["## Data/Details", "## Plan", "## Instructions", "## Output expectations", "## Iteration request"]) {
       expect(ENHANCE_SYSTEM).not.toContain(legacy);
     }
   });
@@ -45,8 +45,8 @@ describe("prompt bot instructions", () => {
     expect(rule("Context")).toMatch(/first person plural/);
     expect(rule("Context")).toMatch(/all the facts/);
     expect(rule("Context")).toMatch(/key facts in \*\*bold\*\*/);
-    expect(rule("Data/Details")).toMatch(/inline numbering/);
-    expect(rule("Data/Details")).toMatch(/1\) … 2\) …/);
+    expect(rule("Data")).toMatch(/inline numbering/);
+    expect(rule("Data")).toMatch(/1\) … 2\) …/);
     expect(ENHANCE_SYSTEM).toMatch(/250-600 words/);
   });
 
@@ -59,24 +59,35 @@ describe("prompt bot instructions", () => {
     expect(ENHANCE_SYSTEM).toMatch(/no preamble/i);
   });
 
-  it("ends with a warm, direct ask that turns gaps into clarifying questions first", () => {
-    const ask = rule("Instructions");
-    expect(ask).toMatch(/"Please help us …\. Let's start by …"/);
-    expect(ask).toMatch(/<gaps>/);
-    expect(ask).toMatch(/first ask the user specific clarifying questions/);
-    expect(ask).toMatch(/wait for the answers/);
+  it("states the deliverable, format, tone and audience in a warm, direct ask", () => {
+    const out = rule("Output Expectations");
+    expect(out).toMatch(/format/);
+    expect(out).toMatch(/tone and style/);
+    expect(out).toMatch(/"Please help us …"/);
+  });
+
+  it("asks clarifying questions about gaps first, then mentors the person through the work", () => {
+    const it2 = rule("Iteration Request");
+    expect(it2).toMatch(/<gaps>/);
+    expect(it2).toMatch(/first ask the user specific clarifying questions/);
+    expect(it2).toMatch(/wait for the answers/);
+    expect(it2).toMatch(/mentoring them/);
+  });
+
+  it("puts examples in only when a template, sample or style was given", () => {
+    expect(rule("Examples")).toMatch(/only when a template, sample or style was given/);
   });
 
   it("writes the plan as numbered steps from the plan answer, or proposes one for the user to confirm first", () => {
-    const plan = rule("Plan");
+    const plan = rule("Iteration Request");
     expect(plan).toMatch(/numbered list/);
     expect(plan).toMatch(/What is the systematic plan to work on this\?/);
     expect(plan).toMatch(/<gaps>/);
     expect(plan).toMatch(/propose a sensible plan/);
-    expect(plan).toMatch(/wait for their confirmation before executing/);
+    expect(plan).toMatch(/confirm it with the user before executing/);
   });
 
   it("versions the instructions", () => {
-    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v4");
+    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v5");
   });
 });
