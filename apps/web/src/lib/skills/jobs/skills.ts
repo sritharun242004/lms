@@ -166,7 +166,7 @@ const pluginClaim = { select: { pluginStatus: true, pluginGenerationStartedAt: t
 const busy = (skill: { status: string; generationStartedAt: Date | null; job: { pluginStatus: string; pluginGenerationStartedAt: Date | null } }) =>
   isGenerating(skill.status, skill.generationStartedAt) || isGenerating(skill.job.pluginStatus, skill.job.pluginGenerationStartedAt);
 
-/** Renaming changes the next version's name only; existing versions are immutable (spec, Data Model). */
+/** Renaming changes the next version's name only; existing versions are immutable (spec, Data Model). `order` swaps with the skill already there. */
 export async function updateSkill(
   jobId: string,
   skillId: string,
@@ -175,7 +175,7 @@ export async function updateSkill(
 ): Promise<JobSkillView> {
   const skill = await prisma.skillJobSkill.findFirst({
     where: { id: skillId, jobId, job: { userId } },
-    select: { id: true, name: true, status: true, generationStartedAt: true, job: pluginClaim },
+    select: { id: true, name: true, order: true, status: true, generationStartedAt: true, job: pluginClaim },
   });
   if (!skill) throw new SkillNotFoundError();
   const data: Prisma.SkillJobSkillUpdateInput = { ...skillTexts(patch) };
@@ -189,9 +189,16 @@ export async function updateSkill(
     if (clash) throw new DuplicateNameError(name);
     data.name = name;
   }
+  // Reordering the workflow: the UI moves a skill to its neighbour's order, so the two swap places.
+  const neighbour =
+    patch.order !== undefined && patch.order !== skill.order
+      ? await prisma.skillJobSkill.findFirst({ where: { jobId, order: patch.order, id: { not: skillId } }, select: { id: true } })
+      : null;
   if (Object.keys(data).length > 0) {
     try {
-      await prisma.skillJobSkill.update({ where: { id: skillId }, data });
+      const own = prisma.skillJobSkill.update({ where: { id: skillId }, data });
+      if (neighbour) await prisma.$transaction([prisma.skillJobSkill.update({ where: { id: neighbour.id }, data: { order: skill.order } }), own]);
+      else await own;
     } catch (error) {
       rethrowDuplicate(error, name);
     }

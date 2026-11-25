@@ -288,6 +288,27 @@ describe("updateSkill", () => {
     expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { purpose: "New purpose", order: 3, fileIds: ["f2"] } });
   });
 
+  it("swaps places with the skill already at the requested order, keeping orders unique", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst
+      .mockResolvedValueOnce(skill({ order: 1 }))
+      .mockResolvedValueOnce({ id: "s2" })
+      .mockResolvedValue(skillViewRow({ id: "s1", order: 2 }));
+    await updateSkill("j1", "s1", "u1", { order: 2 });
+    expect(mocks.skillFindFirst.mock.calls[1][0]).toEqual({ where: { jobId: "j1", order: 2, id: { not: "s1" } }, select: { id: true } });
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s2" }, data: { order: 1 } });
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { order: 2 } });
+  });
+
+  it("moves to a free order without touching other skills", async () => {
+    mocks.skillFindFirst.mockReset();
+    mocks.skillFindFirst.mockResolvedValueOnce(skill({ order: 1 })).mockResolvedValueOnce(null).mockResolvedValue(skillViewRow({ id: "s1", order: 5 }));
+    await updateSkill("j1", "s1", "u1", { order: 5 });
+    expect(mocks.skillUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { order: 5 } });
+  });
+
   it("updates label, focus and step", async () => {
     await updateSkill("j1", "s1", "u1", { label: "Grammar\ncheck", focus: "Wording only", step: "Check the wording" });
     expect(mocks.skillUpdate).toHaveBeenCalledWith({ where: { id: "s1" }, data: { label: "Grammar check", focus: "Wording only", step: "Check the wording" } });
