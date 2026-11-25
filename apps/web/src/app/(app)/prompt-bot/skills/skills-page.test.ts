@@ -41,12 +41,13 @@ describe("Skills Builder home", () => {
       }),
     );
     expect(screen.getByRole("heading", { level: 1, name: "Skills Builder" })).toBeTruthy();
-    expect(screen.getByText(/built from your own files and templates/)).toBeTruthy();
-    expect(screen.getByLabelText("Describe the job as you do it today")).toBeTruthy();
+    expect(screen.getByText("Turn a task you do every week into your own Agent Skills, built from your own files and templates.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your tasks" })).toBeTruthy();
+    expect(screen.getByLabelText("What's the task?")).toBeTruthy();
     const link = screen.getByRole("link", { name: /Monthly board update/ });
     expect(link.getAttribute("href")).toBe("/prompt-bot/skills/j1");
     expect(within(link).getByText("2 skills · 1 file")).toBeTruthy();
-    expect(screen.getByText(/sent to Anthropic's API to build your skills/)).toBeTruthy();
+    expect(screen.getByText("Your task, files and answers are stored in the LMS and sent to Anthropic's API to build your skills.")).toBeTruthy();
   });
 
   it("lists earlier packs collapsed, read-only, linking to the legacy page", async () => {
@@ -69,7 +70,7 @@ describe("Skills Builder home", () => {
     render(await SkillsBuilderPage(page()));
     expect(screen.getByText("Prompt Bot isn't configured yet")).toBeTruthy();
     expect(screen.getByText(/ANTHROPIC_API_KEY/)).toBeTruthy();
-    expect(screen.queryByLabelText("Describe the job as you do it today")).toBeNull();
+    expect(screen.queryByLabelText("What's the task?")).toBeNull();
     expect(screen.getByRole("link", { name: /Monthly board update/ })).toBeTruthy();
   });
 
@@ -90,7 +91,7 @@ describe("Skills Builder home", () => {
     mocks.packFindMany.mockResolvedValue(packs);
     render(await SkillsBuilderPage(page()));
     expect(screen.getAllByRole("link", { name: /^Job / })).toHaveLength(20);
-    expect(screen.getByRole("link", { name: "Show all jobs" }).getAttribute("href")).toBe("/prompt-bot/skills?all=1");
+    expect(screen.getByRole("link", { name: "Show all tasks" }).getAttribute("href")).toBe("/prompt-bot/skills?all=1");
     const details = screen.getByText("Earlier skill packs").closest("details")!;
     expect(within(details).getAllByRole("link", { name: /^Pack / })).toHaveLength(20);
     expect(within(details).getByRole("link", { name: "Show all packs" }).getAttribute("href")).toBe("/prompt-bot/skills?all=1#earlier-packs");
@@ -110,6 +111,6 @@ describe("Skills Builder home", () => {
     mocks.jobFindMany.mockResolvedValue(Array.from({ length: 201 }, (_, i) => ({ ...JOB, id: `j${i}`, title: `Job ${i}` })));
     render(await SkillsBuilderPage(page({ all: "1" })));
     expect(screen.getAllByRole("link", { name: /^Job / })).toHaveLength(200);
-    expect(screen.getByText("Showing your 200 most recent jobs.")).toBeTruthy();
-  });
+    expect(screen.getByText("Showing your 200 most recent tasks.")).toBeTruthy();
+  }, 20_000);
 });

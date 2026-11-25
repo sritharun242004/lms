@@ -114,7 +114,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <h2 id="skills-heading" className="text-lg font-semibold text-balance">
-              Skills for this job
+              Skills for this task
             </h2>
             <p className="text-sm text-muted-foreground">Rename, remove or add skills, choose their files, then generate each one.</p>
           </div>
@@ -128,8 +128,8 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
           <h2 id="skills-heading" className="text-lg font-semibold text-balance">
             Your skills
           </h2>
-          <p className="max-w-md text-sm text-muted-foreground">Turn this job into your own skills.</p>
-          <p className="max-w-md text-xs text-muted-foreground">The AI drafts new skills from your job, files and answers — nothing is copied from public or existing skills. Usually one skill; more only when the job has clearly separate parts.</p>
+          <p className="max-w-md text-sm text-muted-foreground">Turn this task into your own skills.</p>
+          <p className="max-w-md text-xs text-muted-foreground">The AI drafts new skills from your task, files and answers — nothing is copied from public or existing skills. Usually one skill; more only when the task has clearly separate parts.</p>
           {suggestButton}
           {gaps > 0 && (
             <p className="max-w-md rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-foreground">
@@ -211,7 +211,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
             <Plus className="size-4" aria-hidden />
             Add skill
           </Button>
-          {full && <span id="skills-full-note" className="text-xs text-muted-foreground">{`A job can have at most ${JOB_LIMITS.skillsPerJob} skills.`}</span>}
+          {full && <span id="skills-full-note" className="text-xs text-muted-foreground">{`A task can have at most ${JOB_LIMITS.skillsPerJob} skills.`}</span>}
         </div>
       )}
       <ConfirmDialog ref={confirmRef} />

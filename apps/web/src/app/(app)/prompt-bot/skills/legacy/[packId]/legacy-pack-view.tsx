@@ -63,7 +63,7 @@ export function LegacyPackView({ pack }: { pack: SkillPackView }) {
             href="/prompt-bot/skills"
             className="rounded-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
-            Start a new job
+            Start a new task
           </Link>{" "}
           to build skills from your files.
         </span>

@@ -14,9 +14,9 @@ const mount = async () => {
   render(createElement(NewJobForm, { draftKey: "skills-builder:job-draft:u1" }));
   await act(async () => {});
 };
-const description = () => screen.getByLabelText("Describe the job as you do it today") as HTMLTextAreaElement;
-const title = () => screen.getByLabelText(/Job title/) as HTMLInputElement;
-const start = () => screen.getByRole("button", { name: /Start job/ });
+const description = () => screen.getByLabelText("What's the task?") as HTMLTextAreaElement;
+const title = () => screen.getByLabelText(/Task title/) as HTMLInputElement;
+const start = () => screen.getByRole("button", { name: /Start task/ });
 
 beforeEach(() => {
   localStorage.clear();
@@ -25,6 +25,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("NewJobForm", () => {
+  it("names it a task and says what comes next", () => {
+    render(createElement(NewJobForm, { draftKey: "k" }));
+    expect(screen.getByRole("heading", { name: "New task" })).toBeTruthy();
+    expect(screen.getByText("One piece of work you repeat. Next you'll describe it in detail, answer a few questions and add your files.")).toBeTruthy();
+  });
+
   it("needs a description before it can start", async () => {
     await mount();
     expect((start() as HTMLButtonElement).disabled).toBe(true);

@@ -206,7 +206,7 @@ export function SkillCard({ jobId, skill, files, gaps, aiConfigured, flushSaves,
       <fieldset className="mt-4">
         <legend className="text-sm font-medium">Files this skill uses</legend>
         {files.length === 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">No files in this job yet. Add some in Files.</p>
+          <p className="mt-1 text-xs text-muted-foreground">No files in this task yet. Add them to your questions.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {files.map((f) => {
