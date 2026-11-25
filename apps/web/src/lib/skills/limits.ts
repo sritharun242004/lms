@@ -48,6 +48,18 @@ export const JOB_LIMITS = {
   imageEdgePx: 1568,
   versionsKept: 20,
   packZipBytes: 100 * 1024 * 1024,
+  /** Tasks redesign (spec 2026-11-25 tasks, Limits). */
+  descriptionMinChars: 500,
+  enhanceMinWords: 5,
+  aiQuestionsMax: 8,
+  questionsPerTask: 12,
+  aiPerUseMax: 10,
+  perUseInputsPerTask: 15,
+  questionTextChars: 300,
+  perUseLabelChars: 120,
+  questionGuidanceChars: 300,
+  fileNoteChars: 120,
+  outputTypeChars: 60,
 } as const;
 
 /** One file analysis call (run in after()); the SDK retries it once. */

@@ -17,7 +17,7 @@ import { FILE_ACCEPT, FilesPanel } from "./files-panel";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 4_404_019, createdAt: "2026-11-25T10:00:00.000Z",
-  analysisStatus: "READY", analysis: "## Colours\n\nNavy #1F4E79 for titles.", analysisEdited: false, analysisError: null, bundlable: true, ...over,
+  analysisStatus: "READY", analysis: "## Colours\n\nNavy #1F4E79 for titles.", analysisEdited: false, analysisError: null, bundlable: true, questionId: null, ...over,
 });
 const ok = <T,>(data: T) => ({ ok: true as const, data });
 const mount = (files: JobFileView[], aiConfigured = true) => {

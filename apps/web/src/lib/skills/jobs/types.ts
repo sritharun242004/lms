@@ -4,6 +4,60 @@ import type { SkillFile, SkillItemStatus, SkillMatrixView } from "../types";
 
 export type AnalysisStatus = "PENDING" | "READY" | "FAILED";
 
+export const FILE_HINTS = ["REFERENCE", "INPUT", "TEMPLATE", "BRAND"] as const;
+export type FileHint = (typeof FILE_HINTS)[number];
+export type QuestionKind = "FIXED" | "PER_USE";
+export type QuestionSource = "AI" | "USER";
+
+/** FIXED = "Answer now (same every time)"; PER_USE = "Claude will ask each time" (text = label, guidance = hint). */
+export type TaskQuestionView = {
+  id: string;
+  order: number;
+  kind: QuestionKind;
+  /** FIXED <= 300 chars; PER_USE label <= 120. */
+  text: string;
+  /** <= 300; PER_USE: hint or example. */
+  guidance: string;
+  /** PER_USE only (FIXED rows are always true). */
+  required: boolean;
+  /** FIXED only: make the upload prominent (every FIXED question takes uploads). */
+  wantsFiles: boolean;
+  /** Set only when wantsFiles. */
+  fileHint: FileHint | null;
+  /** <= 120; "" when none, e.g. "Upload your logo files and brand colours." */
+  fileNote: string;
+  source: QuestionSource;
+};
+
+/** A per-use input as the questions model proposes it. */
+export type PerUseInput = { label: string; hint: string; required: boolean };
+
+export type QuestionInput = {
+  text: string;
+  guidance?: string;
+  kind?: QuestionKind;
+  required?: boolean;
+  wantsFiles?: boolean;
+  fileHint?: FileHint | null;
+  fileNote?: string;
+};
+
+export type QuestionEssential = "triggers" | "inputs" | "steps" | "output" | "quality" | "avoid";
+/** Write questions' structured reply before clean-up. */
+export type RawTaskQuestions = {
+  outputType: string;
+  perUseInputs: PerUseInput[];
+  questions: {
+    text: string;
+    guidance: string;
+    kind: "fixed" | "per_use";
+    wantsFiles: boolean;
+    fileHint: FileHint | "NONE";
+    fileNote: string;
+    covers: QuestionEssential[];
+  }[];
+};
+
 export type JobFileView = {
   id: string;
   fileName: string;
@@ -17,6 +71,8 @@ export type JobFileView = {
   analysisError: string | null;
   /** size <= JOB_LIMITS.assetBytes: can be bundled under assets/. */
   bundlable: boolean;
+  /** The FIXED question it answers; null = General files. */
+  questionId: string | null;
 };
 export type JobFileDetail = JobFileView & { facts: FileFacts | null };
 
@@ -42,8 +98,16 @@ export type JobView = {
   scoreRevision: number;
   updatedAt: string;
   suggestedAt: string | null;
+  /** Null until questions were written (the UI auto-writes once). */
+  questionsGeneratedAt: string | null;
+  /** E.g. "Instagram carousel"; null for migrated jobs. */
+  outputType: string | null;
+  /** Both kinds, sorted by order. */
+  questions: TaskQuestionView[];
   matrix: SkillMatrixView;
+  /** FIXED questions only. */
   answers: AnswerView[];
+  /** Active files, oldest first. */
   files: JobFileView[];
   skills: JobSkillView[];
 };
