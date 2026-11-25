@@ -21,6 +21,13 @@ vi.mock("@/lib/skills/jobs/client", () => ({
   patchJob: mocks.patchJob,
 }));
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: vi.fn() } }));
+vi.mock("./legacy-versions", async () => {
+  const { createElement: h } = await import("react");
+  return {
+    hasLegacyVersions: (skills: { latestVersion: number }[]) => skills.some((s) => s.latestVersion > 0),
+    LegacyVersions: () => h("p", null, "legacy-versions"),
+  };
+});
 vi.mock("./plugin-version-preview", async () => {
   const { createElement: h } = await import("react");
   return { PluginVersionPreview: ({ plugin }: { plugin: { latestVersion: number } }) => h("p", null, `versions:v${plugin.latestVersion}`) };
@@ -181,6 +188,14 @@ describe("SkillsPanel skills", () => {
     cleanup();
     mount(FIXTURES.readyV2);
     expect(screen.getByText("versions:v2")).toBeTruthy();
+  });
+
+  it("keeps a migrated task's earlier single-skill versions in their own section", () => {
+    mount(FIXTURES.migrated);
+    expect(screen.getByText("legacy-versions")).toBeTruthy();
+    cleanup();
+    mount(FIXTURES.readyV2);
+    expect(screen.queryByText("legacy-versions")).toBeNull();
   });
 
   it("adds a sub-skill by hand, last in the workflow", async () => {

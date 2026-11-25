@@ -8,6 +8,7 @@ import { suggestSkills } from "@/lib/skills/jobs/client";
 import type { JobSkillView, JobView, PluginView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { AddSubSkill } from "./add-sub-skill-form";
+import { hasLegacyVersions, LegacyVersions } from "./legacy-versions";
 import { PluginCard } from "./plugin-card";
 import { HowToUsePlugin, PluginDownloads } from "./plugin-downloads";
 import { PluginGenerate } from "./plugin-generate";
@@ -126,6 +127,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
           {(version) => <PluginDownloads jobId={job.id} version={version} />}
         </PluginVersionPreview>
       )}
+      {hasLegacyVersions(job.skills) && <LegacyVersions jobId={job.id} skills={job.skills} />}
       <ConfirmDialog ref={confirmRef} />
     </section>
   );
