@@ -37,7 +37,7 @@ const mount = async (over: Partial<JobSkillView> = {}, gaps = 0, aiConfigured = 
     flushSaves: vi.fn(() => saves.current!.flushSaves()),
     queueSave: vi.fn((key: string, run: (options: SaveOptions) => Promise<void>) => saves.current!.queueSave(key, run)),
     onChange: vi.fn(), onRemoved: vi.fn(),
-    registerFileSaves: vi.fn((_id: string, _pending: () => Promise<void>) => vi.fn()),
+    registerFileSaves: vi.fn<(skillId: string, pending: () => Promise<void>) => () => void>(() => vi.fn()),
   };
   function Harness() {
     saves.current = useMatrixAnswers({ initialAnswers: [], initialRevision: 0, saveAnswer: async () => ok({}), score: null });

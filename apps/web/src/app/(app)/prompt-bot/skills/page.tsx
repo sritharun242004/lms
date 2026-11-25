@@ -8,28 +8,54 @@ import { Badge } from "@/components/ui/badge";
 import { NotConfigured } from "@/components/prompt-bot/not-configured";
 import { NewJobForm } from "./new-job-form";
 
+/** Rows shown at first, and with Show all: a safe bound, not pagination; a user with more sees a note. */
 const LIST_SIZE = 20;
+const ALL_LIST_SIZE = 200;
+const SHOW_ALL = "/prompt-bot/skills?all=1";
+const MORE_LINK =
+  "inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-9";
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const ROW =
   "flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/5";
 
-export default async function SkillsBuilderPage() {
+/** One more row than shown tells whether more exist. */
+function trim<T>(rows: T[], size: number) {
+  return { rows: rows.slice(0, size), more: rows.length > size };
+}
+
+function ListEnd({ more, showAll, href, noun }: { more: boolean; showAll: boolean; href: string; noun: string }) {
+  if (!more) return null;
+  if (showAll) return <p className="mb-3 mt-3 px-2 text-xs text-muted-foreground">{`Showing your ${ALL_LIST_SIZE} most recent ${noun}.`}</p>;
+  return (
+    <div className="mb-2 mt-2">
+      <Link href={href} className={MORE_LINK}>
+        {`Show all ${noun}`}
+      </Link>
+    </div>
+  );
+}
+
+export default async function SkillsBuilderPage({ searchParams }: { searchParams: Promise<{ all?: string | string[] }> }) {
   const user = await getCurrentUser();
   if (!user) return redirect("/login");
-  const [jobs, packs] = await Promise.all([
+  const showAll = (await searchParams).all === "1";
+  const size = showAll ? ALL_LIST_SIZE : LIST_SIZE;
+  const [jobRows, packRows] = await Promise.all([
     prisma.skillJob.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
-      take: LIST_SIZE,
+      take: size + 1,
       select: { id: true, title: true, updatedAt: true, _count: { select: { skills: true, files: { where: { deletedAt: null } } } } },
     }),
     prisma.skillPack.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
-      take: LIST_SIZE,
+      take: size + 1,
       select: { id: true, title: true, updatedAt: true },
     }),
   ]);
+  const jobs = trim(jobRows, size);
+  const packs = trim(packRows, size);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -46,13 +72,13 @@ export default async function SkillsBuilderPage() {
         <NotConfigured isAdmin={user.role === "ADMIN"} />
       )}
 
-      {jobs.length > 0 && (
+      {jobs.rows.length > 0 && (
         <section className="glass rounded-[1.75rem] p-5" aria-labelledby="your-jobs">
           <h2 id="your-jobs" className="text-sm font-medium text-muted-foreground">
             Your jobs
           </h2>
           <ul className="mt-3 divide-y divide-border/60">
-            {jobs.map((job) => (
+            {jobs.rows.map((job) => (
               <li key={job.id}>
                 <Link href={`/prompt-bot/skills/${job.id}`} className={ROW}>
                   <span className="min-w-0">
@@ -69,11 +95,12 @@ export default async function SkillsBuilderPage() {
               </li>
             ))}
           </ul>
+          <ListEnd more={jobs.more} showAll={showAll} href={SHOW_ALL} noun="jobs" />
         </section>
       )}
 
-      {packs.length > 0 && (
-        <details className="group rounded-[1.75rem] bg-white/35 px-5 py-2 dark:bg-white/[0.03]">
+      {packs.rows.length > 0 && (
+        <details id="earlier-packs" open={showAll || undefined} className="group rounded-[1.75rem] bg-white/35 px-5 py-2 dark:bg-white/[0.03]">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 [&::-webkit-details-marker]:hidden">
             <ChevronRight
               className="size-4 transition-transform duration-200 ease-out group-open:rotate-90 motion-reduce:transition-none"
@@ -85,8 +112,8 @@ export default async function SkillsBuilderPage() {
               Read-only
             </Badge>
           </summary>
-          <ul className="mb-3 mt-1 divide-y divide-border/60">
-            {packs.map((pack) => (
+          <ul className={`mt-1 divide-y divide-border/60 ${packs.more ? "" : "mb-3"}`}>
+            {packs.rows.map((pack) => (
               <li key={pack.id}>
                 <Link href={`/prompt-bot/skills/legacy/${pack.id}`} className={ROW}>
                   <span className="min-w-0 truncate">{pack.title}</span>
@@ -95,6 +122,7 @@ export default async function SkillsBuilderPage() {
               </li>
             ))}
           </ul>
+          <ListEnd more={packs.more} showAll={showAll} href={`${SHOW_ALL}#earlier-packs`} noun="packs" />
         </details>
       )}
 
