@@ -94,7 +94,7 @@ describe("enhance route", () => {
         content: "## Persona\nYou are…",
         unansweredQuestionIds: ["q2"],
         model: "claude-opus-5-5",
-        instructionsVersion: "prompt-bot-v3",
+        instructionsVersion: "prompt-bot-v5",
       },
     });
   });

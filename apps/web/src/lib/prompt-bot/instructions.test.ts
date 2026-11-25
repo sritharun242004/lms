@@ -23,35 +23,71 @@ describe("prompt bot instructions", () => {
     expect(message).not.toContain("Where will this image be published?");
   });
 
-  it("asks for the Elements of LLM Prompts sections in order, Persona, Plan and Output expectations always", () => {
-    const order = ["Persona", "Context", "Data", "Plan", "Output expectations", "Iteration request", "Examples"];
-    const positions = order.map((h) => ENHANCE_SYSTEM.indexOf(`## ${h}`));
+  const rule = (heading: string) => ENHANCE_SYSTEM.split("\n").find((line) => line.startsWith(`- ## ${heading}:`))!;
+
+  it("asks for the six Elements of LLM Prompts in order, Persona, Context, Output Expectations and Iteration Request always", () => {
+    const order = ["Persona", "Context", "Data", "Output Expectations", "Iteration Request", "Examples"];
+    const positions = order.map((h) => ENHANCE_SYSTEM.indexOf(`## ${h}\n`));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona, ## Plan and ## Output expectations/);
-    expect(ENHANCE_SYSTEM).toMatch(/omit/i);
+    expect(ENHANCE_SYSTEM).toMatch(/Always include ## Persona, ## Context, ## Output Expectations and ## Iteration Request/);
+    expect(ENHANCE_SYSTEM).toMatch(/## Examples only when the person gave a template, sample or style/);
+    expect(ENHANCE_SYSTEM).toMatch(/Use no other headings/);
+    for (const legacy of ["## Data/Details", "## Plan", "## Instructions", "## Output expectations", "## Iteration request"]) {
+      expect(ENHANCE_SYSTEM).not.toContain(legacy);
+    }
   });
 
-  it("writes to the AI, and turns gaps into clarifying questions instead of placeholders for the person", () => {
-    expect(ENHANCE_SYSTEM).not.toContain("[bracketed placeholders]");
-    expect(ENHANCE_SYSTEM).toMatch(/Never write placeholders/);
-    expect(ENHANCE_SYSTEM).toMatch(/Missing details/);
-    expect(ENHANCE_SYSTEM).toMatch(/## Iteration request[^\n]*first ask the user[^\n]*clarifying questions/);
-    expect(ENHANCE_SYSTEM).toMatch(/second person/);
+  it("writes elaborate prose: a specific expert persona, rich first-person context with bold key facts, inline-numbered details", () => {
+    expect(ENHANCE_SYSTEM).toMatch(/flowing, natural prose paragraphs/);
+    expect(rule("Persona")).toMatch(/seniority, years of experience/);
+    expect(rule("Persona")).toMatch(/role-play/);
+    expect(rule("Context")).toMatch(/first person plural/);
+    expect(rule("Context")).toMatch(/all the facts/);
+    expect(rule("Context")).toMatch(/key facts in \*\*bold\*\*/);
+    expect(rule("Data")).toMatch(/inline numbering/);
+    expect(rule("Data")).toMatch(/1\) … 2\) …/);
+    expect(ENHANCE_SYSTEM).toMatch(/250-600 words/);
+  });
+
+  it("never invents facts about the person, and never leaves placeholders or a missing-details list", () => {
+    expect(ENHANCE_SYSTEM).toMatch(/Never invent facts, numbers, names[^\n]*about the person, their organisation/);
+    expect(ENHANCE_SYSTEM).toMatch(/Persona's expertise is the only invented detail allowed/);
+    expect(rule("Persona")).toMatch(/must not state anything about the person or their organisation that the input does not give/);
+    expect(ENHANCE_SYSTEM).toMatch(/Never write placeholders, blanks or brackets/);
+    expect(ENHANCE_SYSTEM).toMatch(/never add a "Missing details" list/);
     expect(ENHANCE_SYSTEM).toMatch(/no preamble/i);
-    expect(ENHANCE_SYSTEM).toMatch(/imperative/);
+  });
+
+  it("states the deliverable, format, tone and audience in a warm, direct ask", () => {
+    const out = rule("Output Expectations");
+    expect(out).toMatch(/format/);
+    expect(out).toMatch(/tone and style/);
+    expect(out).toMatch(/"Please help us …"/);
+  });
+
+  it("asks clarifying questions about gaps first, then mentors the person through the work", () => {
+    const it2 = rule("Iteration Request");
+    expect(it2).toMatch(/<gaps>/);
+    expect(it2).toMatch(/first ask the user specific clarifying questions/);
+    expect(it2).toMatch(/wait for the answers/);
+    expect(it2).toMatch(/mentoring them/);
+  });
+
+  it("puts examples in only when a template, sample or style was given", () => {
+    expect(rule("Examples")).toMatch(/only when a template, sample or style was given/);
   });
 
   it("writes the plan as numbered steps from the plan answer, or proposes one for the user to confirm first", () => {
-    const rule = ENHANCE_SYSTEM.split("\n").find((line) => line.startsWith("- ## Plan"))!;
-    expect(rule).toMatch(/numbered list/);
-    expect(rule).toMatch(/systematic plan/);
-    expect(rule).toMatch(/<gaps>/);
-    expect(rule).toMatch(/propose a sensible plan/);
-    expect(rule).toMatch(/wait for their confirmation before executing/);
+    const plan = rule("Iteration Request");
+    expect(plan).toMatch(/numbered list/);
+    expect(plan).toMatch(/What is the systematic plan to work on this\?/);
+    expect(plan).toMatch(/<gaps>/);
+    expect(plan).toMatch(/propose a sensible plan/);
+    expect(plan).toMatch(/confirm it with the user before executing/);
   });
 
   it("versions the instructions", () => {
-    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v3");
+    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v5");
   });
 });

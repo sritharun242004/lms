@@ -10,38 +10,30 @@ import { enhanceReply, JOB_DRAFT, pluginSuggestionReply, questionsReply, subSkil
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
-// Same shape as a real prompt-bot-v3 reply: sections addressed to the AI, no placeholders,
-// a numbered Plan, and missing details turned into clarifying questions in the Iteration request.
+// Same shape as a real prompt-bot-v5 reply: the six Elements of LLM Prompts (Persona, Context, Data,
+// Output Expectations, Iteration Request, Examples when given) as elaborate prose; key facts in bold,
+// inline-numbered data, no placeholders, gaps turned into clarifying questions and the plan in Iteration Request.
 const ENHANCED = `## Persona
-You are an experienced freelance copywriter who wins first clients through short, specific cold emails.
+You are an **expert B2B copywriter with 15 years of experience**, 8 of them writing direct-response campaigns for design and web agencies. For the last 5 years you have specialised in **cold emails that help freelancers win their first clients**, and you know how to open with the reader's problem, keep every sentence about them, and earn a reply without sounding like a sales pitch.
 
 ## Context
-I am a freelance designer looking for my first paying client. I want to email small business owners who have outdated websites.
+I am a **freelance designer looking for my first paying client**. I am reaching out to **small business owners whose websites are outdated**: their sites still work, but they look old, are hard to use on a phone and do not show how good the business really is.
+
+I want a short email that feels personal rather than mass-produced, shows that I have actually looked at their website, and makes it easy for them to say yes to a quick conversation.
 
 ## Data
-- Offer: a one-page website redesign delivered in two weeks.
-- Proof: three practice projects for local cafés.
+My offer is **a one-page website redesign delivered in two weeks**. As proof of my work I can point to **three practice projects for local cafés**, such as 1) a refreshed menu and opening-hours page, 2) a clearer layout for mobile visitors and 3) a simple contact and booking section.
 
-## Plan
-1. Ask the clarifying questions in the Iteration request and wait for my answers.
-2. Pick one specific problem with the reader's current website to open with.
-3. Draft the email around the one-page redesign offer and the café projects as proof.
-4. Cut it to under 150 words and check that every sentence is about the reader.
-5. Write two alternative subject lines.
+## Output Expectations
+Please help me **win my first client with a cold email** to a small business owner with an outdated website. Write **one cold email under 150 words** in a warm, plain and confident tone, with a subject line under 8 words, one low-pressure call to action (**a 15-minute call**) and two alternative subject lines.
 
-## Output expectations
-Write one cold email under 150 words with:
-- A subject line under 8 words.
-- A first sentence about the reader's business, not about me.
-- One low-pressure call to action: a 15-minute call.
-
-## Iteration request
-Before you write, ask me these questions and wait for my answers:
-1. Which industry should the email target?
-2. What tone should it have: formal, friendly or bold?
-3. Is there a price or discount to mention?
-
-Then write the email and offer two alternative subject lines.
+## Iteration Request
+Before you write anything, ask me which industry the email should target, what tone it should have (formal, friendly or bold), and whether there is a price or discount to mention, then wait for my answers. Then work through this plan:
+1. Pick one specific problem with the reader's current website to open with.
+2. Draft the email around the one-page redesign offer, with the café projects as proof.
+3. Cut it to under 150 words and check that every sentence is about the reader.
+4. Write two alternative subject lines.
+Let's start by agreeing the target industry, then review the draft together and refine it.
 `;
 
 // The six sections ANALYSE_SYSTEM asks for, with real hex values.
