@@ -3,7 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, Pencil, Pin, Plus } from "lucide-react";
+import { Copy, Pencil, Pin, Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +52,8 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
 
   const templates = forms.filter((form) => form.isTemplate);
   const [usingTemplateId, setUsingTemplateId] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<FormRow | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const filtered = forms.filter((form) => {
     if (form.isTemplate) return false;
@@ -89,6 +101,35 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
     }
   }
 
+  async function deleteForm() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await requestJson(`/api/v1/forms/${deleteTarget.id}`, { method: "DELETE" });
+      setForms((current) => current.filter((form) => form.id !== deleteTarget.id));
+      toast.success(`Deleted “${deleteTarget.title}”`);
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete the form");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  const deleteButton = (form: FormRow) =>
+    form.canEdit ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive sm:size-8"
+        onClick={() => setDeleteTarget(form)}
+        aria-label={`Delete ${form.title}`}
+        title={form.isTemplate ? "Delete template" : "Delete form"}
+      >
+        <Trash2 />
+      </Button>
+    ) : null;
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -128,6 +169,7 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
                         </a>
                       </Button>
                     ) : null}
+                    <span className="ml-auto">{deleteButton(template)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -151,8 +193,8 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
         <div className="grid gap-3">
           {filtered.map((form) => (
             <Card key={form.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div>
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <a href={`/forms/${form.id}/edit`} className="font-semibold hover:underline">
                       {form.title}
@@ -164,7 +206,7 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
                     {form._count.sections} section(s) · {form._count.responses} response(s)
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   {form.status !== "DRAFT" ? (
                     <Button asChild variant="outline" size="sm">
                       <a href={`/forms/${form.id}/analytics`}>Analytics</a>
@@ -173,12 +215,42 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
                   <Button variant="outline" size="sm" onClick={() => duplicate(form.id)}>
                     <Copy className="size-4" /> Duplicate
                   </Button>
+                  {deleteButton(form)}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && !isDeleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{deleteTarget?.title}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.isTemplate
+                ? "The template disappears from the Templates group for everyone. Forms already made from it are not affected."
+                : deleteTarget && deleteTarget._count.responses > 0
+                  ? `This also deletes its ${deleteTarget._count.responses} response${deleteTarget._count.responses === 1 ? "" : "s"}, and removes it from any chat it was sent to.`
+                  : "It will also be removed from any chat it was sent to."}{" "}
+              This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteForm();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

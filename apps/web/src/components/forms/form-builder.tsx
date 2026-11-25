@@ -112,10 +112,14 @@ type BuilderQuestion = {
 };
 type BuilderSection = { key: string; title: string; description: string; questions: BuilderQuestion[] };
 
+// Keys for things added while editing. Questions loaded with the page get
+// positional keys instead (see the initial state), because this counter runs
+// separately on the server and in the browser and would make the first
+// render disagree (radio groups are named by key).
 let keyCounter = 0;
 function nextKey() {
   keyCounter += 1;
-  return `local-${keyCounter}`;
+  return `new-${keyCounter}`;
 }
 
 function newQuestion(type: QuestionType = "MULTIPLE_CHOICE"): BuilderQuestion {
@@ -152,14 +156,16 @@ export function FormBuilder({
 }) {
   const [meta, setMeta] = React.useState(form);
   const [sections, setSections] = React.useState<BuilderSection[]>(() => {
-    const loaded = initialSections.map((section) => ({
-      key: nextKey(),
+    const loaded = initialSections.map((section, s) => ({
+      key: `s${s}`,
       title: section.title ?? "",
       description: section.description ?? "",
-      questions: section.questions.map((q) => ({ ...q, key: nextKey() })),
+      questions: section.questions.map((q, i) => ({ ...q, key: `s${s}-q${i}` })),
     }));
     // A new form opens ready to type into, like a blank Google Form.
-    return loaded.length > 0 ? loaded : [{ key: nextKey(), title: "", description: "", questions: [newQuestion()] }];
+    return loaded.length > 0
+      ? loaded
+      : [{ key: "s0", title: "", description: "", questions: [{ ...newQuestion(), key: "s0-q0" }] }];
   });
   const [activeKey, setActiveKey] = React.useState<string | null>(() =>
     initialSections.length === 0 && form.status === "DRAFT" ? sections[0]?.questions[0]?.key ?? null : null
@@ -413,7 +419,12 @@ export function FormBuilder({
           <Share2 className="size-4" />
           <span className="hidden sm:inline">Share</span>
         </Button>
-        {isDraft ? (
+        {meta.isTemplate ? (
+          // A template is only ever copied, never published or filled in.
+          <Badge variant="outline" className="h-8 px-3">
+            Template
+          </Badge>
+        ) : isDraft ? (
           <Button size="sm" onClick={() => changeStatus("PUBLISHED")} disabled={saveState === "saving"}>
             Publish
           </Button>
@@ -703,7 +714,7 @@ function QuestionCard({
         <div className="pointer-events-none" aria-hidden="true">
           <QuestionRenderer
             question={{ ...question, id: question.key, title: question.title || "Untitled question" }}
-            value={undefined}
+            value={question.type === "SHORT_ANSWER" ? question.config.defaultValue : undefined}
             onChange={() => {}}
             disabled
           />
