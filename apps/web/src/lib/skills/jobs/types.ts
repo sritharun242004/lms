@@ -193,8 +193,6 @@ export type RawPluginSuggestion = {
   subSkills: { name: string; label: string; purpose: string; focus: string; step: string; fileIds: string[] }[];
 };
 
-/** Suggest's structured reply before clean-up (pre-plugins). */
-export type RawSuggestions = { skills: { name: string; purpose: string; fileIds: string[] }[] };
 /** Generation's structured reply. The server writes SKILL.md, the style guide and assets/. */
 export type JobSkillDraft = {
   description: string;

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { suggestJobSkills } from "@/lib/ai/claude";
 import { consumeAiUsage } from "@/lib/ai/usage";
 import { JOB_LIMITS } from "../limits";
-import { normalizeSkillName, oneLine, uniqueSkillName } from "../names";
+import { normalizeSkillName, oneLine } from "../names";
 import {
   AlreadyGeneratingError,
   DuplicateNameError,
@@ -16,48 +16,13 @@ import {
   TooManySkillsError,
 } from "./errors";
 import { purgeUnreferencedFiles } from "./files";
+import { cleanFileIds, cleanPluginSuggestion } from "./plugin-suggest";
 import { buildSuggestMessage } from "./instructions";
 import { activeFiles, jobPerUseInputs, jobQuestionContext, loadJobView, skillInclude, toFileView, toSkillView } from "./jobs";
 import { isAnalysing, isGenerating } from "./staleness";
-import type { JobSkillView, JobView, RawSuggestions } from "./types";
+import type { JobSkillView, JobView } from "./types";
 
 const SKILL_PURPOSE_MAX = JOB_LIMITS.skillPurposeChars;
-
-export type CleanSuggestion = { name: string; purpose: string; fileIds: string[] };
-
-/** The job's active files only, in the caller's order, each once, at most JOB_LIMITS.fileIdsPerSkill. */
-export function cleanFileIds(ids: readonly string[], activeFileIds: readonly string[]): string[] {
-  const allowed = new Set(activeFileIds);
-  const out: string[] = [];
-  for (const id of ids) {
-    if (out.length >= JOB_LIMITS.fileIdsPerSkill) break;
-    if (allowed.has(id) && !out.includes(id)) out.push(id);
-  }
-  return out;
-}
-
-/** The spec's clean-up of the model's suggestions: valid unique names, one-line purposes, known files, room left. */
-export function cleanSuggestions(raw: RawSuggestions, ctx: { activeFileIds: string[]; keptNames: string[]; room: number }): CleanSuggestion[] {
-  const taken = new Set(ctx.keptNames);
-  const out: CleanSuggestion[] = [];
-  for (const suggestion of raw.skills) {
-    if (out.length >= ctx.room) break;
-    const label = oneLine(suggestion.name);
-    const purpose = oneLine(suggestion.purpose, SKILL_PURPOSE_MAX);
-    if (!label && !purpose) continue;
-    const name = uniqueSkillName(label || purpose, taken);
-    taken.add(name);
-    out.push({ name, purpose: purpose || label, fileIds: cleanFileIds(suggestion.fileIds, ctx.activeFileIds) });
-  }
-  return out;
-}
-
-/** One skill named after the job when the model gave nothing usable and the job has no skills. */
-export function fallbackSuggestion(job: { title: string; description: string }, activeFileIds: string[], taken: string[]): CleanSuggestion {
-  const firstSentence = oneLine(job.description).split(/(?<=[.!?])\s/)[0] ?? "";
-  const purpose = oneLine(firstSentence, SKILL_PURPOSE_MAX) || oneLine(job.title, SKILL_PURPOSE_MAX) || "Does this task the way I do it.";
-  return { name: uniqueSkillName(normalizeSkillName(job.title, "my-skill"), taken), purpose, fileIds: cleanFileIds(activeFileIds, activeFileIds) };
-}
 
 /** A unique-index race (two saves of the same name) reads exactly like the pre-check's refusal. */
 function rethrowDuplicate(error: unknown, name: string): never {
@@ -66,8 +31,8 @@ function rethrowDuplicate(error: unknown, name: string): never {
 }
 
 /**
- * Suggest (spec, Suggest Skills): every precondition, then one skill_split unit and one Opus call, then one
- * transaction that replaces never-generated skills with the cleaned suggestions. Skills with versions stay.
+ * Suggest (plugins spec): every precondition, then one skill_split unit and one Opus call, then one transaction
+ * that replaces every skill without legacy versions with 1 MAIN + 2–4 SUB. Rows with versions stay; a kept MAIN stays MAIN.
  */
 export async function suggestForJob(jobId: string, userId: string, now = new Date()): Promise<JobView> {
   const job = await prisma.skillJob.findFirst({
@@ -77,23 +42,33 @@ export async function suggestForJob(jobId: string, userId: string, now = new Dat
       title: true,
       description: true,
       outputType: true,
-      skills: { select: { id: true, name: true, purpose: true, status: true, generationStartedAt: true, latestVersion: true, order: true }, orderBy: { order: "asc" } },
+      company: true,
+      pluginStatus: true,
+      pluginGenerationStartedAt: true,
+      skills: {
+        select: { id: true, name: true, purpose: true, role: true, status: true, generationStartedAt: true, latestVersion: true, order: true },
+        orderBy: { order: "asc" },
+      },
     },
   });
   if (!job) throw new JobNotFoundError();
   if (!job.description.trim()) throw new EmptyDescriptionError();
-  if (job.skills.some((s) => isGenerating(s.status, s.generationStartedAt, now))) throw new AlreadyGeneratingError();
+  if (isGenerating(job.pluginStatus, job.pluginGenerationStartedAt, now) || job.skills.some((s) => isGenerating(s.status, s.generationStartedAt, now))) {
+    throw new AlreadyGeneratingError();
+  }
   const files = await activeFiles(jobId);
   if (files.some((f) => isAnalysing(f.analysisStatus, f.analysisStartedAt, now))) throw new FilesAnalysingError();
   const kept = job.skills.filter((s) => s.latestVersion > 0);
-  const room = JOB_LIMITS.skillsPerJob - kept.length;
-  if (room <= 0) throw new TooManySkillsError();
+  const keptMain = kept.find((s) => s.role === "MAIN") ?? null;
+  const keptSubs = kept.filter((s) => s.role !== "MAIN").length;
+  if (keptSubs >= JOB_LIMITS.subSkillsMax) throw new TooManySkillsError();
 
   const fileViews = files.map((f) => toFileView(f, now));
   const activeFileIds = fileViews.map((f) => f.id);
   const [questions, perUse] = await Promise.all([jobQuestionContext(jobId), jobPerUseInputs(jobId)]);
   const message = buildSuggestMessage({
     title: job.title,
+    company: job.company,
     description: job.description,
     outputType: job.outputType,
     questions,
@@ -106,25 +81,32 @@ export async function suggestForJob(jobId: string, userId: string, now = new Dat
       analysis: f.analysisStatus === "READY" ? f.analysis : null,
       questionId: f.questionId,
     })),
-    built: kept.map((s) => ({ name: s.name, purpose: s.purpose })),
+    built: kept.map((s) => ({ name: s.name, purpose: s.purpose, role: s.role })),
   });
   await consumeAiUsage(userId, "skill_split", now);
   const raw = await suggestJobSkills(message);
 
-  let cleaned = cleanSuggestions(raw, { activeFileIds, keptNames: kept.map((s) => s.name), room });
-  if (cleaned.length === 0 && kept.length === 0) cleaned = [fallbackSuggestion(job, activeFileIds, [])];
+  const { main, subs } = cleanPluginSuggestion(raw, {
+    job,
+    activeFileIds,
+    keptNames: kept.map((s) => s.name),
+    keptMainName: keptMain?.name ?? null,
+    keptSubs,
+  });
   const start = Math.max(-1, ...kept.map((s) => s.order)) + 1;
+  const rows: Prisma.SkillJobSkillCreateManyInput[] = [
+    ...(main ? [{ jobId, order: start, role: "MAIN" as const, name: main.name, label: main.label, purpose: main.purpose, fileIds: main.fileIds }] : []),
+    ...subs.map((s, i) => ({ jobId, order: start + (main ? 1 : 0) + i, role: "SUB" as const, ...s })),
+  ];
   try {
     await prisma.$transaction([
       prisma.skillJobSkill.deleteMany({ where: { jobId, latestVersion: 0 } }),
-      ...(cleaned.length > 0
-        ? [prisma.skillJobSkill.createMany({ data: cleaned.map((s, i) => ({ jobId, order: start + i, name: s.name, purpose: s.purpose, fileIds: s.fileIds })) })]
-        : []),
+      ...(rows.length > 0 ? [prisma.skillJobSkill.createMany({ data: rows })] : []),
       prisma.skillJob.update({ where: { id: jobId }, data: { suggestedAt: now } }),
     ]);
   } catch (error) {
     // A second Suggest or an Add skill won the unique [jobId, name] index between our read and this write.
-    rethrowDuplicate(error, cleaned[0]?.name ?? "this skill");
+    rethrowDuplicate(error, rows[0]?.name ?? "this skill");
   }
   const view = await loadJobView(jobId, userId, now);
   if (!view) throw new JobNotFoundError();

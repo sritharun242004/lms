@@ -24,7 +24,7 @@ describe("jobErrorResponse", () => {
     [new E.FilesAnalysingError(), 409, "FILES_ANALYSING", "Wait until your files have been analysed."],
     [new E.TooManyFilesError(), 409, "TOO_MANY_FILES", "A task can have at most 10 files. Remove one to add another."],
     [new E.FileNameTakenError("Q3 deck.pptx"), 409, "FILE_NAME_TAKEN", 'Another file named "Q3 deck.pptx" was added at the same moment. Upload it again.'],
-    [new E.TooManySkillsError(), 409, "TOO_MANY_SKILLS", "A task can have at most 5 skills. Remove one to add another."],
+    [new E.TooManySkillsError(), 409, "TOO_MANY_SKILLS", "A plugin can have at most 6 sub-skills."],
     [new E.DuplicateNameError("board-deck"), 409, "DUPLICATE_NAME", 'A skill named "board-deck" is already in this task. Choose another name.'],
     [new E.EmptyDescriptionError(), 400, "VALIDATION_ERROR", "Describe the task first."],
     [new E.NothingToDownloadError(), 409, "NOTHING_TO_DOWNLOAD", "Generate at least one skill before downloading."],

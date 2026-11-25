@@ -6,7 +6,7 @@
 // FAKE_FIRST_INVALID=1 makes the first job-skill draft fail validation (exercises the retry).
 // Logs only which kind of call arrived, never request text.
 import http from "node:http";
-import { enhanceReply, JOB_DRAFT, questionsReply } from "./fake-anthropic-shapes.mjs";
+import { enhanceReply, JOB_DRAFT, pluginSuggestionReply, questionsReply } from "./fake-anthropic-shapes.mjs";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
@@ -106,15 +106,10 @@ function skillsStructured(props, user) {
     console.log(`[fake] questions ${kind}${regenerate ? " (regenerate)" : ""}`);
     return reply;
   }
-  if ("skills" in props) {
-    console.log("[fake] suggest");
-    const ids = [...new Set([...user.matchAll(/- id: (\S+)/g)].map((m) => m[1]))];
-    return {
-      skills: [
-        { name: "Board Update Writer", purpose: "Writes the monthly board update and deck from my notes and numbers.", fileIds: [...ids, "file_that_does_not_exist"] },
-        { name: "board update writer", purpose: "A near-duplicate name, to check that names are made unique.", fileIds: ids.slice(0, 1) },
-      ],
-    };
+  if ("main" in props && "subSkills" in props) {
+    const { kind, reply } = pluginSuggestionReply(user);
+    console.log(`[fake] suggest-plugin ${kind}`);
+    return reply;
   }
   if ("body" in props && !("assets" in props)) {
     const retry = user.includes("<validation_errors>");

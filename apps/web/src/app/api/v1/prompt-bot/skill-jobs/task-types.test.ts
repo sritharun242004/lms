@@ -45,7 +45,8 @@ function store(description: string) {
   mocks.qDeleteMany.mockImplementation((args: unknown) => args);
   mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
   mocks.jobFindFirst.mockImplementation(async (args: { select?: unknown }) => {
-    const base = { id: "j1", userId: "u1", title: "My task", description, scoreRevision: 0, suggestedAt: null, createdAt: NOW, updatedAt: NOW };
+    const base = { id: "j1", userId: "u1", title: "My task", description, scoreRevision: 0, suggestedAt: null, createdAt: NOW, updatedAt: NOW,
+      company: "", pluginName: null, pluginDisplayName: null, pluginStatus: "DRAFT", pluginValidationErrors: [], pluginGenerationStartedAt: null, pluginLatestVersion: 0, pluginVersions: [] };
     if (args.select) return { ...base, questions: [] };
     return {
       ...base,

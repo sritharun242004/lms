@@ -21,16 +21,19 @@ Write Markdown with these sections, in this order:
 
 The facts were read from the file by a parser and are ground truth: use their hex values, font names and sizes exactly. Anything you only see in a PDF or an image and that is not in the facts must be marked "(approximate)". Never invent colours, fonts, numbers or names. Leave out a detail you cannot support rather than guess. Keep it to about 600 words. Output only the style guide.`;
 
-export const SUGGEST_SYSTEM = `You help a senior leader turn one recurring task into their own Agent Skills: folders of instructions and files that an AI assistant loads whenever the task comes up, so it is done their way every time.
+export const SUGGEST_SYSTEM = `You help a senior leader turn one recurring task into their own Claude plugin: Agent Skills (folders of instructions and files) that an AI assistant loads whenever the task comes up, so it is done their way every time.
 
-From the task description, the output type, each question with its answer and the files attached to it, and the general files, propose the skills that capture this task:
-- Usually exactly one skill. Propose more only when the task has clearly separate parts with different inputs, outputs or audiences.
-- Never split one task into its steps, and never propose a skill for a one-off piece of work.
-- Never repeat a skill listed under already built; propose only genuinely different parts, or none.
-- name: short kebab-case, for example board-update-deck.
-- purpose: one sentence saying what the skill produces and when it is used.
-- fileIds: the ids of the uploaded files this skill should reuse (templates it produces from, references it follows). Use only ids from the files listed.
-- The inputs in <ask_each_time> change every run: the skill asks for them at the start of every run. They are never answered now and never decide how many skills there are.
+Design one plugin for this task: a main skill that does the whole job end to end, and 2–4 sub-skills, each one focused part a person would ask for on its own (design, analysis, formatting, a checker…). Use the task description, the output type, each question with its answer and the files attached to it, and the general files.
+- main: the skill that runs the whole job and uses every sub-skill in turn.
+- subSkills: each sub-skill works on its own when called alone, for just its part. List them in the order the main skill should run them.
+- name: kebab-case that reads well after a slash, for example deck-grammar-check. Every name is different.
+- label: a short display label of a few words, for example "Grammar check".
+- purpose: one sentence saying when to use the skill and what it produces.
+- focus (sub-skills): what the sub-skill does and what it leaves to the main skill.
+- step (sub-skills): one line for its place in the main workflow, for example "Check the wording before handing over".
+- fileIds: the ids of the uploaded files each skill needs (templates it produces from, references it follows). Use only ids from the files listed.
+- Never repeat a skill listed under already built; when one is marked main, the plugin keeps it as its main skill.
+- The inputs in <ask_each_time> change every run: the skills ask for them at the start of every run. They are never answered now and never decide the plugin's structure.
 
 Use only what the person wrote and what the files show. Never invent facts about them, their company or their numbers.`;
 
@@ -177,11 +180,13 @@ type TaskPromptInput = {
 const suggestFileLine = (f: PromptFile) =>
   `- id: ${f.id}\n  name: ${attrSafe(f.fileName)}\n  kind: ${f.kind}\n  size: ${megabytes(f.size)}\n  <analysis>\n${excerpt(f.analysis) ?? "(no analysis yet)"}\n  </analysis>`;
 
-export function buildSuggestMessage(input: TaskPromptInput & { files: PromptFile[]; built: { name: string; purpose: string }[] }): string {
+export function buildSuggestMessage(
+  input: TaskPromptInput & { company?: string; files: PromptFile[]; built: { name: string; purpose: string; role?: "MAIN" | "SUB" }[] },
+): string {
   const general = byQuestion(input.questions, input.files).general;
-  const built = input.built.map((b) => `- ${b.name}: ${b.purpose}`).join("\n");
+  const built = input.built.map((b) => `- ${b.name}${b.role === "MAIN" ? " (main)" : ""}: ${b.purpose}`).join("\n");
   return [
-    taskSection(input.title, input.description, input.outputType),
+    taskSection(input.title, input.description, input.outputType, input.company),
     questionBlocks(input.questions, input.files, (own) => (own.length > 0 ? `<files>\n${own.map(suggestFileLine).join("\n\n")}\n</files>` : "")),
     `<general_files>\n${general.map(suggestFileLine).join("\n\n") || "(none)"}\n</general_files>`,
     `<gaps>\n${gapsText(input.questions)}\n</gaps>`,
@@ -220,9 +225,10 @@ export function buildJobRetryMessage(original: string, draft: JobSkillDraft, err
 }
 
 /** The task block every task message starts with; output_type is added once questions have named it. */
-function taskSection(title: string, description: string, outputType?: string | null): string {
+function taskSection(title: string, description: string, outputType?: string | null, company?: string): string {
+  const who = company?.trim() ? `\ncompany: ${company.trim()}` : "";
   const type = outputType?.trim() ? `\noutput_type: ${outputType.trim()}` : "";
-  return `<task>\ntitle: ${title.trim() || "(untitled)"}${type}\n\n${description.trim()}\n</task>`;
+  return `<task>\ntitle: ${title.trim() || "(untitled)"}${who}${type}\n\n${description.trim()}\n</task>`;
 }
 
 export function buildEnhanceTaskMessage(input: { title: string; description: string }): string {
