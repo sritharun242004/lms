@@ -909,24 +909,35 @@ enum SkillAnalysisStatus {
 }
 
 model SkillJob {
-  id                   String             @id @default(cuid())
-  userId               String             @map("user_id")
-  title                String             @default("Untitled job")
-  description          String             @default("")
-  scoreRevision        Int                @default(0) @map("score_revision")
-  suggestedAt          DateTime?          @map("suggested_at")
+  id                        String               @id @default(cuid())
+  userId                    String               @map("user_id")
+  title                     String               @default("Untitled job")
+  description               String               @default("")
+  scoreRevision             Int                  @default(0) @map("score_revision")
+  suggestedAt               DateTime?            @map("suggested_at")
   /// When the task's questions were last written (null until then; migrated jobs: their creation time).
-  questionsGeneratedAt DateTime?          @map("questions_generated_at")
+  questionsGeneratedAt      DateTime?            @map("questions_generated_at")
   /// The output type inferred when questions were last written, e.g. "Instagram carousel" (<= 60 chars).
-  outputType           String?            @map("output_type")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-  user                 User               @relation("SkillJobOwner", fields: [userId], references: [id], onDelete: Cascade)
+  outputType                String?              @map("output_type")
+  /// Plugins (spec 2026-11-25 plugins): company or team, <= 80; "" = none.
+  company                   String               @default("")
+  /// The plugin id as the user set it; null = the default (follows company and title).
+  pluginName                String?              @map("plugin_name")
+  /// null = the default display name.
+  pluginDisplayName         String?              @map("plugin_display_name")
+  pluginStatus              SkillItemStatus      @default(DRAFT) @map("plugin_status")
+  pluginValidationErrors    String[]             @default([]) @map("plugin_validation_errors")
+  pluginGenerationStartedAt DateTime?            @map("plugin_generation_started_at")
+  pluginLatestVersion       Int                  @default(0) @map("plugin_latest_version")
+  pluginVersions            SkillPluginVersion[]
+  createdAt                 DateTime             @default(now()) @map("created_at")
+  updatedAt                 DateTime             @updatedAt @map("updated_at")
+  user                      User                 @relation("SkillJobOwner", fields: [userId], references: [id], onDelete: Cascade)
   /// Read only by the tasks data migration; nothing writes it any more.
-  answers              SkillJobAnswer[]
-  questions            SkillJobQuestion[]
-  files                SkillJobFile[]
-  skills               SkillJobSkill[]
+  answers                   SkillJobAnswer[]
+  questions                 SkillJobQuestion[]
+  files                     SkillJobFile[]
+  skills                    SkillJobSkill[]
 
   @@index([userId, updatedAt])
   @@map("skill_jobs")
@@ -1049,6 +1060,14 @@ model SkillJobSkill {
   validationErrors    String[]        @default([]) @map("validation_errors")
   generationStartedAt DateTime?       @map("generation_started_at")
   latestVersion       Int             @default(0) @map("latest_version")
+  /// Plugins: MAIN runs the whole job and orchestrates every SUB.
+  role                SkillRole       @default(SUB)
+  /// Display label <= 60, e.g. "Grammar check".
+  label               String          @default("")
+  /// Sub-skill: what it does and what it leaves to the main skill, <= 600.
+  focus               String          @default("")
+  /// Sub-skill: its line in the main workflow, <= 160.
+  step                String          @default("")
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
   job                 SkillJob        @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -1078,6 +1097,33 @@ model SkillVersion {
 
   @@unique([skillId, version])
   @@map("skill_versions")
+}
+
+enum SkillRole {
+  MAIN
+  SUB
+}
+
+/// One immutable, self-contained plugin version: every text file plus asset entries.
+model SkillPluginVersion {
+  id           String   @id @default(cuid())
+  jobId        String   @map("job_id")
+  version      Int
+  /// The plugin id at this version.
+  name         String
+  displayName  String   @map("display_name")
+  /// [{ name, role, label, purpose, description, files: [{ path, content }] }], main first.
+  skills       Json
+  /// Plugin-level text files: .claude-plugin/plugin.json, commands/*.md.
+  files        Json
+  /// [{ fileId, skill, path, fileName, bytes }]: bundled originals per skill.
+  assets       Json
+  assetFileIds String[] @default([]) @map("asset_file_ids")
+  createdAt    DateTime @default(now()) @map("created_at")
+  job          SkillJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, version])
+  @@map("skill_plugin_versions")
 }
 
 // ============================================================================
