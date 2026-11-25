@@ -50,3 +50,57 @@ export function renderReadme(input: ReadmeInput): string {
       : []),
   ].join("\n");
 }
+
+export type PluginReadmeInput = {
+  name: string;
+  displayName: string;
+  description: string;
+  version: string;
+  skills: { name: string; role: "MAIN" | "SUB"; purpose: string }[];
+  hasAssets: boolean;
+};
+
+/** Table cells: one line, no pipes. */
+const cell = (value: string) => value.replace(/\s+/g, " ").replace(/\|/g, "/").trim();
+
+/** README.md of the share zip (plugins spec, Plugin Zip Layout): what the plugin is, each skill and how to call it, install. */
+export function renderPluginReadme(input: PluginReadmeInput): string {
+  const rows = input.skills.map((s) => {
+    const role = s.role === "MAIN" ? "Main: runs the whole job, using every sub-skill" : "Sub-skill: use alone for just this part";
+    return `| \`${s.name}\` | ${role} | ${cell(s.purpose)} | "use ${s.name} on this…" | \`/${input.name}:${s.name}\` |`;
+  });
+  const example = input.skills.find((s) => s.role === "SUB")?.name ?? input.skills[0]?.name ?? "skill";
+  return [
+    `# ${input.displayName}`,
+    "",
+    `A Claude plugin built with Prompt Bot's Skills Builder (plugin id \`${input.name}\`, version ${input.version}).`,
+    "",
+    input.description.trim(),
+    "",
+    "## Skills in this plugin",
+    "",
+    "| Skill | Role | When to use it | In Claude chat, say | In Claude Code or Cowork, type |",
+    "| --- | --- | --- | --- | --- |",
+    ...rows,
+    "",
+    "## Install",
+    "",
+    "### Claude.ai / Claude Desktop",
+    "",
+    `First turn on Settings → Capabilities → Create and edit files. Then open Plugins → Add → Upload plugin and choose \`upload-to-claude/${input.name}.zip\`. It shows as **${cell(input.displayName)}**.`,
+    "",
+    `In chat, ask for a skill by name, for example "use ${example} on this". In Claude Code or Cowork, type \`/${input.name}:${example}\`.`,
+    "",
+    "### Claude Code",
+    "",
+    `Copy the \`plugin/${input.name}\` folder somewhere stable and add it as a local plugin, or copy each \`skills/<skill>\` folder into \`~/.claude/skills/\`.`,
+    "",
+    "## Before you run anything",
+    "",
+    "Review any files in `scripts/` before running them.",
+    "",
+    ...(input.hasAssets
+      ? ["## About the files in assets/", "", "These are your original files, included so the skills can reuse your templates.", ""]
+      : []),
+  ].join("\n");
+}

@@ -10,7 +10,7 @@ import type { SkillFile } from "../types";
 import { assembleJobSkill, validateJobSkill, type PlanInputFile, type PluginSkillSections, type QuestionRef } from "./assemble";
 import { purgeUnreferencedFiles } from "./files";
 import { buildJobGenerateMessage, buildJobRetryMessage, buildSubSkillGenerateMessage, type ShippedFile } from "./instructions";
-import { buildCommands, buildPluginManifest, manifestFile, validatePlugin } from "./plugin";
+import { buildCommands, buildPluginManifest, manifestFile, pluginVersionRecord, validatePlugin } from "./plugin";
 import { pluginSkillSections } from "./plugin-assemble";
 import { planPluginAssets } from "./plugin-assets";
 import { EmptyDescriptionError, FilesAnalysingError, JobNotFoundError, PluginGeneratingError, PluginInvalidError } from "./errors";
@@ -189,7 +189,10 @@ export async function runPluginGeneration(jobId: string, userId: string): Promis
       return;
     }
 
-    const assets = written.flatMap((w) => w.assets.map((a) => ({ fileId: a.fileId, skill: w.skill.name, path: a.path, fileName: a.fileName, bytes: a.bytes })));
+    const record = pluginVersionRecord(
+      written.map((w) => ({ ...w.skill, description: w.description, files: w.files, assets: w.assets })),
+      pluginFiles,
+    );
     const stored = await prisma.$transaction(async (tx) => {
       // The claim check comes first: a lost claim makes no write at all.
       const claimed = await tx.skillJob.updateMany({ where: ours(), data: { pluginStatus: "READY", pluginLatestVersion: version, pluginValidationErrors: [] } });
@@ -200,17 +203,10 @@ export async function runPluginGeneration(jobId: string, userId: string): Promis
           version,
           name: plugin.name,
           displayName: manifest.displayName,
-          skills: written.map((w) => ({
-            name: w.skill.name,
-            role: w.skill.role,
-            label: w.skill.label,
-            purpose: w.skill.purpose,
-            description: w.description,
-            files: w.files.map((f) => ({ path: f.path, content: f.content })),
-          })) as Prisma.InputJsonValue,
-          files: pluginFiles as Prisma.InputJsonValue,
-          assets: assets as Prisma.InputJsonValue,
-          assetFileIds: [...new Set(assets.map((a) => a.fileId))],
+          skills: record.skills as Prisma.InputJsonValue,
+          files: record.files as Prisma.InputJsonValue,
+          assets: record.assets as Prisma.InputJsonValue,
+          assetFileIds: record.assetFileIds,
         },
       });
       await tx.skillPluginVersion.deleteMany({ where: { jobId, version: { lte: version - JOB_LIMITS.pluginVersionsKept } } });

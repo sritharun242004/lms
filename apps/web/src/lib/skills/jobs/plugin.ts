@@ -136,3 +136,26 @@ export function validatePlugin(plugin: PluginToValidate): string[] {
   if (!plugin.files.some((f) => f.path === MANIFEST_PATH)) errors.push(`${MANIFEST_PATH} is missing`);
   return errors;
 }
+
+export type BuiltPluginSkill = { name: string; role: SkillRole; label: string; purpose: string; description: string; files: SkillFile[]; assets: VersionAsset[] };
+export type StoredPluginAsset = VersionAsset & { skill: string };
+
+/** The JSON columns of one SkillPluginVersion: every skill's text files (main first), the plugin files and the asset entries. */
+export function pluginVersionRecord(skills: BuiltPluginSkill[], files: SkillFile[]) {
+  const assets: StoredPluginAsset[] = skills.flatMap((s) =>
+    s.assets.map((a) => ({ fileId: a.fileId, skill: s.name, path: a.path, fileName: a.fileName, bytes: a.bytes })),
+  );
+  return {
+    skills: skills.map((s) => ({
+      name: s.name,
+      role: s.role,
+      label: s.label,
+      purpose: s.purpose,
+      description: s.description,
+      files: s.files.map((f) => ({ path: f.path, content: f.content })),
+    })),
+    files: files.map((f) => ({ path: f.path, content: f.content })),
+    assets,
+    assetFileIds: [...new Set(assets.map((a) => a.fileId))],
+  };
+}
