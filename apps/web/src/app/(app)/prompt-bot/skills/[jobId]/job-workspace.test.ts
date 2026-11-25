@@ -66,7 +66,7 @@ import { JobWorkspace } from "./job-workspace";
 
 const file = (over: Partial<JobFileView> = {}): JobFileView => ({
   id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z",
-  analysisStatus: "READY", analysis: "## Colours", analysisEdited: false, analysisError: null, bundlable: true, ...over,
+  analysisStatus: "READY", analysis: "## Colours", analysisEdited: false, analysisError: null, bundlable: true, questionId: null, ...over,
 });
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes it.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,
@@ -78,6 +78,9 @@ const JOB: JobView = {
   scoreRevision: 2,
   updatedAt: "2026-11-25T10:00:00.000Z",
   suggestedAt: null,
+  questionsGeneratedAt: null,
+  outputType: null,
+  questions: [],
   matrix: {
     id: "m",
     name: "Skill definition",

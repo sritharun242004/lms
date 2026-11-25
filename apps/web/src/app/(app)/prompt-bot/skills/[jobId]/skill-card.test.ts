@@ -18,8 +18,8 @@ import type { SaveOptions } from "@/lib/prompt-bot/client";
 import { FILE_SAVE_FAILED_MESSAGE, SkillCard, unansweredPhrase } from "./skill-card";
 
 const FILES: JobFileView[] = [
-  { id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "x", analysisEdited: false, analysisError: null, bundlable: true },
-  { id: "f2", fileName: "numbers.xlsx", assetName: "numbers.xlsx", kind: "XLSX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "y", analysisEdited: false, analysisError: null, bundlable: true },
+  { id: "f1", fileName: "Q3 deck.pptx", assetName: "q3-deck.pptx", kind: "PPTX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "x", analysisEdited: false, analysisError: null, bundlable: true, questionId: null },
+  { id: "f2", fileName: "numbers.xlsx", assetName: "numbers.xlsx", kind: "XLSX", size: 1000, createdAt: "2026-11-25T10:00:00.000Z", analysisStatus: "READY", analysis: "y", analysisEdited: false, analysisError: null, bundlable: true, questionId: null },
 ];
 const skill = (over: Partial<JobSkillView> = {}): JobSkillView => ({
   id: "s1", order: 0, name: "board-update", purpose: "Writes the board update.", fileIds: ["f1"], status: "DRAFT", validationErrors: [], latestVersion: 0, versions: [], ...over,

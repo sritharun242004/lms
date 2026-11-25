@@ -148,6 +148,7 @@ describe("toFileView", () => {
       analysisEdited: false,
       analysisError: null,
       bundlable: true,
+      questionId: null,
     });
     expect(toFileView(fileRow({ size: 10 * 1024 * 1024 + 1 }), NOW).bundlable).toBe(false);
     expect(toFileView(fileRow({ size: 10 * 1024 * 1024 }), NOW).bundlable).toBe(true);

@@ -38,6 +38,7 @@ export function toFileView(row: FileViewRow, now = new Date()): JobFileView {
     analysisEdited: row.analysisEdited,
     analysisError,
     bundlable: row.size <= JOB_LIMITS.assetBytes,
+    questionId: null,
   };
 }
 
@@ -80,6 +81,9 @@ export async function loadJobView(jobId: string, userId: string, now = new Date(
     scoreRevision: job.scoreRevision,
     updatedAt: job.updatedAt.toISOString(),
     suggestedAt: job.suggestedAt?.toISOString() ?? null,
+    questionsGeneratedAt: null,
+    outputType: null,
+    questions: [],
     matrix,
     answers: job.answers.filter((a) => active.has(a.questionId)).map(toAnswerView),
     files: job.files.map((f) => toFileView(f, now)),

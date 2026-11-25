@@ -48,6 +48,22 @@ export const JOB_LIMITS = {
   imageEdgePx: 1568,
   versionsKept: 20,
   packZipBytes: 100 * 1024 * 1024,
+  /** Tasks redesign (spec 2026-11-25 tasks, Limits). The description's trimmed length needed to write questions. */
+  descriptionMinChars: 500,
+  enhanceMinWords: 5,
+  /** Fixed questions kept from one AI generation (plus no more: fallbacks replace redundant ones). */
+  aiQuestionsMax: 8,
+  /** Fixed ("Answer now") questions per task. */
+  questionsPerTask: 12,
+  /** Per-use inputs kept from one AI generation. */
+  aiPerUseMax: 10,
+  /** Per-use ("Claude will ask each time") inputs per task. */
+  perUseInputsPerTask: 15,
+  questionTextChars: 300,
+  perUseLabelChars: 120,
+  questionGuidanceChars: 300,
+  fileNoteChars: 120,
+  outputTypeChars: 60,
 } as const;
 
 /** One file analysis call (run in after()); the SDK retries it once. */
@@ -56,3 +72,7 @@ export const ANALYSIS_TIMEOUT_MS = 90_000;
 export const ANALYSIS_STALE_MS = 5 * 60_000;
 /** Suggest runs inside the request (App Runner cuts requests at 120 s): one attempt. */
 export const SUGGEST_TIMEOUT_MS = 100_000;
+/** Enhance runs inside the request; the SDK retries it once (2 x 45 s < 120 s). */
+export const ENHANCE_TIMEOUT_MS = 45_000;
+/** Write questions runs inside the request: one attempt. */
+export const QUESTIONS_TIMEOUT_MS = 90_000;
