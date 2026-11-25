@@ -232,14 +232,16 @@ model Session {
 // ============================================================================
 
 model Group {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  wallpaperUrl String?  @map("wallpaper_url")
-  avatarUrl    String?  @map("avatar_url")
-  createdById  String   @map("created_by_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  wallpaperUrl     String?  @map("wallpaper_url")
+  avatarUrl        String?  @map("avatar_url")
+  // Admin switch: lets this group's participants open Prompt Bot.
+  promptBotEnabled Boolean  @default(false) @map("prompt_bot_enabled")
+  createdById      String   @map("created_by_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
   createdBy    User               @relation(fields: [createdById], references: [id], onDelete: Restrict)

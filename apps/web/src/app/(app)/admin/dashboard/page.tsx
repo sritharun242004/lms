@@ -32,7 +32,7 @@ export default async function AdminDashboardPage() {
         <StatCard label="Messages" value={stats.totalMessages} icon={MessagesSquare} />
       </div>
 
-      <GroupsSection groups={groups} canCreate />
+      <GroupsSection groups={groups} canCreate canTogglePromptBot />
     </div>
   );
 }

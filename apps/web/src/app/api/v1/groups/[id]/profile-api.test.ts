@@ -302,3 +302,53 @@ describe("PATCH /groups/:id (name and description)", () => {
     expect(mocks.groupUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe("PATCH /groups/:id (Prompt Bot for participants)", () => {
+  const patch = (body: unknown) =>
+    new NextRequest("http://localhost/api/v1/groups/group-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  const asAdmin = () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "user-a", role: "ADMIN" });
+    mocks.getGroupAccess.mockResolvedValue({ canView: true, canManage: true });
+  };
+
+  it.each([true, false])("lets an admin set it to %s, audits it and returns the new state", async (value) => {
+    asAdmin();
+    const res = await patchGroup(patch({ promptBotEnabled: value }), params);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data.promptBotEnabled).toBe(value);
+    expect(mocks.groupUpdate).toHaveBeenCalledWith({ where: { id: "group-1" }, data: { promptBotEnabled: value } });
+    expect(mocks.auditCreate).toHaveBeenCalled();
+  });
+
+  it("refuses a coach who manages the group with 403 and writes nothing", async () => {
+    asManager();
+    const res = await patchGroup(patch({ promptBotEnabled: true }), params);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.code).toBe("FORBIDDEN");
+    expect(mocks.groupUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses the group's creator when they are not an admin, even alongside a rename", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "user-creator", role: "MENTOR" });
+    mocks.getGroupAccess.mockResolvedValue({ canView: true, canManage: false });
+    expect((await patchGroup(patch({ name: "Renamed", promptBotEnabled: true }), params)).status).toBe(403);
+    expect(mocks.groupUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a participant with 403", async () => {
+    asParticipant();
+    expect((await patchGroup(patch({ promptBotEnabled: true }), params)).status).toBe(403);
+    expect(mocks.groupUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-boolean value", async () => {
+    asAdmin();
+    expect((await patchGroup(patch({ promptBotEnabled: "yes" }), params)).status).toBe(400);
+    expect(mocks.groupUpdate).not.toHaveBeenCalled();
+  });
+});

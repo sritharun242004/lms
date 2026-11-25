@@ -35,6 +35,9 @@ export async function PATCH(
 
   const parsed = await parseBody(req, updateGroupSchema);
   if (parsed.error) return parsed.error;
+  if (parsed.data.promptBotEnabled !== undefined && user.role !== "ADMIN") {
+    return errorResponse("Only admins can turn Prompt Bot on or off", "FORBIDDEN", 403);
+  }
 
   try {
     const updated = await prisma.group.update({
@@ -62,6 +65,7 @@ export async function PATCH(
       id: updated.id,
       name: updated.name,
       description: updated.description,
+      promptBotEnabled: updated.promptBotEnabled,
     });
   } catch (error) {
     console.error("Update group error:", error);

@@ -2,7 +2,12 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getCurrentUser: vi.fn(), redirect: vi.fn(), DesktopNav: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getCurrentUser: vi.fn(),
+  redirect: vi.fn(),
+  DesktopNav: vi.fn(),
+  countMemberships: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/link", () => ({
@@ -10,6 +15,7 @@ vi.mock("next/link", () => ({
     createElement("a", { href }, children),
 }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: mocks.getCurrentUser }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { groupMember: { count: mocks.countMemberships } } }));
 vi.mock("@/components/layout/prompt-bot-button", () => ({
   PromptBotButton: () => createElement("a", { href: "/prompt-bot" }, "Prompt Bot"),
 }));
@@ -31,6 +37,7 @@ import AppLayout from "./layout";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.countMemberships.mockResolvedValue(0);
 });
 
 describe("desktop shared navigation", () => {
@@ -54,13 +61,25 @@ describe("desktop shared navigation", () => {
     expect(markup.indexOf("Theme")).toBeLessThan(markup.indexOf("User menu"));
   });
 
-  it("hides the Prompt Bot header button from participants for now", async () => {
+  it("hides the Prompt Bot header button from a participant with no Prompt Bot group", async () => {
     mocks.getCurrentUser.mockResolvedValue({ id: "mentee-1", role: "MENTEE", name: "Participant" });
 
     const markup = renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
 
     expect(markup).not.toContain("Prompt Bot");
     expect(markup).toContain("Theme");
+    expect(mocks.countMemberships).toHaveBeenCalledWith({
+      where: { userId: "mentee-1", group: { promptBotEnabled: true } },
+    });
+  });
+
+  it("shows the Prompt Bot header button to a participant in any group with it on", async () => {
+    mocks.getCurrentUser.mockResolvedValue({ id: "mentee-1", role: "MENTEE", name: "Participant" });
+    mocks.countMemberships.mockResolvedValue(1);
+
+    const markup = renderToStaticMarkup(await AppLayout({ children: createElement("main", null, "Content") }));
+
+    expect(markup).toContain('href="/prompt-bot"');
   });
 
   it("passes isAdmin=true only for an ADMIN, and isMentee correctly for a MENTEE", async () => {

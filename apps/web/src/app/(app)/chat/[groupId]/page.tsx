@@ -37,6 +37,7 @@ export default async function GroupChatPage({
       currentUser={user}
       canManage={access.canManage}
       groupCode={inviteCode?.code ?? null}
+      promptBotEnabled={group.promptBotEnabled}
       initialMessages={messages}
       initialHasMore={hasMore}
       backHref={chatBackHref(access.canManage)}

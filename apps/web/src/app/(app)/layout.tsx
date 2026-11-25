@@ -11,7 +11,7 @@ import { PromptBotButton } from "@/components/layout/prompt-bot-button";
 import { PageMotion } from "@/components/layout/page-motion";
 import { AppFrame } from "@/components/layout/app-frame";
 import { DEFAULT_PALETTE, isPaletteKey } from "@/lib/theme/palettes";
-import { showsPromptBotButton } from "@/lib/prompt-bot/visibility";
+import { canUsePromptBot } from "@/lib/prompt-bot/access";
 
 export default async function AppLayout({
   children,
@@ -25,6 +25,7 @@ export default async function AppLayout({
 
   const isMentee = user.role === "MENTEE";
   const homeHref = isMentee ? "/chat" : "/dashboard";
+  const showPromptBot = await canUsePromptBot(user);
   const palette = isPaletteKey(user.themePreference) ? user.themePreference : DEFAULT_PALETTE;
 
   const header = (
@@ -41,7 +42,7 @@ export default async function AppLayout({
           </div>
           <DesktopNav isMentee={isMentee} isAdmin={user.role === "ADMIN"} />
           <div className="flex items-center gap-1 sm:gap-2">
-            {showsPromptBotButton(user.role) && <PromptBotButton variant={isMentee ? "featured" : "default"} />}
+            {showPromptBot && <PromptBotButton variant={isMentee ? "featured" : "default"} />}
             <PaletteSwitcher initialPalette={palette} />
             <ThemeToggle />
             <UserMenu user={user} />

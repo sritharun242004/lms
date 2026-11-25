@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GroupFormDialog } from "@/components/groups/group-form-dialog";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
+import { GroupPromptBotToggle } from "@/components/groups/group-prompt-bot-toggle";
 import { useConfirm } from "@/hooks/use-confirm";
 import { formatLastActive } from "@/lib/groups/presentation";
 import { getInitials } from "@/lib/utils";
@@ -37,11 +38,14 @@ export function GroupCard({
   onChanged,
   isActive = false,
   lastActivityAt,
+  canTogglePromptBot = false,
 }: {
   group: GroupCardData;
   onChanged: () => void;
   isActive?: boolean;
   lastActivityAt?: string;
+  /** ADMIN only: shows the per-group Prompt Bot switch. */
+  canTogglePromptBot?: boolean;
 }) {
   const [isBusy, setIsBusy] = React.useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -227,6 +231,14 @@ export function GroupCard({
             </span>
             <Copy className="size-3.5 text-muted-foreground" />
           </button>
+        )}
+
+        {canTogglePromptBot && (
+          <GroupPromptBotToggle
+            groupId={group.id}
+            groupName={group.name}
+            initialEnabled={group.promptBotEnabled}
+          />
         )}
 
         <Button variant="outline" size="sm" asChild>
