@@ -87,7 +87,7 @@ describe("LegacyPackView", () => {
   it("downloads one skill or the whole pack", async () => {
     await mount();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Download skill" }));
+      fireEvent.click(screen.getByRole("button", { name: "Download for Claude" }));
     });
     expect(mocks.downloadZip).toHaveBeenCalledWith("/api/v1/prompt-bot/skill-packs/p1/items/i1/download");
     await act(async () => {

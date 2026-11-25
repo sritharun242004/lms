@@ -83,15 +83,19 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download("upload")}>
             {downloading === "upload" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
-            Download skill<span className="sr-only">: {skill.name}</span>
+            Download for Claude<span className="sr-only">: {skill.name}</span>
           </Button>
           <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download("pack")}>
             {downloading === "pack" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <PackageOpen className="size-4" aria-hidden />}
-            Download as pack<span className="sr-only">: {skill.name}</span>
+            Download to share<span className="sr-only">: {skill.name}</span>
           </Button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{`We keep the last ${JOB_LIMITS.versionsKept} versions of each skill.`}</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">For Claude:</span> upload the zip in Claude.ai → Settings → Capabilities → Skills.{" "}
+        <span className="font-medium text-foreground">To share:</span> readable files, a README and the Claude zip.{" "}
+        {`We keep the last ${JOB_LIMITS.versionsKept} versions of each skill.`}
+      </p>
 
       <div className="mt-4">
         {detail ? (

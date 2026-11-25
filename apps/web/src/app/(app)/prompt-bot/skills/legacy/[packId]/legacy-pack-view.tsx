@@ -111,7 +111,7 @@ export function LegacyPackView({ pack }: { pack: SkillPackView }) {
                 </div>
                 <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download(skillZip)}>
                   {downloading === skillZip ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
-                  Download skill
+                  Download for Claude
                 </Button>
               </div>
               <div className="mt-5">

@@ -59,7 +59,7 @@ describe("VersionPreview", () => {
     expect(options[1].startsWith("v1 · ")).toBe(true);
     // "v3 · 25 Nov 14:02": day, short month, 24-hour time, no comma (local time zone).
     for (const option of options) expect(option).toMatch(/^v\d+ · \d{1,2} [A-Z][a-z]{2,3} \d{2}:\d{2}$/);
-    expect(screen.getByText("We keep the last 20 versions of each skill.")).toBeTruthy();
+    expect(screen.getByText(/We keep the last 20 versions of each skill\./)).toBeTruthy();
     expect(screen.getByText("board-update/")).toBeTruthy();
   });
 
@@ -82,11 +82,11 @@ describe("VersionPreview", () => {
     fireEvent.change(screen.getByLabelText("Version: board-update"), { target: { value: "1" } });
     await flush();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Download skill/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Download for Claude/ }));
     });
     expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1/s1/1/upload");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Download as pack/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Download to share/ }));
     });
     expect(mocks.downloadZip).toHaveBeenCalledWith("/dl/j1/s1/1/pack");
   });
@@ -95,8 +95,8 @@ describe("VersionPreview", () => {
     render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
     await flush();
     expect(screen.getByLabelText("Version: board-update")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Download skill: board-update" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Download as pack: board-update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download for Claude: board-update" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download to share: board-update" })).toBeTruthy();
   });
 
   it("reports a refused download", async () => {
@@ -104,7 +104,7 @@ describe("VersionPreview", () => {
     render(createElement(VersionPreview, { jobId: "j1", skill: skill() }));
     await flush();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Download skill/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Download for Claude/ }));
     });
     expect(mocks.toastError).toHaveBeenCalledWith("A file this version uses is no longer available. Generate the skill again.");
   });
