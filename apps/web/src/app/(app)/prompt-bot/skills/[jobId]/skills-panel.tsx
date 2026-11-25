@@ -36,9 +36,9 @@ type SuggestQuestion = { title: string; description?: string; confirmLabel: stri
 function suggestQuestion(gaps: number, drafts: number): SuggestQuestion | null {
   if (gaps > 0) {
     return {
-      title: `${unansweredPhrase(gaps)} — suggestions will be more general. Suggest anyway?`,
+      title: `${unansweredPhrase(gaps)} — your skills will be more general. Create them anyway?`,
       ...(drafts > 0 ? { description: REPLACES_DRAFTS } : {}),
-      confirmLabel: "Suggest anyway",
+      confirmLabel: "Create anyway",
     };
   }
   if (drafts > 0) return { title: "Replace your draft skills?", description: `${REPLACES_DRAFTS} Skills with versions are kept.`, confirmLabel: "Replace drafts" };
@@ -104,7 +104,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
   const suggestButton = (
     <Button size="lg" variant={hasSkills ? "outline" : "default"} disabled={!aiConfigured || suggesting} onClick={() => void suggest()}>
       {suggesting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
-      {suggesting ? "Suggesting…" : hasSkills ? "Suggest again" : "Suggest skills"}
+      {suggesting ? "Drafting your skills…" : hasSkills ? "Redraft my skills" : "Create my skills"}
     </Button>
   );
 
@@ -126,10 +126,10 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
       ) : (
         <div className="glass flex flex-col items-center gap-3 rounded-[1.75rem] px-5 py-8 text-center sm:py-10">
           <h2 id="skills-heading" className="text-lg font-semibold text-balance">
-            Skills
+            Your skills
           </h2>
-          <p className="max-w-md text-sm text-muted-foreground">Let the AI suggest the skills for this job.</p>
-          <p className="max-w-md text-xs text-muted-foreground">Usually one. More only when the job has clearly separate parts.</p>
+          <p className="max-w-md text-sm text-muted-foreground">Turn this job into your own skills.</p>
+          <p className="max-w-md text-xs text-muted-foreground">The AI drafts new skills from your job, files and answers — nothing is copied from public or existing skills. Usually one skill; more only when the job has clearly separate parts.</p>
           {suggestButton}
         </div>
       )}

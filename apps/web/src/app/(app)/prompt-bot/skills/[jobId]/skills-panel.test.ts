@@ -57,8 +57,8 @@ afterEach(() => {
 describe("SkillsPanel suggest", () => {
   it("invites a suggestion when there are no skills, and suggests at once with no gaps", async () => {
     const props = mount();
-    expect(screen.getByText("Let the AI suggest the skills for this job.")).toBeTruthy();
-    await press(/^Suggest skills/);
+    expect(screen.getByText("Turn this job into your own skills.")).toBeTruthy();
+    await press(/^Create my skills/);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(props.flushSaves.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
     expect(mocks.suggestSkills).toHaveBeenCalledWith("j1");
@@ -68,17 +68,17 @@ describe("SkillsPanel suggest", () => {
 
   it("asks once when questions are unanswered", async () => {
     mount(JOB, 2);
-    await press(/^Suggest skills/);
+    await press(/^Create my skills/);
     const dialog = screen.getByRole("alertdialog");
-    expect(dialog.textContent).toContain("2 questions unanswered — suggestions will be more general. Suggest anyway?");
+    expect(dialog.textContent).toContain("2 questions unanswered — your skills will be more general. Create them anyway?");
     expect(dialog.textContent).not.toContain("replaces");
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     });
     expect(mocks.suggestSkills).not.toHaveBeenCalled();
-    await press(/^Suggest skills/);
+    await press(/^Create my skills/);
     await act(async () => {
-      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Suggest anyway" }));
+      fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Create anyway" }));
     });
     expect(mocks.suggestSkills).toHaveBeenCalledTimes(1);
     expect(window.confirm).not.toHaveBeenCalled();
@@ -87,13 +87,13 @@ describe("SkillsPanel suggest", () => {
   it("warns that drafts are replaced when suggesting again", async () => {
     mount({ ...JOB, skills: [skill(), skill({ id: "s2", name: "kept", latestVersion: 1, status: "READY" })] }, 1);
     expect(screen.getByText(/Keeps skills you've generated and replaces the drafts/)).toBeTruthy();
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     expect(screen.getByRole("alertdialog").textContent).toContain("This replaces the skills you haven't generated yet.");
   });
 
   it("asks before replacing drafts even when every question is answered", async () => {
     mount({ ...JOB, skills: [skill(), skill({ id: "s2", name: "kept", latestVersion: 1, status: "READY" })] }, 0);
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     const dialog = screen.getByRole("alertdialog");
     expect(within(dialog).getByRole("heading", { name: "Replace your draft skills?" })).toBeTruthy();
     expect(dialog.textContent).toContain("This replaces the skills you haven't generated yet.");
@@ -102,7 +102,7 @@ describe("SkillsPanel suggest", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     });
     expect(mocks.suggestSkills).not.toHaveBeenCalled();
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     await act(async () => {
       fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Replace drafts" }));
     });
@@ -113,7 +113,7 @@ describe("SkillsPanel suggest", () => {
 
   it("suggests again at once when every skill has versions and no question is open", async () => {
     mount({ ...JOB, skills: [skill({ latestVersion: 2, status: "READY" })] }, 0);
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(mocks.suggestSkills).toHaveBeenCalledWith("j1");
   });
@@ -121,14 +121,14 @@ describe("SkillsPanel suggest", () => {
   it("shows a failed suggestion", async () => {
     mocks.suggestSkills.mockResolvedValue({ ok: false, code: "LIMIT_REACHED", message: "You've reached today's limit." });
     const props = mount();
-    await press(/^Suggest skills/);
+    await press(/^Create my skills/);
     expect(mocks.toastError).toHaveBeenCalledWith("You've reached today's limit.");
     expect(props.onJobChange).not.toHaveBeenCalled();
   });
 
   it("can't suggest without the AI", () => {
     mount(JOB, 0, false);
-    expect((screen.getByRole("button", { name: /^Suggest skills/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Create my skills/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -145,7 +145,7 @@ describe("SkillsPanel saves", () => {
     }
     render(createElement(Harness));
     fireEvent.change(screen.getByLabelText(/^Purpose/), { target: { value: "Writes it from the deck." } });
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     expect(mocks.patchJobSkill).toHaveBeenCalledWith("j1", "s1", { purpose: "Writes it from the deck." }, {});
     expect(mocks.patchJobSkill.mock.invocationCallOrder[0]).toBeLessThan(mocks.suggestSkills.mock.invocationCallOrder[0]);
   });
@@ -158,7 +158,7 @@ describe("SkillsPanel file saves", () => {
     const file = { id: "f1", fileName: "deck.pptx", assetName: "deck.pptx", kind: "PPTX" as const, size: 10, createdAt: JOB.updatedAt, analysisStatus: "READY" as const, analysis: "x", analysisEdited: false, analysisError: null, bundlable: true };
     mount({ ...JOB, files: [file], skills: [skill({ latestVersion: 1, status: "READY" as const })] });
     await press(/^deck\.pptx/);
-    await press(/^Suggest again/);
+    await press(/^Redraft my skills/);
     expect(mocks.suggestSkills).not.toHaveBeenCalled();
     await act(async () => {
       replies[0](ok(skill({ fileIds: ["f1"], latestVersion: 1, status: "READY" as const })));
