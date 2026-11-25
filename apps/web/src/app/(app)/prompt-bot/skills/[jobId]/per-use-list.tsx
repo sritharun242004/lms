@@ -127,7 +127,11 @@ function PerUseRow({ jobId, input, onChange, onRemoved }: RowProps) {
   return (
     <li className="py-3 first:pt-0 last:pb-0">
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-center">
-        <Input aria-label="Input name" value={label} maxLength={JOB_LIMITS.perUseLabelChars} onChange={(e) => setLabel(e.target.value)} onBlur={saveLabel} className="font-medium" />
+        <Input
+          aria-label="Input name"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          value={label} maxLength={JOB_LIMITS.perUseLabelChars} onChange={(e) => setLabel(e.target.value)} onBlur={saveLabel} className="font-medium" />
         <Input
           aria-label={`Hint for ${input.text}`}
           placeholder="Hint or example, optional"
@@ -135,6 +139,7 @@ function PerUseRow({ jobId, input, onChange, onRemoved }: RowProps) {
           maxLength={JOB_LIMITS.questionGuidanceChars}
           onChange={(e) => setHint(e.target.value)}
           onBlur={saveHint}
+          aria-describedby={error ? `${id}-error` : undefined}
         />
         <div className="flex items-center gap-1">
           <label htmlFor={`${id}-required`} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm sm:min-h-9">
@@ -157,7 +162,7 @@ function PerUseRow({ jobId, input, onChange, onRemoved }: RowProps) {
         </div>
       </div>
       {error && (
-        <p role="alert" className="mt-1.5 text-xs text-pretty text-destructive">
+        <p id={`${id}-error`} role="alert" className="mt-1.5 text-xs text-pretty text-destructive">
           {error}
         </p>
       )}

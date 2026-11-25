@@ -131,12 +131,22 @@ export function TaskPanel({ jobId, description, aiConfigured, onDescriptionChang
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
-          <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" disabled={!canEnhance} aria-busy={running || undefined} onClick={() => void enhance()}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            disabled={!canEnhance}
+            aria-busy={running || undefined}
+            aria-describedby={`${id}-enhance-help`}
+            onClick={() => void enhance()}
+          >
             {running ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <Sparkles className="size-4 text-primary" aria-hidden />}
             {running ? "Enhancing…" : "Enhance"}
           </Button>
-          <p className="min-w-0 flex-1 basis-48 text-xs text-pretty text-muted-foreground">
-            Turns your notes into a clear brief. You see it first and choose whether to use it.
+          <p id={`${id}-enhance-help`} className="min-w-0 flex-1 basis-48 text-xs text-pretty text-muted-foreground">
+            {wordCount(description) < JOB_LIMITS.enhanceMinWords
+              ? `Write at least ${JOB_LIMITS.enhanceMinWords} words, then Enhance turns them into a clear brief.`
+              : "Turns your notes into a clear brief. You see it first and choose whether to use it."}
           </p>
         </div>
         <div aria-live="polite">
