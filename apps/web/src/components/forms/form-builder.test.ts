@@ -29,7 +29,15 @@ beforeEach(() => {
   }) as unknown as typeof fetch;
 });
 
-const baseForm = { id: "f1", title: "Day 1 feedback", description: "", status: "DRAFT" as const, category: "FEEDBACK" as const };
+const baseForm = {
+  id: "f1",
+  title: "Day 1 feedback",
+  description: "",
+  status: "DRAFT" as const,
+  category: "FEEDBACK" as const,
+  isTemplate: false,
+  publicLinkEnabled: false,
+};
 
 describe("FormBuilder", () => {
   it("adds a section and a short-answer question", () => {
@@ -64,5 +72,29 @@ describe("FormBuilder", () => {
     render(createElement(FormBuilder, { form: { ...baseForm, status: "PUBLISHED" }, initialSections: [] }));
     expect(screen.queryByRole("button", { name: /add section/i })).toBeNull();
     expect(screen.getByRole("button", { name: /archive/i })).toBeTruthy();
+  });
+
+  it("marks the form as a template", async () => {
+    render(createElement(FormBuilder, { form: baseForm, initialSections: [] }));
+    fireEvent.click(screen.getByRole("switch", { name: /template/i }));
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/v1/forms/f1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ isTemplate: true }) })
+      )
+    );
+  });
+
+  it("shows the public link once it is switched on, with the link parameters it accepts", async () => {
+    render(
+      createElement(FormBuilder, {
+        form: { ...baseForm, status: "PUBLISHED" as const, publicLinkEnabled: true },
+        initialSections: [
+          { title: null, description: null, questions: [{ type: "SHORT_ANSWER", title: "Location", description: "", required: false, config: { urlParam: "location" } }] },
+        ],
+      })
+    );
+    expect(screen.getByDisplayValue("/f/f1")).toBeTruthy();
+    expect(screen.getByText("?location=Chennai")).toBeTruthy();
   });
 });

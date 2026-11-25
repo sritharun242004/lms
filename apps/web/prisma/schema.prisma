@@ -1259,6 +1259,12 @@ model Form {
   allowMultipleSubmissions Boolean      @default(false) @map("allow_multiple_submissions")
   feedbackTargetType       String?      @map("feedback_target_type")
   feedbackTargetLabel      String?      @map("feedback_target_label")
+  // A template is pinned in the Templates group for every staff member and
+  // is used by copying it ("Use template"), never filled in directly.
+  isTemplate               Boolean      @default(false) @map("is_template")
+  // Off by default: when on, a PUBLISHED form can be filled at /f/<id> by
+  // anyone, without signing in, as an anonymous response.
+  publicLinkEnabled        Boolean      @default(false) @map("public_link_enabled")
   createdAt                DateTime     @default(now()) @map("created_at")
   updatedAt                DateTime     @updatedAt @map("updated_at")
 
@@ -1270,6 +1276,7 @@ model Form {
   @@index([createdById])
   @@index([status])
   @@index([category])
+  @@index([isTemplate])
   @@map("forms")
 }
 

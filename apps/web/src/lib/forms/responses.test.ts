@@ -22,7 +22,7 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-import { getFormForFilling, submitFormResponse } from "./responses";
+import { getFormForFilling, getPublicForm, submitFormResponse, submitPublicFormResponse } from "./responses";
 
 beforeEach(() => {
   formFindUnique.mockReset();
@@ -146,5 +146,66 @@ describe("submitFormResponse", () => {
         { invitationId: "inv1", answers: [{ questionId: "q1", value: "Asha" }] }
       )
     ).rejects.toThrow(/not addressed to you/i);
+  });
+});
+
+describe("short answer email format", () => {
+  const email = { id: "q1", type: "SHORT_ANSWER" as const, required: true, config: { format: "email" } };
+
+  it("accepts an email address", () => {
+    expect(validateAnswerValue(email, "asha@example.com")).toBeNull();
+  });
+
+  it("rejects text that is not an email address", () => {
+    expect(validateAnswerValue(email, "asha at example")).toMatch(/email/i);
+  });
+});
+
+describe("public form link", () => {
+  const publicForm = {
+    id: "f1",
+    status: "PUBLISHED",
+    publicLinkEnabled: true,
+    isTemplate: false,
+    opensAt: null,
+    closesAt: null,
+    sections: [{ questions: [{ id: "q1", type: "SHORT_ANSWER", title: "Name", required: true, config: {} }] }],
+  };
+
+  it("serves a published form with its public link switched on", async () => {
+    formFindUnique.mockResolvedValue(publicForm);
+    await expect(getPublicForm("f1")).resolves.toMatchObject({ id: "f1" });
+  });
+
+  it.each([
+    ["missing", null],
+    ["a draft", { ...publicForm, status: "DRAFT" }],
+    ["link switched off", { ...publicForm, publicLinkEnabled: false }],
+    ["a template", { ...publicForm, isTemplate: true }],
+    ["closed", { ...publicForm, closesAt: new Date("2020-01-01") }],
+  ])("reports %s the same way, as not found", async (_label, form) => {
+    formFindUnique.mockResolvedValue(form);
+    await expect(getPublicForm("f1")).rejects.toMatchObject({ code: "NOT_FOUND", status: 404 });
+  });
+
+  it("saves an anonymous response with no respondent", async () => {
+    formFindUnique.mockResolvedValue(publicForm);
+    responseCreate.mockResolvedValue({ id: "r1" });
+    await submitPublicFormResponse("f1", [{ questionId: "q1", value: "Asha" }]);
+    expect(responseCreate.mock.calls[0][0].data).toMatchObject({ formId: "f1", respondentUserId: null, anonymous: true });
+  });
+
+  it("still enforces required answers", async () => {
+    formFindUnique.mockResolvedValue(publicForm);
+    await expect(submitPublicFormResponse("f1", [])).rejects.toThrow(/required/i);
+    expect(responseCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a form with a file upload, which needs a signed-in user", async () => {
+    formFindUnique.mockResolvedValue({
+      ...publicForm,
+      sections: [{ questions: [{ id: "q9", type: "FILE_UPLOAD", title: "CV", required: false, config: {} }] }],
+    });
+    await expect(submitPublicFormResponse("f1", [])).rejects.toMatchObject({ code: "PUBLIC_FILE_UPLOAD" });
   });
 });

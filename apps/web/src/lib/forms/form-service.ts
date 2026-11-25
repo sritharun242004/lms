@@ -78,7 +78,9 @@ export async function listForms(
   requireStaff(actor);
   return prisma.form.findMany({
     where: {
-      ...(actor.role === "ADMIN" ? {} : { createdById: actor.id }),
+      // Templates are shared with every staff member; other forms stay
+      // private to their creator (admins see everything).
+      ...(actor.role === "ADMIN" ? {} : { OR: [{ createdById: actor.id }, { isTemplate: true }] }),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.category ? { category: filters.category } : {}),
       ...(filters.search
@@ -103,6 +105,8 @@ export async function updateFormMeta(
     allowMultipleSubmissions: boolean;
     feedbackTargetType: string | null;
     feedbackTargetLabel: string | null;
+    isTemplate: boolean;
+    publicLinkEnabled: boolean;
   }>
 ): Promise<Form> {
   await requireOwnedForm(actor, formId);
@@ -171,16 +175,19 @@ export async function saveFormStructure(
   });
 }
 
+// Also how a template is used: any staff member may copy a template, and the
+// copy keeps the template's title. A copy is never itself a template and
+// never inherits a public link — sharing is decided per copy.
 export async function duplicateForm(actor: Actor, formId: string): Promise<Form> {
   requireStaff(actor);
   const source = await getFormWithStructure(formId);
-  if (source.createdById !== actor.id && actor.role !== "ADMIN") {
+  if (source.createdById !== actor.id && actor.role !== "ADMIN" && !source.isTemplate) {
     throw new FormError("You do not have access to this form", "FORBIDDEN", 403);
   }
 
   return prisma.form.create({
     data: {
-      title: `${source.title} (copy)`,
+      title: source.isTemplate ? source.title : `${source.title} (copy)`,
       description: source.description,
       headerImageUrl: source.headerImageUrl,
       themeColor: source.themeColor,

@@ -37,6 +37,8 @@ const FORM = {
   category: "FEEDBACK" as const,
   status: "PUBLISHED" as const,
   updatedAt: "2026-11-20T00:00:00Z",
+  isTemplate: false,
+  canEdit: true,
   _count: { sections: 1, responses: 2 },
 };
 

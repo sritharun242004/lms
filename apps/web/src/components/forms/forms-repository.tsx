@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Copy } from "lucide-react";
+import { Copy, Pencil, Pin, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,8 @@ export type FormRow = {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   category: "GENERIC" | "FEEDBACK";
   updatedAt: string;
+  isTemplate: boolean;
+  canEdit: boolean;
   _count: { sections: number; responses: number };
 };
 
@@ -38,7 +40,11 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
   const [search, setSearch] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
 
+  const templates = forms.filter((form) => form.isTemplate);
+  const [usingTemplateId, setUsingTemplateId] = React.useState<string | null>(null);
+
   const filtered = forms.filter((form) => {
+    if (form.isTemplate) return false;
     if (filter !== "ALL" && form.status !== filter) return false;
     if (search && !form.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -63,10 +69,23 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
   async function duplicate(formId: string) {
     try {
       const data = await requestJson<{ form: FormRow }>(`/api/v1/forms/${formId}/duplicate`, { method: "POST" });
-      setForms((current) => [{ ...data.form, _count: { sections: 0, responses: 0 } }, ...current]);
+      setForms((current) => [{ ...data.form, canEdit: true, _count: { sections: 0, responses: 0 } }, ...current]);
       toast.success("Form duplicated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to duplicate form");
+    }
+  }
+
+  // Using a template = an editable copy of your own, opened straight in the
+  // builder, so the template itself is never filled or changed by accident.
+  async function copyTemplate(templateId: string) {
+    setUsingTemplateId(templateId);
+    try {
+      const data = await requestJson<{ form: { id: string } }>(`/api/v1/forms/${templateId}/duplicate`, { method: "POST" });
+      router.push(`/forms/${data.form.id}/edit`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to use this template");
+      setUsingTemplateId(null);
     }
   }
 
@@ -81,6 +100,41 @@ export function FormsRepository({ forms: initialForms }: { forms: FormRow[] }) {
           <Plus className="size-4" /> New form
         </Button>
       </div>
+
+      {templates.length > 0 ? (
+        <section aria-labelledby="templates-heading" className="flex flex-col gap-3">
+          <h2 id="templates-heading" className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            <Pin className="size-4" aria-hidden="true" /> Templates
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {templates.map((template) => (
+              <Card key={template.id} className="border-primary/25">
+                <CardContent className="flex h-full flex-col gap-4 p-4">
+                  <div className="flex flex-col gap-1">
+                    <p className="font-semibold">{template.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">Template</Badge>
+                      {template.category === "FEEDBACK" ? <Badge variant="secondary">Feedback</Badge> : null}
+                    </div>
+                  </div>
+                  <div className="mt-auto flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => copyTemplate(template.id)} disabled={usingTemplateId !== null}>
+                      <Copy className="size-4" /> {usingTemplateId === template.id ? "Creating..." : "Use template"}
+                    </Button>
+                    {template.canEdit ? (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`/forms/${template.id}/edit`}>
+                          <Pencil className="size-4" /> Edit template
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {(["ALL", "DRAFT", "PUBLISHED", "ARCHIVED"] as const).map((status) => (

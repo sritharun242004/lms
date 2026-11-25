@@ -36,6 +36,7 @@ type Config = {
   minSelections?: number;
   maxSelections?: number;
   maxLength?: number;
+  format?: "email";
 };
 
 function asConfig(config: unknown): Config {
@@ -86,6 +87,8 @@ function QuestionInput({
     case "SHORT_ANSWER":
       return (
         <Input
+          type={config.format === "email" ? "email" : "text"}
+          autoComplete={config.format === "email" ? "email" : undefined}
           value={(value as string) ?? ""}
           maxLength={config.maxLength}
           onChange={(e) => onChange(e.target.value)}

@@ -25,6 +25,9 @@ export const RATE_LIMITS = {
   // so this stays generous; it only has to make guessing codes impractical.
   joinPerIp: { limit: 300, windowMs: 10 * MINUTE },
   resetPasswordPerIp: { limit: 20, windowMs: 15 * MINUTE },
+  // A whole workshop room can submit from one venue Wi-Fi IP at the end of
+  // a session, so this only stops scripted floods.
+  publicFormSubmitPerIp: { limit: 120, windowMs: 10 * MINUTE },
 } satisfies Record<string, RateLimitRule>;
 
 /** Counts one attempt against `key`; returns seconds to wait when over the limit. */

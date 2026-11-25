@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Eye, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Eye, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { initialAnswers } from "@/lib/forms/prefill";
+import { publicFormPath } from "@/lib/forms/public-link";
 import { QuestionRenderer, type QuestionLike } from "./question-renderer";
 import { QuestionRepositoryPicker } from "./question-repository-picker";
 
@@ -82,6 +85,8 @@ export type FormMeta = {
   description: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   category: "GENERIC" | "FEEDBACK";
+  isTemplate: boolean;
+  publicLinkEnabled: boolean;
 };
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -253,17 +258,41 @@ export function FormBuilder({
     }
   }
 
-  async function saveMeta(patch: Partial<Pick<FormMeta, "title" | "description">>) {
+  async function saveMeta(patch: Partial<Pick<FormMeta, "title" | "description" | "isTemplate" | "publicLinkEnabled">>) {
     try {
       await requestJson(`/api/v1/forms/${meta.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save");
+      return false;
     }
   }
+
+  // Switches update instantly and roll back if the save fails, so what the
+  // switch shows is always what the server has.
+  async function toggleMeta(field: "isTemplate" | "publicLinkEnabled", value: boolean) {
+    setMeta((m) => ({ ...m, [field]: value }));
+    if (!(await saveMeta({ [field]: value }))) setMeta((m) => ({ ...m, [field]: !value }));
+  }
+
+  async function copyPublicLink() {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${publicFormPath(meta.id)}`);
+      toast.success("Public link copied");
+    } catch {
+      toast.error("Couldn't copy — select the link and copy it manually");
+    }
+  }
+
+  const linkParams = sections.flatMap((s) =>
+    s.questions
+      .map((q) => (q.type === "SHORT_ANSWER" && typeof q.config.urlParam === "string" ? q.config.urlParam : ""))
+      .filter(Boolean)
+  );
 
   const isDraft = meta.status === "DRAFT";
 
@@ -287,10 +316,72 @@ export function FormBuilder({
             disabled={!isDraft}
           />
         </div>
-        <Button variant="outline" onClick={() => setPreview((p) => !p)}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (!preview) {
+              setPreviewAnswers(
+                initialAnswers(sections.flatMap((s) => s.questions.map((q) => ({ id: q.key, type: q.type, config: q.config }))))
+              );
+            }
+            setPreview((p) => !p);
+          }}
+        >
           <Eye className="size-4" /> {preview ? "Edit" : "Preview"}
         </Button>
       </div>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+          <label className="flex items-start gap-3">
+            <Switch
+              checked={meta.isTemplate}
+              onCheckedChange={(checked) => void toggleMeta("isTemplate", checked)}
+              aria-describedby="template-help"
+            />
+            <span>
+              <span className="block text-sm font-semibold">Template</span>
+              <span id="template-help" className="block text-sm text-muted-foreground">
+                Pinned in the Templates group for all staff. They use it by making their own copy.
+              </span>
+            </span>
+          </label>
+          {!meta.isTemplate ? (
+            <div className="flex flex-col gap-2">
+              <label className="flex items-start gap-3">
+                <Switch
+                  checked={meta.publicLinkEnabled}
+                  onCheckedChange={(checked) => void toggleMeta("publicLinkEnabled", checked)}
+                  aria-describedby="public-link-help"
+                />
+                <span>
+                  <span className="block text-sm font-semibold">Public link</span>
+                  <span id="public-link-help" className="block text-sm text-muted-foreground">
+                    Anyone with the link can fill this form without signing in. Responses are anonymous.
+                    {meta.status !== "PUBLISHED" ? " The link starts working once the form is published." : ""}
+                  </span>
+                </span>
+              </label>
+              {meta.publicLinkEnabled ? (
+                <div className="flex flex-col gap-1 sm:pl-12">
+                  <div className="flex gap-2">
+                    <Input readOnly value={publicFormPath(meta.id)} aria-label="Public link" onFocus={(e) => e.target.select()} />
+                    <Button variant="outline" onClick={copyPublicLink}>
+                      <Copy className="size-4" /> Copy link
+                    </Button>
+                  </div>
+                  {linkParams.length > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Pre-fill from the link by adding {linkParams.map((p) => `?${p}=…`).join(" or ")} — for example{" "}
+                      <code>?{linkParams[0]}=Chennai</code>.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {preview ? (
         <div className="flex flex-col gap-4">
@@ -552,8 +643,8 @@ function QuestionConfigEditor({
         </div>
       );
     case "SHORT_ANSWER":
-    case "PARAGRAPH":
-      return (
+    case "PARAGRAPH": {
+      const limit = (
         <label className="flex items-center gap-2 text-sm">
           Character limit (optional)
           <Input
@@ -565,6 +656,41 @@ function QuestionConfigEditor({
           />
         </label>
       );
+      if (question.type === "PARAGRAPH") return limit;
+      return (
+        <div className="flex flex-col gap-2">
+          {limit}
+          <label className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+            Pre-filled answer (optional)
+            <Input
+              className="sm:max-w-xs"
+              disabled={disabled}
+              placeholder="e.g. MN1494"
+              value={(config.defaultValue as string) ?? ""}
+              onChange={(e) => setConfig({ defaultValue: e.target.value || undefined })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+            Fill from link parameter (optional)
+            <Input
+              className="sm:max-w-[12rem]"
+              disabled={disabled}
+              placeholder="e.g. location"
+              value={(config.urlParam as string) ?? ""}
+              onChange={(e) => setConfig({ urlParam: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "") || undefined })}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={config.format === "email"}
+              disabled={disabled}
+              onCheckedChange={(checked) => setConfig({ format: checked === true ? "email" : undefined })}
+            />
+            Must be an email address
+          </label>
+        </div>
+      );
+    }
     default:
       return null;
   }
