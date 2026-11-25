@@ -159,10 +159,10 @@ export function QuestionsPanel(props: Props) {
             <Wand2 className="size-5" aria-hidden />
           </span>
           <h2 id={`${shortId}-empty`} className="text-lg font-semibold text-balance">
-            Let's learn more about your task
+            Let&apos;s learn more about your task
           </h2>
           <p className="max-w-md text-sm text-pretty text-muted-foreground">
-            Let's get to know your task. We'll ask 5 to 8 questions about what stays the same every time, and list what changes on each run.
+            Let&apos;s get to know your task. We&apos;ll ask 5 to 8 questions about what stays the same every time, and list what changes on each run.
           </p>
           <Button
             size="lg"
