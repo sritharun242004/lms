@@ -201,11 +201,31 @@ describe("public form link", () => {
     expect(responseCreate).not.toHaveBeenCalled();
   });
 
-  it("refuses a form with a file upload, which needs a signed-in user", async () => {
+  it("refuses a form with a required file upload, which needs a signed-in user", async () => {
     formFindUnique.mockResolvedValue({
       ...publicForm,
-      sections: [{ questions: [{ id: "q9", type: "FILE_UPLOAD", title: "CV", required: false, config: {} }] }],
+      sections: [{ questions: [{ id: "q9", type: "FILE_UPLOAD", title: "CV", required: true, config: {} }] }],
     });
     await expect(submitPublicFormResponse("f1", [])).rejects.toMatchObject({ code: "PUBLIC_FILE_UPLOAD" });
+  });
+
+  it("leaves out an optional file upload and accepts the rest", async () => {
+    formFindUnique.mockResolvedValue({
+      ...publicForm,
+      sections: [
+        {
+          questions: [
+            { id: "q1", type: "SHORT_ANSWER", title: "Name", required: true, config: {} },
+            { id: "q9", type: "FILE_UPLOAD", title: "Photo", required: false, config: {} },
+          ],
+        },
+      ],
+    });
+    responseCreate.mockResolvedValue({ id: "r1" });
+    await submitPublicFormResponse("f1", [{ questionId: "q1", value: "Asha" }]);
+    expect(responseCreate).toHaveBeenCalled();
+    await expect(
+      submitPublicFormResponse("f1", [{ questionId: "q1", value: "Asha" }, { questionId: "q9", value: { fileId: "x" } }])
+    ).rejects.toMatchObject({ code: "UNKNOWN_QUESTION" });
   });
 });
