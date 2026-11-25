@@ -64,4 +64,23 @@ describe("FormsRepository", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/forms/copy1/edit"));
     expect(global.fetch).toHaveBeenCalledWith("/api/v1/forms/t1/duplicate", { method: "POST" });
   });
+
+  it("deletes a form only after confirming, warning about its responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { responseCount: 5 } }) }) as unknown as typeof fetch;
+    render(createElement(FormsRepository, { forms }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Trainer feedback" }));
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.getByText(/also deletes its 5 responses/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByText("Trainer feedback")).toBeNull());
+    expect(global.fetch).toHaveBeenCalledWith("/api/v1/forms/f1", { method: "DELETE" });
+  });
+
+  it("offers no delete on a template someone else owns", () => {
+    const template = { ...forms[0], id: "t1", title: "Certificate feedback", isTemplate: true, canEdit: false };
+    render(createElement(FormsRepository, { forms: [template] }));
+    expect(screen.queryByRole("button", { name: /delete certificate feedback/i })).toBeNull();
+  });
 });

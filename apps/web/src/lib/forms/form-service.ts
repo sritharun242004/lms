@@ -1,3 +1,4 @@
+import { AuditAction } from "@cms/shared";
 import { prisma } from "@/lib/db/prisma";
 import type { Form, FormCategory, FormQuestionType, FormStatus } from "@prisma/client";
 
@@ -216,5 +217,39 @@ export async function duplicateForm(actor: Actor, formId: string): Promise<Form>
         })),
       },
     },
+  });
+}
+
+// Permanent. The form's sections, questions, invitations and responses go
+// with it (cascade). Chat messages that sent the form are marked deleted, the
+// same way a deleted chat message shows, so nobody is left with a card that
+// opens nothing. The audit entry keeps what was removed and by whom.
+export async function deleteForm(actor: Actor, formId: string): Promise<{ responseCount: number }> {
+  requireStaff(actor);
+  const form = await requireOwnedForm(actor, formId);
+
+  return prisma.$transaction(async (tx) => {
+    const [responseCount, invitations] = await Promise.all([
+      tx.formResponse.count({ where: { formId } }),
+      tx.formInvitation.findMany({ where: { formId, messageId: { not: null } }, select: { messageId: true }, distinct: ["messageId"] }),
+    ]);
+    const messageIds = invitations.map((i) => i.messageId).filter((id): id is string => id !== null);
+    if (messageIds.length > 0) {
+      await tx.message.updateMany({
+        where: { id: { in: messageIds }, isDeleted: false },
+        data: { isDeleted: true, deletedAt: new Date(), deletedById: actor.id },
+      });
+    }
+    await tx.form.delete({ where: { id: formId } });
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        action: AuditAction.FORM_DELETED,
+        entityType: "Form",
+        entityId: formId,
+        metadata: { title: form.title, wasTemplate: form.isTemplate, status: form.status, responseCount },
+      },
+    });
+    return { responseCount };
   });
 }

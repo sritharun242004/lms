@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const {
+  responseCount,
+  invitationFindMany,
+  messageUpdateMany,
+  formDelete,
+  auditCreate,
   formFindUnique,
   formFindMany,
   formCreate,
@@ -9,6 +14,11 @@ const {
   sectionDeleteMany,
   sectionCreate,
 } = vi.hoisted(() => ({
+  responseCount: vi.fn(),
+  invitationFindMany: vi.fn(),
+  messageUpdateMany: vi.fn(),
+  formDelete: vi.fn(),
+  auditCreate: vi.fn(),
   formFindUnique: vi.fn(),
   formFindMany: vi.fn(),
   formCreate: vi.fn(),
@@ -25,12 +35,18 @@ vi.mock("@/lib/db/prisma", () => ({
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         formSection: { deleteMany: sectionDeleteMany, create: sectionCreate },
+        formResponse: { count: responseCount },
+        formInvitation: { findMany: invitationFindMany },
+        message: { updateMany: messageUpdateMany },
+        form: { delete: formDelete },
+        auditLog: { create: auditCreate },
       }),
   },
 }));
 
 import {
   createForm,
+  deleteForm,
   duplicateForm,
   listForms,
   requireStaff,
@@ -166,5 +182,49 @@ describe("templates", () => {
     expect(formFindMany.mock.calls[0][0].where).toMatchObject({
       OR: [{ createdById: "mentor1" }, { isTemplate: true }],
     });
+  });
+});
+
+describe("deleteForm", () => {
+  beforeEach(() => {
+    [responseCount, invitationFindMany, messageUpdateMany, formDelete, auditCreate].forEach((m) => m.mockReset());
+  });
+
+  it("deletes the form, hides the chat messages that sent it, and audits it", async () => {
+    formFindUnique.mockResolvedValue({ id: "f1", title: "Day 1 feedback", createdById: "u1", isTemplate: false, status: "PUBLISHED" });
+    responseCount.mockResolvedValue(3);
+    invitationFindMany.mockResolvedValue([{ messageId: "m1" }, { messageId: "m2" }]);
+
+    await expect(deleteForm({ id: "u1", role: "MENTOR" }, "f1")).resolves.toEqual({ responseCount: 3 });
+
+    expect(messageUpdateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: { in: ["m1", "m2"] }, isDeleted: false },
+      data: { isDeleted: true, deletedById: "u1" },
+    });
+    expect(formDelete).toHaveBeenCalledWith({ where: { id: "f1" } });
+    expect(auditCreate.mock.calls[0][0].data).toMatchObject({
+      action: "FORM_DELETED",
+      entityId: "f1",
+      metadata: { title: "Day 1 feedback", responseCount: 3 },
+    });
+  });
+
+  it("refuses another mentor's form, including a shared template", async () => {
+    formFindUnique.mockResolvedValue({ id: "t1", title: "Template", createdById: "admin1", isTemplate: true, status: "DRAFT" });
+    await expect(deleteForm({ id: "mentor1", role: "MENTOR" }, "t1")).rejects.toMatchObject({ status: 403 });
+    expect(formDelete).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin delete anyone's form", async () => {
+    formFindUnique.mockResolvedValue({ id: "f1", title: "X", createdById: "mentor1", isTemplate: false, status: "DRAFT" });
+    responseCount.mockResolvedValue(0);
+    invitationFindMany.mockResolvedValue([]);
+    await deleteForm({ id: "admin1", role: "ADMIN" }, "f1");
+    expect(messageUpdateMany).not.toHaveBeenCalled();
+    expect(formDelete).toHaveBeenCalled();
+  });
+
+  it("refuses participants outright", async () => {
+    await expect(deleteForm({ id: "p1", role: "MENTEE" }, "f1")).rejects.toMatchObject({ status: 403 });
   });
 });
