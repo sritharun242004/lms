@@ -15,6 +15,18 @@ describe("withPoolDefaults", () => {
     expect(out.searchParams.get("pool_timeout")).toBe("9");
   });
 
+  it("turns on PgBouncer mode for a pooler host and allows time for a suspended database to wake", () => {
+    const out = new URL(withPoolDefaults("postgresql://u:p@ep-x-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require")!);
+    expect(out.searchParams.get("pgbouncer")).toBe("true");
+    expect(out.searchParams.get("connect_timeout")).toBe("15");
+    expect(out.searchParams.get("sslmode")).toBe("require");
+  });
+
+  it("does not turn on PgBouncer mode for a direct host", () => {
+    const out = new URL(withPoolDefaults("postgresql://u:p@ep-x.c-5.us-east-2.aws.neon.tech/neondb")!);
+    expect(out.searchParams.has("pgbouncer")).toBe(false);
+  });
+
   it("leaves missing, non-Postgres and unparseable URLs alone", () => {
     expect(withPoolDefaults(undefined)).toBeUndefined();
     expect(withPoolDefaults("file:./dev.db")).toBe("file:./dev.db");
