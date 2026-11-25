@@ -8,7 +8,7 @@ class NamedError extends Error {
 
 export class JobNotFoundError extends NamedError {
   constructor() {
-    super("Job not found");
+    super("Task not found");
   }
 }
 export class FileNotFoundError extends NamedError {
@@ -59,7 +59,7 @@ export class TooManySkillsError extends NamedError {
 }
 export class EmptyDescriptionError extends NamedError {
   constructor() {
-    super("The job has no description");
+    super("The task has no description");
   }
 }
 export class NothingToDownloadError extends NamedError {

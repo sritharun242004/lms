@@ -54,7 +54,7 @@ export function cleanSuggestions(raw: RawSuggestions, ctx: { activeFileIds: stri
 /** One skill named after the job when the model gave nothing usable and the job has no skills. */
 export function fallbackSuggestion(job: { title: string; description: string }, activeFileIds: string[], taken: string[]): CleanSuggestion {
   const firstSentence = oneLine(job.description).split(/(?<=[.!?])\s/)[0] ?? "";
-  const purpose = oneLine(firstSentence, SKILL_PURPOSE_MAX) || oneLine(job.title, SKILL_PURPOSE_MAX) || "Does this job the way I do it.";
+  const purpose = oneLine(firstSentence, SKILL_PURPOSE_MAX) || oneLine(job.title, SKILL_PURPOSE_MAX) || "Does this task the way I do it.";
   return { name: uniqueSkillName(normalizeSkillName(job.title, "my-skill"), taken), purpose, fileIds: cleanFileIds(activeFileIds, activeFileIds) };
 }
 

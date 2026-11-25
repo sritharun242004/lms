@@ -124,7 +124,7 @@ export function findOwnedJob(jobId: string, userId: string) {
 
 export async function createJob(userId: string, input: { title?: string; description?: string }): Promise<string> {
   const description = (input.description ?? "").trim();
-  const title = input.title?.trim() || titleFrom(description, "Untitled job");
+  const title = input.title?.trim() || titleFrom(description, "Untitled task");
   const job = await prisma.skillJob.create({ data: { userId, title, description }, select: { id: true } });
   return job.id;
 }

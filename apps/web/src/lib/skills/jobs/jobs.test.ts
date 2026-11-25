@@ -220,7 +220,7 @@ describe("create, update and delete", () => {
       select: { id: true },
     });
     await createJob("u1", {});
-    expect(mocks.jobCreate.mock.calls[1][0].data).toEqual({ userId: "u1", title: "Untitled job", description: "" });
+    expect(mocks.jobCreate.mock.calls[1][0].data).toEqual({ userId: "u1", title: "Untitled task", description: "" });
     await createJob("u1", { title: " My job ", description: "x" });
     expect(mocks.jobCreate.mock.calls[2][0].data.title).toBe("My job");
   });

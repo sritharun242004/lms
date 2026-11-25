@@ -12,7 +12,7 @@ describe("renderReadme", () => {
 
   it("says what is inside, with each skill's version", () => {
     expect(readme.startsWith("# Monthly board update\n")).toBe(true);
-    expect(readme).toContain("## What this job is");
+    expect(readme).toContain("## What this task is");
     expect(readme).toContain("Every month I turn my notes into the board update.");
     expect(readme).toContain("- `board-update` (v3): Writes the board update.");
   });
