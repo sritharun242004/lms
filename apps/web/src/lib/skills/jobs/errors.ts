@@ -84,6 +84,30 @@ export class DuplicateNameError extends NamedError {
   }
 }
 
+export class QuestionNotFoundError extends NamedError {
+  constructor() {
+    super("Question not found");
+  }
+}
+/** The target list (FIXED "Answer now" or PER_USE "Claude will ask each time") is at its cap. */
+export class TooManyQuestionsError extends NamedError {
+  constructor(readonly kind: "FIXED" | "PER_USE") {
+    super(`Too many ${kind === "FIXED" ? "questions" : "per-use inputs"}`);
+  }
+}
+/** Writing questions needs a description of at least JOB_LIMITS.descriptionMinChars (trimmed). */
+export class DescriptionTooShortError extends NamedError {
+  constructor(readonly length: number) {
+    super("The task description is too short");
+  }
+}
+/** Enhance needs at least JOB_LIMITS.enhanceMinWords words. */
+export class EnhanceInputTooShortError extends NamedError {
+  constructor() {
+    super("Too few words to enhance");
+  }
+}
+
 /** A Prisma unique-index violation (P2002): a concurrent request won the race the app-level check lost. */
 export const isUniqueViolation = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002";

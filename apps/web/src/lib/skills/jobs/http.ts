@@ -8,6 +8,7 @@ import { FileReadError } from "../files/types";
 import { JOB_LIMITS } from "../limits";
 import { DuplicateSkillNameError } from "../zip";
 import * as E from "./errors";
+import { tooShortMessage } from "./task-text";
 
 export const unauthorized = (): Response => errorResponse("Authentication required", "UNAUTHORIZED", 401);
 export const notFound = (what: "Job" | "File" | "Skill" | "Version" | "Question"): Response =>
@@ -21,6 +22,19 @@ export function jobErrorResponse(error: unknown): Response | null {
   if (error instanceof E.FileNotFoundError) return notFound("File");
   if (error instanceof E.SkillNotFoundError) return notFound("Skill");
   if (error instanceof E.VersionNotFoundError) return notFound("Version");
+  if (error instanceof E.QuestionNotFoundError) return notFound("Question");
+  if (error instanceof E.TooManyQuestionsError) {
+    return conflict(
+      "TOO_MANY_QUESTIONS",
+      error.kind === "FIXED"
+        ? `A task can have at most ${JOB_LIMITS.questionsPerTask} questions to answer now. Remove one to add another.`
+        : `A task can have at most ${JOB_LIMITS.perUseInputsPerTask} inputs Claude asks for each time. Remove one to add another.`,
+    );
+  }
+  if (error instanceof E.DescriptionTooShortError) return errorResponse(`${tooShortMessage(error.length)}.`, "DESCRIPTION_TOO_SHORT", 400);
+  if (error instanceof E.EnhanceInputTooShortError) {
+    return errorResponse(`Write at least ${JOB_LIMITS.enhanceMinWords} words about the task first.`, "VALIDATION_ERROR", 400);
+  }
   if (error instanceof E.AlreadyAnalysingError) return conflict("ALREADY_ANALYSING", "This file is still being analysed. Wait for it to finish.");
   if (error instanceof E.AlreadyGeneratingError) return conflict("ALREADY_GENERATING", "A skill in this job is being written. Wait for it to finish.");
   if (error instanceof E.FilesAnalysingError) return conflict("FILES_ANALYSING", "Wait until your files have been analysed.");
