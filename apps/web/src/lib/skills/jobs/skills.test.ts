@@ -203,7 +203,7 @@ describe("suggestForJob", () => {
     mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: [] });
     mocks.activeFiles.mockResolvedValueOnce([fileRow("f1", { analysisStatus: "PENDING", analysisStartedAt: minutesAgo(1) })]);
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(FilesAnalysingError);
-    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 5 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
+    mocks.jobFindFirst.mockResolvedValueOnce({ ...JOB, skills: Array.from({ length: 7 }, (_, i) => skill({ id: `s${i}`, name: `k${i}` })) });
     await expect(suggestForJob("j1", "u1", NOW)).rejects.toBeInstanceOf(TooManySkillsError);
     expect(mocks.consumeAiUsage).not.toHaveBeenCalled();
   });
@@ -243,7 +243,7 @@ describe("addSkill", () => {
 
   it("refuses a duplicate name, a full job and a foreign job", async () => {
     await expect(addSkill("j1", "u1", { name: "Board Deck", purpose: "p" })).rejects.toEqual(new DuplicateNameError("board-deck"));
-    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: Array.from({ length: 5 }, (_, i) => ({ name: `k${i}`, order: i })) });
+    mocks.jobFindFirst.mockResolvedValueOnce({ id: "j1", skills: Array.from({ length: 7 }, (_, i) => ({ name: `k${i}`, order: i })) });
     await expect(addSkill("j1", "u1", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(TooManySkillsError);
     mocks.jobFindFirst.mockResolvedValueOnce(null);
     await expect(addSkill("j1", "u2", { name: "x", purpose: "p" })).rejects.toBeInstanceOf(JobNotFoundError);

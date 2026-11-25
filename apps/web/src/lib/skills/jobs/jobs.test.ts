@@ -160,8 +160,12 @@ describe("toSkillView", () => {
     expect(toSkillView(skillRow(), NOW)).toEqual({
       id: "s1",
       order: 0,
+      role: "SUB",
       name: "board-deck",
+      label: "",
       purpose: "Builds the deck.",
+      focus: "",
+      step: "",
       fileIds: ["f1"],
       status: "READY",
       validationErrors: [],
