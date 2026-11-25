@@ -21,6 +21,10 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => mocks.searchParams })
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, custom: vi.fn() } }));
 vi.mock("@/hooks/use-chat-socket", () => ({ useChatSocket: vi.fn() }));
 vi.mock("@/hooks/use-confirm", () => ({ useConfirm: () => [vi.fn(), null] }));
+vi.mock("@/components/groups/group-prompt-bot-toggle", () => ({
+  GroupPromptBotToggle: ({ initialEnabled, variant }: { initialEnabled: boolean; variant?: string }) =>
+    createElement("span", { "data-testid": "prompt-bot-switch", "data-on": String(initialEnabled), "data-variant": variant }, "switch"),
+}));
 vi.mock("@/components/groups/group-members-dialog", () => ({
   GroupMembersDialog: ({ trigger }: { trigger: ReactNode }) => createElement("div", null, trigger),
 }));
@@ -58,7 +62,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
 });
 
-function renderThread(canManage: boolean, groupCode: string | null, participant = false, promptBotEnabled = false) {
+function renderThread(canManage: boolean, groupCode: string | null, participant = false, promptBotEnabled = false, role?: "ADMIN" | "MENTOR") {
   const Thread = ChatThread as unknown as ComponentType<Record<string, unknown>>;
   return render(
     createElement(Thread, {
@@ -67,7 +71,11 @@ function renderThread(canManage: boolean, groupCode: string | null, participant 
       groupDescription: "Weekly work",
       memberCount: 4,
       currentUserId: "user-1",
-      currentUser: participant ? { id: "user-1", name: "Participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false } : undefined,
+      currentUser: participant
+        ? { id: "user-1", name: "Participant", email: null, role: "MENTEE", avatarUrl: null, emailVerified: false }
+        : role
+          ? { id: "user-1", name: "Staff", email: null, role, avatarUrl: null, emailVerified: false }
+          : undefined,
       canManage,
       groupCode,
       promptBotEnabled,
@@ -108,6 +116,29 @@ describe("group-code chat header", () => {
     // A rename (no promptBotEnabled in the event) leaves it as it is.
     act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Renamed", description: "Weekly work" }));
     expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+  });
+
+  it("gives an admin the Prompt Bot switch inside the chat, reflecting the group's setting", () => {
+    renderThread(true, "CMS-45UT", false, true, "ADMIN");
+    const sw = screen.getByTestId("prompt-bot-switch");
+    expect(sw.getAttribute("data-on")).toBe("true");
+    expect(sw.getAttribute("data-variant")).toBe("compact");
+    expect(screen.getByText("CMS-45UT")).toBeTruthy();
+  });
+
+  it("follows another admin's change live", () => {
+    renderThread(true, "CMS-45UT", false, false, "ADMIN");
+    const handlers = vi.mocked(useChatSocket).mock.calls.at(-1)![1];
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Design cohort", description: "Weekly work", promptBotEnabled: true }));
+    expect(screen.getByTestId("prompt-bot-switch").getAttribute("data-on")).toBe("true");
+  });
+
+  it("does not give coaches or participants the switch", () => {
+    renderThread(true, "CMS-45UT", false, false, "MENTOR");
+    expect(screen.queryByTestId("prompt-bot-switch")).toBeNull();
+    cleanup();
+    renderThread(false, null, true);
+    expect(screen.queryByTestId("prompt-bot-switch")).toBeNull();
   });
 
   it("lets both participants and managers open the group profile from the header", () => {

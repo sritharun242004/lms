@@ -50,6 +50,7 @@ import {
 import { JoinToast } from "@/components/chat/join-toast";
 import { GroupMembersDialog } from "@/components/groups/group-members-dialog";
 import { PromptBotButton } from "@/components/layout/prompt-bot-button";
+import { GroupPromptBotToggle } from "@/components/groups/group-prompt-bot-toggle";
 import { showsPromptBotInGroup } from "@/lib/prompt-bot/visibility";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -644,8 +645,21 @@ export function ChatThread({
             </button>
           }
         />
-        {canManage && groupCode && (
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-primary/15 bg-primary/[.055] px-2 py-1 text-xs text-primary sm:gap-2 sm:px-3">
+        {canManage && (currentUser?.role === "ADMIN" || groupCode) && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+        {currentUser?.role === "ADMIN" && (
+          // Admins can flip participant Prompt Bot access without leaving the session. Keyed on the live value
+          // so another admin's change (group:update) resets the switch.
+          <GroupPromptBotToggle
+            key={String(livePromptBotEnabled)}
+            groupId={groupId}
+            groupName={displayGroupName}
+            initialEnabled={livePromptBotEnabled}
+            variant="compact"
+          />
+        )}
+        {groupCode && (
+          <div className="flex shrink-0 items-center gap-1 rounded-full border border-primary/15 bg-primary/[.055] px-2 py-1 text-xs text-primary sm:gap-2 sm:px-3">
             <span className="hidden font-medium sm:inline">Group code</span>
             <span className="max-w-24 truncate font-mono font-semibold tracking-wide sm:max-w-none">{groupCode}</span>
             <Button
@@ -658,6 +672,8 @@ export function ChatThread({
             >
               <Copy className="size-3.5" />
             </Button>
+          </div>
+        )}
           </div>
         )}
         {!canManage && (
