@@ -21,6 +21,7 @@ describe("renderReadme", () => {
     expect(readme).toContain("### Claude.ai / Claude Desktop");
     expect(readme).toContain("Customize → Skills → + → Create skill → Upload a skill");
     expect(readme).toContain("## Use it");
+    expect(readme).toContain("Create and edit files");
     expect(readme).toContain("`upload-to-claude/`");
     expect(readme).toContain("### Claude Code");
     expect(readme).toContain("`~/.claude/skills/`");

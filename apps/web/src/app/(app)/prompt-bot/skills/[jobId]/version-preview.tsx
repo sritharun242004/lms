@@ -92,7 +92,7 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
         </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">For Claude:</span> in Claude.ai open Customize → Skills → + → Upload a skill, then just ask for the job in your own words.{" "}
+        <span className="font-medium text-foreground">For Claude:</span> in Claude.ai turn on Settings → Capabilities → Create and edit files, upload the zip in Customize → Skills → + → Upload a skill, then just ask for the job in your own words.{" "}
         <span className="font-medium text-foreground">To share:</span> readable files, a README and the Claude zip.{" "}
         {`We keep the last ${JOB_LIMITS.versionsKept} versions of each skill.`}
       </p>
