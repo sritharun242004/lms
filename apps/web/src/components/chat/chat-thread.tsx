@@ -203,6 +203,8 @@ export function ChatThread({
   const [isUploading, setIsUploading] = React.useState(false);
   const [displayMemberCount, setDisplayMemberCount] = React.useState(memberCount);
   const [displayGroupName, setDisplayGroupName] = React.useState(groupName);
+  // Follows the admin's switch live: the group:update event carries promptBotEnabled.
+  const [livePromptBotEnabled, setLivePromptBotEnabled] = React.useState(promptBotEnabled);
   const [displayGroupDescription, setDisplayGroupDescription] = React.useState(groupDescription);
   const [displayGroupAvatarUrl, setDisplayGroupAvatarUrl] = React.useState(groupAvatarUrl);
   const [hasPendingPollTemplate, setHasPendingPollTemplate] = React.useState(false);
@@ -316,10 +318,11 @@ export function ChatThread({
   useChatSocket(groupId, {
     onMembersChanged: (event) =>
       setDisplayMemberCount((current) => applyMemberCount(current, event, groupId)),
-    onGroupUpdated: ({ name, description, avatarUrl }) => {
+    onGroupUpdated: ({ name, description, avatarUrl, promptBotEnabled: nextPromptBot }) => {
       setDisplayGroupName(name);
       setDisplayGroupDescription(description);
       if (avatarUrl !== undefined) setDisplayGroupAvatarUrl(avatarUrl);
+      if (nextPromptBot !== undefined) setLivePromptBotEnabled(nextPromptBot);
     },
     onPresenceJoin: ({ userId, userName, role }) => {
       if (userId === currentUserId) return;
@@ -659,7 +662,7 @@ export function ChatThread({
         )}
         {!canManage && (
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {showsPromptBotInGroup(currentUser?.role ?? "MENTEE", promptBotEnabled) && <PromptBotButton variant="featured" />}
+            {showsPromptBotInGroup(currentUser?.role ?? "MENTEE", livePromptBotEnabled) && <PromptBotButton variant="featured" />}
             <ThemeToggle />
             {currentUser?.role === "MENTEE" && <UserMenu user={currentUser} />}
           </div>

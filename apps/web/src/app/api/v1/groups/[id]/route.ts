@@ -59,6 +59,8 @@ export async function PATCH(
       groupId: id,
       name: updated.name,
       description: updated.description,
+      // Lets participants already in the chat see the Prompt Bot button appear or disappear at once.
+      promptBotEnabled: updated.promptBotEnabled,
     });
 
     return successResponse({

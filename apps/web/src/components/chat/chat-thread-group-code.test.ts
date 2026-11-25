@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 
 import { createElement, type ComponentType, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatThread } from "./chat-thread";
+import { useChatSocket } from "@/hooks/use-chat-socket";
 
 const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
@@ -91,6 +92,22 @@ describe("group-code chat header", () => {
 
     renderThread(false, null, true, true);
     expect(screen.getByRole("link", { name: "Prompt Bot" })).toBeTruthy();
+  });
+
+  it("shows or hides the participant Prompt Bot live when an admin flips the switch mid-meeting", () => {
+    renderThread(false, null, true, false);
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+    const handlers = vi.mocked(useChatSocket).mock.calls.at(-1)![1];
+
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Design cohort", description: "Weekly work", promptBotEnabled: true }));
+    expect(screen.getByRole("link", { name: "Prompt Bot" })).toBeTruthy();
+
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Design cohort", description: "Weekly work", promptBotEnabled: false }));
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
+
+    // A rename (no promptBotEnabled in the event) leaves it as it is.
+    act(() => handlers.onGroupUpdated?.({ groupId: "group-1", name: "Renamed", description: "Weekly work" }));
+    expect(screen.queryByRole("link", { name: "Prompt Bot" })).toBeNull();
   });
 
   it("lets both participants and managers open the group profile from the header", () => {

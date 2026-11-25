@@ -322,6 +322,8 @@ describe("PATCH /groups/:id (Prompt Bot for participants)", () => {
     expect(res.status).toBe(200);
     expect(body.data.promptBotEnabled).toBe(value);
     expect(mocks.groupUpdate).toHaveBeenCalledWith({ where: { id: "group-1" }, data: { promptBotEnabled: value } });
+    // Participants already in the chat get the change live.
+    expect(mocks.broadcast).toHaveBeenCalledWith("group-1", "group:update", expect.objectContaining({ promptBotEnabled: value }));
     expect(mocks.auditCreate).toHaveBeenCalled();
   });
 

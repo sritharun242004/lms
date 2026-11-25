@@ -53,6 +53,8 @@ interface GroupUpdateEvent {
   name: string;
   description: string | null;
   avatarUrl?: string | null;
+  /** Sent when an admin turns Prompt Bot on or off for this group. */
+  promptBotEnabled?: boolean;
 }
 
 interface ChatSocketHandlers {
