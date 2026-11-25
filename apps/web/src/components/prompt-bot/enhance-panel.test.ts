@@ -50,6 +50,18 @@ describe("EnhancePanel", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(4);
   });
 
+  it("renders a detailed v4 prompt's sections, bold facts and inline-numbered details", () => {
+    const v4 = `## Persona\nYou are an **expert recruiter with 20 years of experience**.\n\n## Context\nWe are **XYZ Auto Components Group**.\n\n## Data/Details\nWe offer benefits such as 1) healthcare 2) travel.\n\n## Plan\n1. Draft the job description.\n\n## Instructions\nPlease help us recruit a **Head of North America**. Let's start by writing a **job description**.`;
+    render(createElement(EnhancePanel, { ...props, content: v4 }));
+    const region = screen.getByRole("region", { name: "Enhanced prompt" });
+    for (const name of ["Persona", "Context", "Data/Details", "Plan", "Instructions"]) {
+      expect(screen.getByRole("heading", { level: 3, name })).toBeTruthy();
+    }
+    expect([...region.querySelectorAll("strong")].map((b) => b.textContent)).toContain("expert recruiter with 20 years of experience");
+    expect(region.textContent).toContain("such as 1) healthcare 2) travel.");
+    expect(region.textContent).not.toContain("##");
+  });
+
   it("renders the Plan as a numbered list in step order", () => {
     render(createElement(EnhancePanel, props));
     const plan = screen.getByRole("heading", { level: 3, name: "Plan" }).nextElementSibling!;
