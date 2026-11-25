@@ -11,6 +11,7 @@ import { AddSubSkill } from "./add-sub-skill-form";
 import { PluginCard } from "./plugin-card";
 import { PluginGenerate } from "./plugin-generate";
 import { PluginOverview, splitSkills } from "./plugin-overview";
+import { PluginVersionPreview } from "./plugin-version-preview";
 import { unansweredPhrase, type QueueSave } from "./skill-card";
 
 export const REDRAFT_NOTE = "This replaces your plugin's skills and names. Past versions stay downloadable.";
@@ -119,6 +120,7 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
       <PluginOverview job={job} queueSave={queueSave} onSkillChange={onSkillChange} onSkillRemoved={onSkillRemoved} registerFileSaves={registerFileSaves} />
       <AddSubSkill jobId={job.id} full={subs.length >= JOB_LIMITS.subSkillsMax} locked={locked} onAdded={onSkillChange} />
       <PluginGenerate job={job} gaps={gaps} aiConfigured={aiConfigured} settleSaves={settleSaves} onPluginChange={onPluginChange} />
+      {job.plugin.versions.length > 0 && <PluginVersionPreview jobId={job.id} plugin={job.plugin} />}
       <ConfirmDialog ref={confirmRef} />
     </section>
   );

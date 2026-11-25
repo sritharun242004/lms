@@ -21,6 +21,10 @@ vi.mock("@/lib/skills/jobs/client", () => ({
   patchJob: mocks.patchJob,
 }));
 vi.mock("sonner", () => ({ toast: { error: mocks.toastError, success: vi.fn() } }));
+vi.mock("./plugin-version-preview", async () => {
+  const { createElement: h } = await import("react");
+  return { PluginVersionPreview: ({ plugin }: { plugin: { latestVersion: number } }) => h("p", null, `versions:v${plugin.latestVersion}`) };
+});
 
 import { useMatrixAnswers } from "@/components/prompt-bot/use-matrix-answers";
 import { FIXTURES, jobSkill, jobView, pluginView, SUBS } from "./plugin-fixtures";
@@ -169,6 +173,14 @@ describe("SkillsPanel skills", () => {
     expect(screen.getByRole("heading", { name: "Your plugin" })).toBeTruthy();
     expect(screen.getByLabelText("Plugin ID")).toBeTruthy();
     expect((screen.getAllByLabelText(/^Skill name/) as HTMLInputElement[]).map((i) => i.value)).toEqual(["quarterly-deck", "deck-analyzer", "deck-designer", "deck-grammar-check"]);
+  });
+
+  it("shows the versions once the plugin has one", () => {
+    mount(FIXTURES.draft);
+    expect(screen.queryByText(/^versions:/)).toBeNull();
+    cleanup();
+    mount(FIXTURES.readyV2);
+    expect(screen.getByText("versions:v2")).toBeTruthy();
   });
 
   it("adds a sub-skill by hand, last in the workflow", async () => {
