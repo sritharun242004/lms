@@ -29,7 +29,6 @@ export function QuestionsPanel({ matrix, state }: Props) {
         state={state}
         activeId={activeId}
         onSelect={selectQuestion}
-        onToggleRelevant={(id) => state.updateAnswer(id, { notRelevant: !state.answerFor(id).notRelevant })}
       >
         <p className="mt-3 text-xs text-muted-foreground">Scored against your job description, answers and files.</p>
       </MatrixPanel>

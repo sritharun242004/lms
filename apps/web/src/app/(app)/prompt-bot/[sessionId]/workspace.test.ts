@@ -178,7 +178,7 @@ describe("Workspace", () => {
     expect(calls[score].body).toBe(JSON.stringify({ revision: 1 }));
     expect(answerBox().value).toBe("local");
     expect(screen.getByText(/good/, { selector: "p" }).textContent).toMatch(/3\/3\s*—\s*good/);
-    expect(screen.getByRole("button", { name: /^Mark not relevant: First question/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Mark not relevant/ })).toBeNull();
     expect((screen.getByRole("button", { name: "Checked: First question" }) as HTMLButtonElement).disabled).toBe(true);
   });
 

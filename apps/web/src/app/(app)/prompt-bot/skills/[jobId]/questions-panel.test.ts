@@ -60,12 +60,11 @@ describe("QuestionsPanel", () => {
     expect(help?.textContent).toMatch(/^Short notes are fine/);
   });
 
-  it("sends typing and relevance changes to the shared answer state", () => {
+  it("sends typing to the shared answer state and offers no skip", () => {
     const state = mount();
     fireEvent.change(box("When should this skill be used?"), { target: { value: "Monthly board meetings" } });
     expect(state.updateAnswer).toHaveBeenCalledWith("q1", { answer: "Monthly board meetings" });
-    fireEvent.click(screen.getByRole("button", { name: "Mark not relevant: What context does it need to know?" }));
-    expect(state.updateAnswer).toHaveBeenCalledWith("q2", { notRelevant: true });
+    expect(screen.queryByRole("button", { name: /Mark not relevant/ })).toBeNull();
   });
 
   it("checks the selected answer from its button or Ctrl+Enter, and offers Check all", () => {

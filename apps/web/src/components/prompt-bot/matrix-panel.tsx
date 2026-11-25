@@ -23,7 +23,6 @@ type Props = {
   state: MatrixAnswers;
   activeId: string | null;
   onSelect(id: string): void;
-  onToggleRelevant(id: string): void;
   children?: React.ReactNode;
 };
 
@@ -56,7 +55,7 @@ function statusLine(state: MatrixAnswers): {
  * question rows with 3-slice bars. On large screens the panel stays pinned below the site header and
  * only its question list scrolls, so the header and Check all stay in view; stacked on phones.
  */
-export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activeId, onSelect, onToggleRelevant, children }: Props) {
+export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activeId, onSelect, children }: Props) {
   const { answerFor } = state;
   const headingId = React.useId();
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -135,10 +134,8 @@ export function MatrixPanel({ heading, headingLevel = "h1", groups, state, activ
                     lead={group.closingLead && group.questions.length > 1 && qi === group.questions.length - 1 ? group.closingLead : undefined}
                     score={a.score}
                     reason={a.reason}
-                    notRelevant={a.notRelevant}
                     active={q.id === activeId}
                     onSelect={() => onSelect(q.id)}
-                    onToggleRelevant={() => onToggleRelevant(q.id)}
                   />
                 );
               })}

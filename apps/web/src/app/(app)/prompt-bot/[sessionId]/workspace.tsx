@@ -159,7 +159,6 @@ export function Workspace({ initial }: { initial: SessionView }) {
         state={matrix}
         activeId={activeId}
         onSelect={selectQuestion}
-        onToggleRelevant={(id) => matrix.updateAnswer(id, { notRelevant: !matrix.answerFor(id).notRelevant })}
       />
 
       <div className="flex min-w-0 flex-col gap-5">
