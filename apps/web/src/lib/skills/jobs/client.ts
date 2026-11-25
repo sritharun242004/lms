@@ -1,5 +1,15 @@
 import { call, type CallResult, type SaveOptions, type ScoreReply } from "@/lib/prompt-bot/client";
-import type { JobFileDetail, JobFileView, JobSkillView, JobView, QuestionInput, TaskQuestionView, VersionDetail } from "./types";
+import type {
+  JobFileDetail,
+  JobFileView,
+  JobSkillView,
+  JobView,
+  PluginVersionDetail,
+  PluginView,
+  QuestionInput,
+  TaskQuestionView,
+  VersionDetail,
+} from "./types";
 
 const BASE = "/api/v1/prompt-bot/skill-jobs";
 
@@ -17,7 +27,9 @@ const send = (method: string, body?: unknown, options: SaveOptions = {}): Reques
 export const createJob = (input: { title?: string; description?: string }): Promise<CallResult<JobView>> =>
   call<JobView>(BASE, send("POST", input));
 export const getJob = (jobId: string): Promise<CallResult<JobView>> => call<JobView>(jobUrl(jobId));
-export const patchJob = (jobId: string, patch: { title?: string; description?: string }, options: SaveOptions = {}): Promise<CallResult<JobView>> =>
+export type JobPatch = { title?: string; description?: string; company?: string; pluginName?: string | null; pluginDisplayName?: string | null };
+/** `pluginName` / `pluginDisplayName`: null resets to the default. */
+export const patchJob = (jobId: string, patch: JobPatch, options: SaveOptions = {}): Promise<CallResult<JobView>> =>
   call<JobView>(jobUrl(jobId), send("PATCH", patch, options));
 export const deleteJob = (jobId: string): Promise<CallResult<{ deleted: true }>> => call<{ deleted: true }>(jobUrl(jobId), send("DELETE"));
 
@@ -61,12 +73,14 @@ export const removeJobFile = (jobId: string, fileId: string): Promise<CallResult
   call<{ deleted: true }>(fileUrl(jobId, fileId), send("DELETE"));
 
 export const suggestSkills = (jobId: string): Promise<CallResult<JobView>> => call<JobView>(`${jobUrl(jobId)}/suggest`, send("POST"));
-export const addJobSkill = (jobId: string, input: { name: string; purpose: string; fileIds?: string[] }): Promise<CallResult<JobSkillView>> =>
+export type JobSkillInput = { name: string; label?: string; purpose: string; focus?: string; step?: string; fileIds?: string[] };
+/** Always a sub-skill, appended last in the workflow. */
+export const addJobSkill = (jobId: string, input: JobSkillInput): Promise<CallResult<JobSkillView>> =>
   call<JobSkillView>(`${jobUrl(jobId)}/skills`, send("POST", input));
 export const patchJobSkill = (
   jobId: string,
   skillId: string,
-  patch: { name?: string; purpose?: string; fileIds?: string[]; order?: number },
+  patch: { name?: string; label?: string; purpose?: string; focus?: string; step?: string; fileIds?: string[]; order?: number },
   options: SaveOptions = {},
 ): Promise<CallResult<JobSkillView>> => call<JobSkillView>(skillUrl(jobId, skillId), send("PATCH", patch, options));
 export const removeJobSkill = (jobId: string, skillId: string): Promise<CallResult<{ deleted: true }>> =>
@@ -79,3 +93,11 @@ export const getVersion = (jobId: string, skillId: string, version: number | "la
 export const versionDownloadUrl = (jobId: string, skillId: string, version: number, format: "upload" | "pack") =>
   `${skillUrl(jobId, skillId)}/versions/${version}/download?format=${format}`;
 export const jobDownloadUrl = (jobId: string) => `${jobUrl(jobId)}/download`;
+
+const pluginUrl = (jobId: string) => `${jobUrl(jobId)}/plugin`;
+/** Starts one plugin generation; the reply is the plugin, GENERATING (poll GET /:id). */
+export const generatePlugin = (jobId: string): Promise<CallResult<PluginView>> => call<PluginView>(`${pluginUrl(jobId)}/generate`, send("POST"));
+export const getPluginVersion = (jobId: string, version: number | "latest"): Promise<CallResult<PluginVersionDetail>> =>
+  call<PluginVersionDetail>(`${pluginUrl(jobId)}/versions/${version}`);
+export const pluginDownloadUrl = (jobId: string, version: number, format: "plugin" | "share") =>
+  `${pluginUrl(jobId)}/versions/${version}/download?format=${format}`;

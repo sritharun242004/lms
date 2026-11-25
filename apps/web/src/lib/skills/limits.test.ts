@@ -7,7 +7,7 @@ describe("job limits", () => {
     expect(JOB_LIMITS.filesPerJob).toBe(10);
     expect(JOB_LIMITS.assetBytes).toBe(10 * 1024 * 1024);
     expect(JOB_LIMITS.skillAssetBytes).toBe(25 * 1024 * 1024);
-    expect(JOB_LIMITS.skillsPerJob).toBe(5);
+    expect(JOB_LIMITS.skillsPerJob).toBe(7);
     expect(JOB_LIMITS.analysisChars).toBe(12_000);
     expect(JOB_LIMITS.factsBytes).toBe(64 * 1024);
     expect(JOB_LIMITS.versionsKept).toBe(20);

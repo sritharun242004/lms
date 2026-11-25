@@ -34,7 +34,8 @@ export const JOB_LIMITS = {
   fileBytes: 20 * 1024 * 1024,
   assetBytes: 10 * 1024 * 1024,
   skillAssetBytes: 25 * 1024 * 1024,
-  skillsPerJob: 5,
+  /** Plugins spec (2026-11-25 plugins, Limits): 1 main skill + at most 6 sub-skills. */
+  skillsPerJob: 7,
   fileIdsPerSkill: 10,
   analysisChars: 12_000,
   analysisExcerptChars: 1_500,
@@ -64,6 +65,21 @@ export const JOB_LIMITS = {
   questionGuidanceChars: 300,
   fileNoteChars: 120,
   outputTypeChars: 60,
+  /** Plugins spec (2026-11-25 plugins, Limits). */
+  subSkillsMin: 2,
+  subSkillsMax: 6,
+  /** Sub-skills kept from one AI suggestion. */
+  aiSubSkillsMax: 4,
+  companyChars: 80,
+  pluginDisplayNameChars: 120,
+  skillLabelChars: 60,
+  skillFocusChars: 600,
+  skillStepChars: 160,
+  /** Every asset copy in one plugin (main bundle plus sub-skill copies). */
+  pluginAssetBytes: 25 * 1024 * 1024,
+  /** A sub-skill gets its own copy of a selected file only at or below this size. */
+  subSkillAssetCopyBytes: 1024 * 1024,
+  pluginVersionsKept: 20,
 } as const;
 
 /** One file analysis call (run in after()); the SDK retries it once. */
