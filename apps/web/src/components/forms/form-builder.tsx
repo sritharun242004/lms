@@ -596,6 +596,10 @@ export function FormBuilder({
         open={shareOpen}
         onOpenChange={setShareOpen}
         meta={meta}
+        uploads={(() => {
+          const uploads = sections.flatMap((s) => s.questions).filter((q) => q.type === "FILE_UPLOAD");
+          return uploads.some((q) => q.required) ? "required" : uploads.length > 0 ? "optional" : "none";
+        })()}
         linkParams={sections.flatMap((s) =>
           s.questions
             .map((q) => (q.type === "SHORT_ANSWER" && typeof q.config.urlParam === "string" ? q.config.urlParam : ""))
@@ -1027,12 +1031,14 @@ function ShareDialog({
   open,
   onOpenChange,
   meta,
+  uploads,
   linkParams,
   onToggle,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   meta: FormMeta;
+  uploads: "none" | "optional" | "required";
   linkParams: string[];
   onToggle: (field: "isTemplate" | "publicLinkEnabled", value: boolean) => void;
 }) {
@@ -1089,6 +1095,16 @@ function ShareDialog({
                   </div>
                   {meta.status !== "PUBLISHED" ? (
                     <p className="text-xs text-muted-foreground">The link starts working once you publish.</p>
+                  ) : null}
+                  {uploads === "required" ? (
+                    <p role="alert" className="text-xs font-medium text-destructive">
+                      This form has a required file upload, and uploads need a sign-in, so nobody can complete it from
+                      the public link. Make the upload optional or remove it.
+                    </p>
+                  ) : uploads === "optional" ? (
+                    <p className="text-xs text-muted-foreground">
+                      File-upload questions are left out on the public link — uploads need a sign-in.
+                    </p>
                   ) : null}
                   {linkParams.length > 0 ? (
                     <p className="text-xs text-muted-foreground">

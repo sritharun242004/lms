@@ -90,7 +90,11 @@ export function PublicFormView({
                     key={question.id}
                     question={question}
                     value={answers[question.id]}
-                    onChange={(value) => setAnswers((current) => ({ ...current, [question.id]: value }))}
+                    onChange={(value) => {
+                  setAnswers((current) => ({ ...current, [question.id]: value }));
+                  // An old "X is required" shouldn't linger once they're fixing it.
+                  setError(null);
+                }}
                   />
                 ))}
               </CardContent>

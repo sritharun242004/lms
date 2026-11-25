@@ -13,6 +13,7 @@ const analytics: FormAnalyticsData = {
   totalResponses: 2,
   invitationsSent: 3,
   completionRate: 2 / 3,
+  publicLinkResponses: 0,
   questionSummaries: [
     { questionId: "q1", title: "Overall", type: "RATING", average: 4.5, distribution: { 4: 1, 5: 1 } },
     { questionId: "q2", title: "Recommend?", type: "CHOICE", counts: { Yes: 2 } },
@@ -30,5 +31,19 @@ describe("FormAnalytics", () => {
     expect(screen.getByRole("link", { name: /export csv/i }).getAttribute("href")).toBe(
       "/api/v1/forms/f1/responses/export"
     );
+  });
+
+  it("links each uploaded file and notes public-link responses", () => {
+    render(
+      createElement(FormAnalytics, {
+        analytics: {
+          ...analytics,
+          publicLinkResponses: 1,
+          questionSummaries: [{ questionId: "q9", title: "Photo", type: "FILES", files: [{ fileId: "file1", fileName: "photo.jpg" }] }],
+        },
+      })
+    );
+    expect(screen.getByRole("link", { name: "photo.jpg" }).getAttribute("href")).toBe("/api/v1/forms/answer-files/file1");
+    expect(screen.getByText("1 via public link")).toBeTruthy();
   });
 });

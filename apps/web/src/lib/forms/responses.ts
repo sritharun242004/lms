@@ -223,8 +223,22 @@ export async function getPublicForm(formId: string) {
   return form;
 }
 
-export function hasFileUpload(form: { sections: { questions: { type: FormQuestionType }[] }[] }): boolean {
-  return form.sections.some((section) => section.questions.some((q) => q.type === "FILE_UPLOAD"));
+// Uploads need a signed-in user, so on the public link an optional upload
+// question is simply left out, and a required one makes the form unusable
+// there (it could never be completed).
+export function hasRequiredFileUpload(form: { sections: { questions: { type: FormQuestionType; required: boolean }[] }[] }): boolean {
+  return form.sections.some((section) => section.questions.some((q) => q.type === "FILE_UPLOAD" && q.required));
+}
+
+/** The form as the public link shows it: upload questions removed. */
+export function withoutUploadQuestions<T extends { sections: { questions: { type: FormQuestionType }[] }[] }>(form: T): T {
+  return {
+    ...form,
+    sections: form.sections.map((section) => ({
+      ...section,
+      questions: section.questions.filter((q) => q.type !== "FILE_UPLOAD"),
+    })),
+  };
 }
 
 // Anonymous by construction: there is no signed-in person to attach, and
@@ -232,12 +246,12 @@ export function hasFileUpload(form: { sections: { questions: { type: FormQuestio
 // place for anything that must be one-per-person.
 export async function submitPublicFormResponse(formId: string, answers: AnswerInput[]) {
   const form = await getPublicForm(formId);
-  // Uploads need a signed-in user, so a form with an upload question can't
-  // be completed from the public link.
-  if (hasFileUpload(form)) {
+  if (hasRequiredFileUpload(form)) {
     throw new FormError("This form can't be filled from a public link", "PUBLIC_FILE_UPLOAD", 400);
   }
-  validateAnswers(form.sections.flatMap((section) => section.questions), answers);
+  // Validated against the public version, so an answer to an upload
+  // question is refused as "not on this form".
+  validateAnswers(withoutUploadQuestions(form).sections.flatMap((section) => section.questions), answers);
 
   return prisma.formResponse.create({
     data: {

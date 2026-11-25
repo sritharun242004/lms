@@ -18,13 +18,15 @@ const sampleForm = {
       ],
     },
   ],
-  invitations: [{}, {}, {}],
+  invitations: [{ status: "SUBMITTED" }, { status: "SUBMITTED" }, { status: "SENT" }],
   responses: [
     {
       id: "r1",
       submittedAt: new Date("2026-11-20T10:00:00Z"),
       anonymous: false,
       respondentUserId: "u1",
+      respondent: { name: "Asha Rao" },
+      invitationId: "i1",
       answers: [
         { questionId: "q1", value: 5 },
         { questionId: "q2", value: "Yes" },
@@ -36,6 +38,8 @@ const sampleForm = {
       submittedAt: new Date("2026-11-20T11:00:00Z"),
       anonymous: true,
       respondentUserId: null,
+      respondent: null,
+      invitationId: "i2",
       answers: [
         { questionId: "q1", value: 3 },
         { questionId: "q2", value: "No" },
@@ -80,7 +84,8 @@ describe("exportFormResponsesCsv", () => {
 
     expect(lines[0]).toBe("Response ID,Submitted At,Respondent,Overall,Would you recommend?,Comments");
     expect(lines[1]).toContain("r1");
-    expect(lines[1]).toContain("u1");
+    expect(lines[1]).toContain("Asha Rao");
+    expect(lines[1]).not.toContain("u1");
     expect(lines[2]).toContain("Anonymous");
     expect(lines[2]).not.toContain("null");
   });
@@ -94,11 +99,83 @@ describe("exportFormResponsesCsv", () => {
           submittedAt: new Date(),
           anonymous: false,
           respondentUserId: "u3",
+          respondent: { name: "Ravi" },
+          invitationId: null,
           answers: [{ questionId: "q3", value: 'Great, "really" great' }],
         },
       ],
     });
     const csv = await exportFormResponsesCsv({ id: "staff1", role: "MENTOR" }, "f1");
     expect(csv).toContain('"Great, ""really"" great"');
+  });
+});
+
+describe("answers that are not plain text", () => {
+  const form = {
+    ...sampleForm,
+    sections: [
+      {
+        questions: [
+          { id: "f", type: "FILE_UPLOAD", title: "Photo" },
+          { id: "g", type: "MULTIPLE_CHOICE_GRID", title: "Rate each day" },
+        ],
+      },
+    ],
+    invitations: [{ status: "SUBMITTED" }],
+    responses: [
+      {
+        id: "r1",
+        submittedAt: new Date("2026-11-20T10:00:00Z"),
+        anonymous: false,
+        respondentUserId: "u1",
+        respondent: { name: "Asha Rao" },
+        invitationId: "i1",
+        answers: [
+          { questionId: "f", value: { fileId: "file1", fileName: "photo.jpg", size: 10 } },
+          { questionId: "g", value: { "Day 1": "Great", "Day 2": "Good" } },
+        ],
+      },
+      {
+        id: "r2",
+        submittedAt: new Date("2026-11-20T11:00:00Z"),
+        anonymous: true,
+        respondentUserId: null,
+        respondent: null,
+        invitationId: null,
+        answers: [{ questionId: "g", value: { "Day 1": "Good" } }],
+      },
+    ],
+  };
+
+  it("lists uploaded files and reads grid answers instead of dropping them", async () => {
+    findUnique.mockResolvedValue(form);
+    const analytics = await getFormAnalytics({ id: "staff1", role: "MENTOR" }, "f1");
+    expect(analytics.questionSummaries.find((q) => q.questionId === "f")).toEqual({
+      questionId: "f",
+      title: "Photo",
+      type: "FILES",
+      files: [{ fileId: "file1", fileName: "photo.jpg" }],
+    });
+    expect(analytics.questionSummaries.find((q) => q.questionId === "g")).toMatchObject({
+      type: "TEXT",
+      answers: ["Day 1: Great, Day 2: Good", "Day 1: Good"],
+    });
+  });
+
+  it("counts public-link responses apart from chat completion", async () => {
+    findUnique.mockResolvedValue(form);
+    const analytics = await getFormAnalytics({ id: "staff1", role: "MENTOR" }, "f1");
+    expect(analytics.totalResponses).toBe(2);
+    expect(analytics.completionRate).toBe(1);
+    expect(analytics.publicLinkResponses).toBe(1);
+  });
+
+  it("exports a file as its name and a link, not raw data", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.thexintelligence.ai/");
+    findUnique.mockResolvedValue(form);
+    const csv = await exportFormResponsesCsv({ id: "staff1", role: "MENTOR" }, "f1");
+    expect(csv).toContain("photo.jpg (https://www.thexintelligence.ai/api/v1/forms/answer-files/file1)");
+    expect(csv).not.toContain("fileId");
+    vi.unstubAllEnvs();
   });
 });
