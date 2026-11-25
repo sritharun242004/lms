@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { assembleSkillFiles, buildSkillMd, type SkillDraft } from "./assemble";
+import { assembleSkillFiles, buildSkillMd, inFolder, type SkillDraft } from "./assemble";
 import { splitFrontmatter } from "./frontmatter";
 import { validateSkillFiles } from "./format";
 
@@ -57,5 +57,16 @@ describe("assembleSkillFiles", () => {
     const files = assembleSkillFiles("board-update", { ...DRAFT, scripts: [{ path: "../../evil.sh", content: "x", purpose: "x" }] });
     expect(files.map((f) => f.path)).toContain("scripts/../../evil.sh");
     expect(validateSkillFiles(files, "board-update")).toEqual([expect.stringMatching(/'\.\.'/)]);
+  });
+});
+
+describe("inFolder", () => {
+  it.each([
+    ["context.md", "references/context.md"],
+    ["references/context.md", "references/context.md"],
+    ["./references/a.md", "references/a.md"],
+    [" ./x.md ", "references/x.md"],
+  ])("places %j under references/ once", (input, expected) => {
+    expect(inFolder("references", input)).toBe(expected);
   });
 });

@@ -18,7 +18,8 @@ export type SkillDraft = {
  */
 const yamlString = (value: string) => JSON.stringify(value);
 
-function inFolder(folder: string, path: string): string {
+/** A model-supplied path placed under `folder` exactly once ("context.md" and "references/context.md" both become references/context.md). */
+export function inFolder(folder: string, path: string): string {
   const clean = path.trim().replace(/^(\.\/)+/, "");
   return clean.startsWith(`${folder}/`) ? clean : `${folder}/${clean}`;
 }
