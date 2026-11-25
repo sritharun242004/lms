@@ -152,7 +152,7 @@ describe("FilesPanel uploads", () => {
     expect((screen.getByLabelText("Choose files to upload") as HTMLInputElement).accept).toBe(FILE_ACCEPT);
     expect(FILE_ACCEPT).toBe(".pptx,.docx,.xlsx,.pdf,.png,.jpg,.jpeg");
     expect(screen.getByText(/PowerPoint, Word, Excel, PDF, PNG or JPG · up to 20 MB each · 10 files/)).toBeTruthy();
-    expect(screen.getByText("No files yet. Add the decks, documents and sheets you use for this job.")).toBeTruthy();
+    expect(screen.getByText("No files yet. Add the decks, documents and sheets you use for this job. Skip this step if you have none.")).toBeTruthy();
   });
 
   it("uploads one file at a time and shows a failure on its row", async () => {

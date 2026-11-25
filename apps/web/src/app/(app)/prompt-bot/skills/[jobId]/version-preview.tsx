@@ -81,7 +81,7 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="lg" disabled={downloading !== null} onClick={() => void download("upload")}>
+          <Button size="lg" disabled={downloading !== null} onClick={() => void download("upload")}>
             {downloading === "upload" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
             Download for Claude<span className="sr-only">: {skill.name}</span>
           </Button>
@@ -91,11 +91,22 @@ export function VersionPreview({ jobId, skill }: { jobId: string; skill: JobSkil
           </Button>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">For Claude:</span> in Claude.ai turn on Settings → Capabilities → Create and edit files, then Plugins → Add → Upload plugin and pick the zip. After that, just ask for the job in your own words.{" "}
-        <span className="font-medium text-foreground">To share:</span> readable files, a README and the Claude zip.{" "}
-        {`We keep the last ${JOB_LIMITS.versionsKept} versions of each skill.`}
-      </p>
+      <section aria-label="How to use this skill" className="mt-3 rounded-2xl bg-primary/5 px-4 py-3 ring-1 ring-primary/15 dark:bg-primary/10">
+        <h3 className="text-sm font-semibold">How to use this skill</h3>
+        <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-sm text-muted-foreground marker:font-medium marker:text-primary">
+          <li>
+            In Claude, open Settings → Capabilities and turn on <span className="font-medium text-foreground">Create and edit files</span>.
+          </li>
+          <li>
+            Go to Plugins → Add → <span className="font-medium text-foreground">Upload plugin</span> and pick the zip from Download for Claude.
+          </li>
+          <li>Then just ask in your own words. Claude uses the skill automatically.</li>
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">To share:</span> readable files, a README and the Claude zip.{" "}
+          {`We keep the last ${JOB_LIMITS.versionsKept} versions of each skill.`}
+        </p>
+      </section>
 
       <div className="mt-4">
         {detail ? (

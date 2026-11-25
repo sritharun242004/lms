@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Download, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Download, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
@@ -237,6 +237,12 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
     questions: { value: `${ready.answered} of ${ready.relevant}`, label: "answered" },
     skills: { value: String(job.skills.length), label: "skills" },
   };
+  const done: Record<JobStep, boolean> = {
+    job: description.trim() !== "",
+    files: job.files.length > 0,
+    questions: ready.answered > 0,
+    skills: canDownload,
+  };
 
   if (deleted) {
     return (
@@ -305,30 +311,35 @@ export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
       {!aiConfigured && <NotConfigured isAdmin={isAdmin} />}
 
       <nav aria-label="Steps">
-        <ol className="flex flex-wrap gap-2">
+        <ol className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {JOB_STEPS.map((s, i) => {
             const current = step === s.id;
             const badge = badges[s.id];
+            const complete = done[s.id] && !current;
             return (
-              <li key={s.id}>
+              <li key={s.id} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => go(s.id)}
                   aria-current={current ? "step" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     current ? "bg-primary text-primary-foreground" : "bg-white/55 text-muted-foreground hover:bg-white/80 hover:text-foreground dark:bg-white/5 dark:hover:bg-white/10",
                   )}
                 >
                   <span
                     aria-hidden
-                    className={cn("flex size-5 items-center justify-center rounded-full text-xs tabular-nums", current ? "bg-white/20" : "bg-black/5 dark:bg-white/10")}
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-full text-xs tabular-nums",
+                      current ? "bg-white/20" : complete ? "bg-success/15 text-success" : "bg-black/5 dark:bg-white/10",
+                    )}
                   >
-                    {i + 1}
+                    {complete ? <Check className="size-3" strokeWidth={3} /> : i + 1}
                   </span>
                   {s.label}
+                  {complete && <span className="sr-only"> (done)</span>}
                   {badge && (
-                    <span className={cn("rounded-full px-1.5 text-xs tabular-nums", current ? "bg-white/20" : "bg-black/5 dark:bg-white/10")}>
+                    <span className={cn("ml-auto rounded-full px-1.5 sm:ml-0 text-xs tabular-nums", current ? "bg-white/20" : "bg-black/5 dark:bg-white/10")}>
                       {badge.value}
                       <span className="sr-only"> {badge.label}</span>
                     </span>

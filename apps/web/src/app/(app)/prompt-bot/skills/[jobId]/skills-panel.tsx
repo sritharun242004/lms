@@ -131,6 +131,11 @@ export function SkillsPanel({ job, gaps, aiConfigured, flushSaves, queueSave, on
           <p className="max-w-md text-sm text-muted-foreground">Turn this job into your own skills.</p>
           <p className="max-w-md text-xs text-muted-foreground">The AI drafts new skills from your job, files and answers — nothing is copied from public or existing skills. Usually one skill; more only when the job has clearly separate parts.</p>
           {suggestButton}
+          {gaps > 0 && (
+            <p className="max-w-md rounded-lg bg-warning/10 px-3 py-1.5 text-xs text-foreground">
+              {unansweredPhrase(gaps)}. Answer them in Questions first for sharper skills.
+            </p>
+          )}
         </div>
       )}
 

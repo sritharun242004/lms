@@ -128,7 +128,7 @@ export function FilesPanel({ jobId, files, aiConfigured, onFileChange, onFileRem
       {rows.length > 0 && <UploadRows rows={rows} onDismiss={dropRow} />}
 
       {files.length === 0 && rows.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">No files yet. Add the decks, documents and sheets you use for this job.</p>
+        <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-pretty text-muted-foreground">No files yet. Add the decks, documents and sheets you use for this job. Skip this step if you have none.</p>
       ) : (
         <ul className="flex flex-col gap-4" aria-label="Files">
           {files.map((f) => (
