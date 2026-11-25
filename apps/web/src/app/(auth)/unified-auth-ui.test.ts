@@ -14,8 +14,10 @@ describe("unified auth route and presentation contracts", () => {
     const participantLogin = source("./participant/login/page.tsx");
 
     expect(adminLogin).toContain("<StaffLoginForm");
-    expect(coachLogin).toContain('redirect("/admin/login")');
-    expect(superAdminLogin).toContain('redirect("/admin/login")');
+    // Both forward to the one staff login, keeping a safe return path
+    // (behaviour covered in portal-navigation.test.ts).
+    expect(coachLogin).toContain("redirect(staffLoginRedirect(");
+    expect(superAdminLogin).toContain("redirect(staffLoginRedirect(");
     expect(participantLogin).toContain('redirect("/login")');
     expect(participantLogin).not.toContain("StaffLoginForm");
   });

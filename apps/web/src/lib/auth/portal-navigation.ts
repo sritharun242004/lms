@@ -9,11 +9,14 @@ const LOGIN_PATHS: Record<AuthPortal, string> = {
   admin: "/admin/login",
 };
 
+// Where each portal may send someone back to after signing in. A section
+// missing here silently lands people on their dashboard instead (e.g. a coach
+// whose session expired mid-edit in the form builder), so add new sections.
 const PORTAL_PATHS: Record<AuthPortal, readonly string[]> = {
-  participant: ["/dashboard", "/chat", "/mentee", "/profile", "/prompt-bot"],
-  coach: ["/dashboard", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot"],
-  "super-admin": ["/dashboard", "/admin", "/questions", "/chat", "/profile", "/prompt-bot"],
-  admin: ["/dashboard", "/admin", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot"],
+  participant: ["/dashboard", "/chat", "/mentee", "/profile", "/prompt-bot", "/forms/fill"],
+  coach: ["/dashboard", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot", "/forms", "/feedback"],
+  "super-admin": ["/dashboard", "/admin", "/questions", "/chat", "/profile", "/prompt-bot", "/forms", "/feedback"],
+  admin: ["/dashboard", "/admin", "/coach", "/mentor", "/questions", "/chat", "/profile", "/prompt-bot", "/forms", "/feedback"],
 };
 
 function pathMatchesPrefix(value: string, prefix: string): boolean {
@@ -91,4 +94,10 @@ export function safePortalDestination(
  */
 export function leaveToLogin(path: string): void {
   window.location.replace(path);
+}
+
+/** Where an old coach / super-admin login link should send someone now. */
+export function staffLoginRedirect(returnTo: string | undefined): string {
+  const safe = sanitizeReturnPath(returnTo, "");
+  return safe ? `/admin/login?redirect=${encodeURIComponent(safe)}` : "/admin/login";
 }

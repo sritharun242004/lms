@@ -102,6 +102,15 @@ function unauthenticatedEntry(pathname: string): string {
   if (pathname === "/questions" || pathname.startsWith("/questions/") || pathname === "/dashboard") {
     return "/admin/login";
   }
+  // Staff-only sections. /forms/fill/* is a participant opening a form from
+  // chat, so it keeps the participant entry.
+  if (
+    pathname === "/feedback" ||
+    pathname.startsWith("/feedback/") ||
+    ((pathname === "/forms" || pathname.startsWith("/forms/")) && !pathname.startsWith("/forms/fill/"))
+  ) {
+    return "/admin/login";
+  }
   return "/login";
 }
 
