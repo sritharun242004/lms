@@ -249,6 +249,36 @@ function QuestionInput({
   }
 }
 
+type UploadTarget =
+  | { mode: "s3"; fileId: string; uploadUrl: string; headers: Record<string, string>; maxBytes: number }
+  | { mode: "direct"; maxBytes: number };
+
+function formatSize(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${Math.round(bytes / (1024 * 1024))} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+// XHR rather than fetch: it is the only browser API that reports upload
+// progress, and a 100 MB file needs a progress bar.
+function putWithProgress(
+  url: string,
+  method: "PUT" | "POST",
+  body: Blob | FormData,
+  headers: Record<string, string>,
+  onProgress: (fraction: number) => void
+): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+    xhr.send(body);
+  });
+}
+
 function FileUploadInput({
   value,
   onChange,
@@ -258,29 +288,116 @@ function FileUploadInput({
   onChange: (value: unknown) => void;
   disabled?: boolean;
 }) {
-  const [isUploading, setIsUploading] = React.useState(false);
-  const fileValue = value as { fileId: string; fileName: string } | undefined;
+  const [progress, setProgress] = React.useState<number | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const fileValue = value as { fileId: string; fileName: string; size?: number } | undefined;
+  const isUploading = progress !== null;
+  const [maxBytes, setMaxBytes] = React.useState<number | null>(null);
 
-  async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
+  React.useEffect(() => {
+    if (disabled) return;
+    let cancelled = false;
+    fetch("/api/v1/forms/answer-files/upload-url")
+      .then((response) => response.json())
+      .then((result) => {
+        if (!cancelled && result.success) setMaxBytes(result.data.maxBytes);
+      })
+      // Only the hint depends on this; the server still enforces the limit.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [disabled]);
+
+  async function upload(file: File) {
+    setError(null);
+    if (maxBytes !== null && file.size > maxBytes) {
+      setError(`That file is ${formatSize(file.size)}. The limit is ${formatSize(maxBytes)}.`);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setProgress(0);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const response = await fetch("/api/v1/forms/answer-files", { method: "POST", body });
+      const response = await fetch("/api/v1/forms/answer-files/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size }),
+      });
       const result = await response.json();
-      if (result.success) onChange({ fileId: result.data.fileId, fileName: result.data.fileName });
+      if (!response.ok || !result.success) throw new Error(result.error?.message || "Couldn't start the upload");
+      const target = result.data as UploadTarget;
+
+      if (target.mode === "s3") {
+        const sent = await putWithProgress(target.uploadUrl, "PUT", file, target.headers, setProgress);
+        if (sent.status < 200 || sent.status >= 300) throw new Error("The upload didn't finish. Please try again.");
+        onChange({ fileId: target.fileId, fileName: file.name, size: file.size });
+      } else {
+        const body = new FormData();
+        body.append("file", file);
+        const sent = await putWithProgress("/api/v1/forms/answer-files", "POST", body, {}, setProgress);
+        const stored = JSON.parse(sent.text || "{}");
+        if (sent.status < 200 || sent.status >= 300 || !stored.success) {
+          throw new Error(stored.error?.message || "The upload didn't finish. Please try again.");
+        }
+        onChange({ fileId: stored.data.fileId, fileName: stored.data.fileName, size: file.size });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The upload didn't finish. Please try again.");
     } finally {
-      setIsUploading(false);
+      setProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <input type="file" onChange={handleChange} disabled={disabled || isUploading} />
-      {isUploading ? <Loader2 className="size-4 animate-spin" /> : null}
-      {fileValue ? <span className="text-sm text-muted-foreground">{fileValue.fileName}</span> : null}
+    <div className="flex flex-col gap-2">
+      {fileValue && !isUploading ? (
+        <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1 truncate font-medium">{fileValue.fileName}</span>
+          {fileValue.size ? <span className="shrink-0 text-muted-foreground">{formatSize(fileValue.size)}</span> : null}
+          {!disabled ? (
+            <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground hover:underline" onClick={() => onChange(undefined)}>
+              Remove
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!fileValue || isUploading ? (
+        <label className={`flex flex-col gap-1 ${disabled || isUploading ? "" : "cursor-pointer"}`}>
+          <input
+            ref={inputRef}
+            type="file"
+            className="text-sm file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium"
+            disabled={disabled || isUploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void upload(file);
+            }}
+          />
+          <span className="text-xs text-muted-foreground">
+            One file{maxBytes !== null ? `, up to ${formatSize(maxBytes)}` : ""}.
+          </span>
+        </label>
+      ) : null}
+
+      {isUploading ? (
+        <div className="flex items-center gap-3" role="status" aria-live="polite">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${Math.round(progress * 100)}%` }} />
+          </div>
+          <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+            {progress < 1 ? `${Math.round(progress * 100)}%` : <Loader2 className="ml-auto size-4 animate-spin" />}
+          </span>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
