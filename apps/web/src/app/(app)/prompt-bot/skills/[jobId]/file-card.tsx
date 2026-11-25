@@ -119,9 +119,11 @@ type CardProps = {
   askConfirm: AskConfirm;
   onChange(file: JobFileView): void;
   onRemoved(fileId: string): void;
+  /** Inside another panel (a question's files): a bordered tile instead of its own glass card. */
+  flat?: boolean;
 };
 
-export function FileCard({ jobId, file, aiConfigured, askConfirm, onChange, onRemoved }: CardProps) {
+export function FileCard({ jobId, file, aiConfigured, askConfirm, onChange, onRemoved, flat = false }: CardProps) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState<"save" | "analyse" | "remove" | null>(null);
@@ -193,7 +195,10 @@ export function FileCard({ jobId, file, aiConfigured, askConfirm, onChange, onRe
   }
 
   return (
-    <article className="glass rounded-[1.75rem] p-5" aria-labelledby={headingId}>
+    <article
+      className={flat ? "rounded-2xl border border-border/70 bg-white/55 p-4 dark:bg-white/5" : "glass rounded-[1.75rem] p-5"}
+      aria-labelledby={headingId}
+    >
       <div className="flex items-start gap-3">
         <span
           className={cn(
