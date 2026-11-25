@@ -12,7 +12,14 @@ import {
   QUESTIONS_TIMEOUT_MS,
   SUGGEST_TIMEOUT_MS,
 } from "@/lib/skills/limits";
-import { ANALYSE_SYSTEM, ENHANCE_TASK_SYSTEM, GENERATE_JOB_SYSTEM, QUESTIONS_SYSTEM, SUGGEST_SYSTEM } from "@/lib/skills/jobs/instructions";
+import {
+  ANALYSE_SYSTEM,
+  ENHANCE_TASK_SYSTEM,
+  GENERATE_JOB_SYSTEM,
+  GENERATE_SUB_SKILL_SYSTEM,
+  QUESTIONS_SYSTEM,
+  SUGGEST_SYSTEM,
+} from "@/lib/skills/jobs/instructions";
 import type { JobSkillDraft, RawPluginSuggestion, RawTaskQuestions } from "@/lib/skills/jobs/types";
 
 let client: Anthropic | null = null;
@@ -223,14 +230,14 @@ const JobDraftReply = z.object({
   scripts: z.array(JobFile.extend({ purpose: z.string() })),
 });
 
-/** Writes one job skill as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
-export async function generateJobSkillDraft(message: string): Promise<JobSkillDraft> {
+/** Writes one job skill (a plugin's main skill, or a sub-skill with the stand-alone rules) as structured fields. No name (the skill row owns it) and no assets (the uploaded originals are). */
+export async function generateJobSkillDraft(message: string, role: "main" | "sub" = "main"): Promise<JobSkillDraft> {
   const file = object({ path: STRING, content: STRING });
   return structured({
     model: BEST_MODEL,
     fallback: true,
     requestOptions: JOB_GENERATE_REQUEST,
-    system: GENERATE_JOB_SYSTEM,
+    system: role === "sub" ? GENERATE_SUB_SKILL_SYSTEM : GENERATE_JOB_SYSTEM,
     user: message,
     schema: object({
       description: STRING,

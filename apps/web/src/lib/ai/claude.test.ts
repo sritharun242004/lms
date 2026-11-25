@@ -17,6 +17,7 @@ vi.mock("@anthropic-ai/sdk", async (orig) => {
 });
 
 import { analyseFile, generateJobSkillDraft, scoreQuestions, suggestJobSkills } from "./claude";
+import { GENERATE_JOB_SYSTEM, GENERATE_SUB_SKILL_SYSTEM } from "@/lib/skills/jobs/instructions";
 import { AiNotConfiguredError } from "./config";
 import Anthropic from "@anthropic-ai/sdk";
 import { AiBadRequestError, AiResponseError, isAiCallError } from "./errors";
@@ -189,6 +190,16 @@ describe("skills builder job calls", () => {
     expect(options).toEqual({ timeout: 240_000, maxRetries: 0 });
     mocks.betaCreate.mockResolvedValueOnce({ content: [{ type: "text", text: "{" }], stop_reason: "max_tokens" });
     await expect(generateJobSkillDraft("m")).rejects.toThrow("max_tokens");
+  });
+
+  it("writes a sub-skill with the stand-alone rules appended to the same system prompt", async () => {
+    const draft = { description: "d", compatibility: "", body: "b", references: [], scripts: [] };
+    mocks.betaCreate.mockResolvedValue(reply(draft));
+    await generateJobSkillDraft("m");
+    await generateJobSkillDraft("m", "sub");
+    expect(mocks.betaCreate.mock.calls[0][0].system).toBe(GENERATE_JOB_SYSTEM);
+    expect(mocks.betaCreate.mock.calls[1][0].system).toBe(GENERATE_SUB_SKILL_SYSTEM);
+    expect(mocks.betaCreate.mock.calls[1][0].model).toBe("claude-opus-5-5");
   });
 });
 

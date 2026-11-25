@@ -178,14 +178,14 @@ export function enhanceReply(user) {
   return { kind, brief };
 }
 
-/** The fake generate draft: valid, but its body carries its own "Before you start" section (a model ignoring the
- * instruction), which the server must replace with exactly one server-written section. */
+/** The fake generate draft: valid, but its body carries its own "Before you start" and "How this skill works" sections
+ * (a model ignoring the instructions), which the server must replace with exactly one server-written copy of each. */
 export const JOB_DRAFT = {
   description:
     'Writes the monthly board update from rough notes and this month\'s numbers, in the house style: numbers first, "no surprises". Use when asked for a board update, an investor update or a monthly summary deck.',
   compatibility: "",
   body:
-    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
+    "# Board update writer\n\n## Before you start — ask the user for\n\n- The model's own list, which the server replaces\n\n## How this skill works\n\n1. A model-written workflow, which the server replaces with its own.\n\nRead `references/company-context.md` before writing, because the board expects the same framing every month.\n\n1. Ask for this month's numbers if they are missing.\n2. Draft the update, then run `scripts/word_count.py` on it and keep it under 400 words.\n3. Build the deck from the bundled template and follow `references/style-guide.md` for colours and fonts.\n",
   references: [
     { path: "company-context.md", content: "# Company context\n\n[Add your company's tone of voice here]\n" },
     // The server writes references/style-guide.md itself and must drop this one.
@@ -250,6 +250,24 @@ export function pluginSuggestionReply(user) {
       main: { ...base.main, fileIds: [...ids, "file_that_does_not_exist"] },
       subSkills: base.subSkills.map((s, i) => ({ ...s, fileIds: i === 0 ? ids.slice(0, 1) : [] })),
     },
+  };
+}
+
+/** The sub-skill named in the message's <sub_skill> block, or null for a main or single skill. */
+export function subSkillName(user) {
+  const match = /<sub_skill>\nname: (\S+)/.exec(user);
+  return match ? match[1] : null;
+}
+
+/** A valid, short sub-skill draft for `name`, with its own reference file. */
+export function subSkillDraft(name) {
+  const title = name.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return {
+    description: `Does just the ${name.replace(/-/g, " ")} part of this task, on its own or as a step of the main skill. Use when asked for ${name.replace(/-/g, " ")}.`,
+    compatibility: "",
+    body: `# ${title}\n\n1. Read \`references/${name}-checklist.md\`, because it lists what this part must get right.\n2. Do this part from the request and the files given.\n3. Check the result against the checklist and list any fixes.\n`,
+    references: [{ path: `${name}-checklist.md`, content: `# ${title} checklist\n\n- [Add what this part must get right here]\n` }],
+    scripts: [],
   };
 }
 

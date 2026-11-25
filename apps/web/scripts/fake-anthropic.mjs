@@ -6,7 +6,7 @@
 // FAKE_FIRST_INVALID=1 makes the first job-skill draft fail validation (exercises the retry).
 // Logs only which kind of call arrived, never request text.
 import http from "node:http";
-import { enhanceReply, JOB_DRAFT, pluginSuggestionReply, questionsReply } from "./fake-anthropic-shapes.mjs";
+import { enhanceReply, JOB_DRAFT, pluginSuggestionReply, questionsReply, subSkillDraft, subSkillName } from "./fake-anthropic-shapes.mjs";
 
 const PORT = Number(process.env.FAKE_ANTHROPIC_PORT ?? 4010);
 
@@ -113,6 +113,11 @@ function skillsStructured(props, user) {
   }
   if ("body" in props && !("assets" in props)) {
     const retry = user.includes("<validation_errors>");
+    const sub = subSkillName(user);
+    if (sub) {
+      console.log(`[fake] generate sub ${sub}${retry ? " (retry)" : ""}`);
+      return subSkillDraft(sub);
+    }
     console.log(`[fake] generate${retry ? " (retry)" : ""}`);
     return process.env.FAKE_FIRST_INVALID && !retry ? { ...VALID_JOB_DRAFT, description: "Uses <angle> brackets, which the validator rejects" } : VALID_JOB_DRAFT;
   }

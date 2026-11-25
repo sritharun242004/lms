@@ -72,7 +72,9 @@ export function filesSection(plan: ShippedFile[], questions: QuestionRef[] = [])
     const question = questionOf(f, questions);
     const added = question ? ` Added for the question "${displayName(question.text)}".` : "";
     if (f.shipping === "bundled") lines.push(`- \`${f.path}\`: the original "${name}". ${REUSE[f.kind]}${added}`);
-    else if (f.reason === "too-large") {
+    else if (f.shipping === "in-main") {
+      lines.push(`- "${name}": Kept in the \`${f.mainSkill}\` skill of this plugin (\`${f.path}\`). If you can't open it, ask the user to attach it.${added}`);
+    } else if (f.reason === "too-large") {
       lines.push(`- "${name}" (${megabytes(f.size)}) was too large to include. Its style is described in \`references/style-guide.md\`.${added}`);
     } else {
       lines.push(
@@ -85,6 +87,7 @@ export function filesSection(plan: ShippedFile[], questions: QuestionRef[] = [])
 
 function statusLine(f: ShippedFile): string {
   if (f.shipping === "bundled") return `Bundled as ${f.path}.`;
+  if (f.shipping === "in-main") return `Bundled in the ${f.mainSkill} skill of this plugin as ${f.path}.`;
   return f.reason === "too-large" ? "Not bundled (too large)." : "Not bundled (over the 25 MB limit for bundled files).";
 }
 

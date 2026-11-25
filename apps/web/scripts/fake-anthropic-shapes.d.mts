@@ -8,3 +8,5 @@ export function questionsReply(user: string): { kind: TaskKind; regenerate: bool
 export function enhanceReply(user: string): { kind: TaskKind; brief: string };
 export const JOB_DRAFT: JobSkillDraft;
 export function pluginSuggestionReply(user: string): { kind: TaskKind; reply: RawPluginSuggestion };
+export function subSkillName(user: string): string | null;
+export function subSkillDraft(name: string): JobSkillDraft;

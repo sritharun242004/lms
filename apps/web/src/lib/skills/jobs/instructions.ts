@@ -7,7 +7,13 @@ import type { JobSkillDraft, PerUseInput } from "./types";
 
 /** questionId: the FIXED question the file answers; null (or a question not in the list) = a general file. */
 export type PromptFile = { id: string; fileName: string; kind: SkillFileKind; size: number; analysis: string | null; questionId: string | null };
-export type ShippedFile = PromptFile & ({ shipping: "bundled"; path: string } | { shipping: "analysis-only"; reason: "too-large" | "over-budget" });
+export type ShippedFile = PromptFile &
+  (
+    | { shipping: "bundled"; path: string }
+    | { shipping: "analysis-only"; reason: "too-large" | "over-budget" }
+    /** Plugins: a sub-skill's file bundled once, in the main skill, at `path`. */
+    | { shipping: "in-main"; mainSkill: string; path: string }
+  );
 
 export const ANALYSE_SYSTEM = `You write a style guide that another AI assistant will follow to produce new work that looks and reads exactly like the file you are given. The reader is that AI, not a person.
 
@@ -52,6 +58,17 @@ export const GENERATE_JOB_SYSTEM = `You write one Agent Skill: a folder that AI 
 - Paths are relative to the skill folder, for example references/board-context.md, using letters, digits, dots, dashes and underscores only.
 
 Never invent facts about the person, their company or their numbers. Where context is missing (the gaps list), write clearly marked placeholders such as [Add the board's preferred metrics here] in a references/ file, and tell the reader in the body to fill them in.`;
+
+/** Plugins spec: appended to GENERATE_JOB_SYSTEM for a sub-skill. */
+export const GENERATE_SUB_SKILL_RULES = `This skill is one sub-skill of a Claude plugin, named in <sub_skill>. The main skill in <main_skill> runs the whole job and calls each sub-skill in turn; a person can also call this sub-skill alone, for just its part.
+- Do only the focus in <sub_skill>. Leave everything else to the main skill and the siblings in <siblings>, and never repeat their instructions.
+- Work completely on its own when called alone: its own steps, its own checks and its own references, with no reliance on the main skill or a sibling being loaded.
+- Stay short: the steps for this part and the checks that prove it is done well.
+- Per-use inputs: refer to the ones this part needs by their labels; never fill them in.
+- The server adds the stand-alone note and the "Before you start" section. Do not write either.`;
+export const GENERATE_SUB_SKILL_SYSTEM = `${GENERATE_JOB_SYSTEM}\n\n${GENERATE_SUB_SKILL_RULES}`;
+
+const MAIN_SKILL_RULES = `This is the main skill of the plugin in <plugin>: it runs the whole job and uses every sub-skill listed in <sub_skills>, in that order. The server adds the "## How this skill works" section that runs each sub-skill: do not write it. Write the main skill's own steps so they refer to each sub-skill by name where it applies, and never copy a sub-skill's instructions in full.`;
 
 // ---------------------------------------------------------------------------
 // Tasks redesign (spec 2026-11-25 tasks): Enhance and Write questions
@@ -197,23 +214,55 @@ export function buildSuggestMessage(
 
 function shippingText(file: ShippedFile): string {
   if (file.shipping === "bundled") return `bundled at ${file.path}`;
+  if (file.shipping === "in-main") return `kept in the ${file.mainSkill} skill of this plugin (${file.path})`;
   return file.reason === "too-large" ? "analysis only (too large to bundle)" : "analysis only (over the 25 MB bundle budget)";
 }
 
 const generateFileTag = (f: ShippedFile) =>
   `<file name="${attrSafe(f.fileName)}" kind="${f.kind}" shipping="${shippingText(f)}">\n${f.analysis?.trim() || "No analysis available."}\n</file>`;
 
-export function buildJobGenerateMessage(input: TaskPromptInput & { skill: { name: string; purpose: string }; files: ShippedFile[] }): string {
+export type PluginPromptInput = { company?: string; plugin?: { name: string; displayName: string } };
+type NamedSkill = { name: string; purpose: string };
+
+/** The task, questions with their files, general files, gaps and per-use inputs: what every generate message starts with. */
+function generateContext(input: TaskPromptInput & { company?: string; files: ShippedFile[] }): string[] {
   const general = byQuestion(input.questions, input.files).general;
   return [
-    taskSection(input.title, input.description, input.outputType),
+    taskSection(input.title, input.description, input.outputType, input.company),
     questionBlocks(input.questions, input.files, (own) => own.map(generateFileTag).join("\n\n")),
     `<general_files>\n${general.map(generateFileTag).join("\n\n") || "(none)"}\n</general_files>`,
     `<gaps>\n${gapsText(input.questions)}\n</gaps>`,
     askEachTimeSection(input.perUse),
-    `<skill>\nname: ${input.skill.name}\npurpose: ${input.skill.purpose.trim()}\n</skill>`,
+  ];
+}
+
+const pluginTag = (plugin: { name: string; displayName: string }) => `<plugin name="${attrSafe(plugin.name)}" displayName="${attrSafe(plugin.displayName)}">\n</plugin>`;
+
+/** The main skill (or, without `subSkills`, a single skill). */
+export function buildJobGenerateMessage(input: TaskPromptInput & PluginPromptInput & { skill: NamedSkill; files: ShippedFile[]; subSkills?: NamedSkill[] }): string {
+  const parts = [...generateContext(input), `<skill>\nname: ${input.skill.name}\npurpose: ${input.skill.purpose.trim()}\n</skill>`];
+  if (input.subSkills && input.plugin) {
+    const lines = input.subSkills.map((s, i) => `${i + 1}. ${s.name}: ${oneLineText(s.purpose)}`);
+    parts.push(pluginTag(input.plugin), `<sub_skills>\n${lines.join("\n")}\n</sub_skills>`, MAIN_SKILL_RULES);
+  }
+  return parts.join("\n\n");
+}
+
+/** One sub-skill: only its own files are attached; the main skill and siblings are named so it can stay in its lane. */
+export function buildSubSkillGenerateMessage(
+  input: TaskPromptInput & PluginPromptInput & { main: NamedSkill; subSkill: NamedSkill & { focus: string }; siblings: NamedSkill[]; files: ShippedFile[] },
+): string {
+  const siblings = input.siblings.map((s) => `- ${s.name}: ${oneLineText(s.purpose)}`).join("\n");
+  return [
+    ...generateContext(input),
+    ...(input.plugin ? [pluginTag(input.plugin)] : []),
+    `<main_skill>\nname: ${input.main.name}\npurpose: ${oneLineText(input.main.purpose)}\n</main_skill>`,
+    `<sub_skill>\nname: ${input.subSkill.name}\npurpose: ${oneLineText(input.subSkill.purpose)}\nfocus: ${oneLineText(input.subSkill.focus) || "(as the purpose says)"}\n</sub_skill>`,
+    `<siblings>\n${siblings || "(none)"}\n</siblings>`,
   ].join("\n\n");
 }
+
+const oneLineText = (value: string) => value.replace(/\s+/g, " ").trim();
 
 export function buildJobRetryMessage(original: string, draft: JobSkillDraft, errors: string[]): string {
   return [

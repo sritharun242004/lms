@@ -38,3 +38,18 @@ describe("fake Anthropic plugin suggestions", () => {
     expect(cleanPluginSuggestion(reply, ctx).subs.map((s) => s.name)).toEqual(["wine-picker", "tasting-notes", "tasting-notes-2"]);
   });
 });
+
+describe("fake Anthropic plugin drafts", () => {
+  it("recognises a sub-skill message and writes a draft that parses and validates alone", async () => {
+    const { subSkillDraft, subSkillName, JOB_DRAFT } = await import("../../../../scripts/fake-anthropic-shapes.mjs");
+    const { buildSubSkillGenerateMessage, buildJobGenerateMessage } = await import("./instructions");
+    const { assembleJobSkill, validateJobSkill } = await import("./assemble");
+    const common = { title: "t", description: "d", outputType: null, questions: [], perUse: [], files: [] };
+    const subMessage = buildSubSkillGenerateMessage({ ...common, main: { name: "m", purpose: "p" }, subSkill: { name: "deck-designer", purpose: "p", focus: "f" }, siblings: [] });
+    expect(subSkillName(subMessage)).toBe("deck-designer");
+    expect(subSkillName(buildJobGenerateMessage({ ...common, skill: { name: "m", purpose: "p" } }))).toBeNull();
+    const built = assembleJobSkill("deck-designer", subSkillDraft("deck-designer"), []);
+    expect(validateJobSkill("deck-designer", built.files, built.assets)).toEqual([]);
+    expect(JOB_DRAFT.body).toContain("## How this skill works");
+  });
+});
