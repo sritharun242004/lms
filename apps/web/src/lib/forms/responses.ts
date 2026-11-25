@@ -13,6 +13,10 @@ type QuestionForValidation = {
 
 export type AnswerInput = { questionId: string; value: unknown };
 
+// Deliberately loose (something@something.tld): it catches typos without
+// rejecting unusual but valid addresses.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function asConfig(config: unknown): Record<string, unknown> {
   return typeof config === "object" && config !== null ? (config as Record<string, unknown>) : {};
 }
@@ -29,6 +33,9 @@ export function validateAnswerValue(question: QuestionForValidation, value: unkn
       if (typeof value !== "string") return "Expected text";
       const maxLength = typeof config.maxLength === "number" ? config.maxLength : undefined;
       if (maxLength && value.length > maxLength) return `Answer exceeds the ${maxLength}-character limit`;
+      if (config.format === "email" && value !== "" && !EMAIL_PATTERN.test(value.trim())) {
+        return "Expected an email address";
+      }
       return null;
     }
     case "MULTIPLE_CHOICE":
@@ -93,6 +100,31 @@ export function validateAnswerValue(question: QuestionForValidation, value: unkn
   }
 }
 
+type QuestionWithTitle = QuestionForValidation & { title: string };
+
+function validateAnswers(questions: QuestionWithTitle[], answers: AnswerInput[]): void {
+  const byId = new Map(questions.map((q) => [q.id, q]));
+
+  for (const question of questions) {
+    if (!question.required) continue;
+    const answer = answers.find((a) => a.questionId === question.id);
+    const isEmpty =
+      answer === undefined ||
+      answer.value === undefined ||
+      answer.value === null ||
+      answer.value === "" ||
+      (Array.isArray(answer.value) && answer.value.length === 0);
+    if (isEmpty) throw new FormError(`"${question.title}" is required`, "REQUIRED_ANSWER_MISSING", 400);
+  }
+
+  for (const answer of answers) {
+    const question = byId.get(answer.questionId);
+    if (!question) throw new FormError("Answer references a question not on this form", "UNKNOWN_QUESTION", 400);
+    const error = validateAnswerValue(question, answer.value);
+    if (error) throw new FormError(`"${question.title}": ${error}`, "INVALID_ANSWER", 400);
+  }
+}
+
 export async function getFormForFilling(actor: Actor | null, formId: string) {
   const form = await prisma.form.findUnique({
     where: { id: formId },
@@ -119,27 +151,7 @@ export async function submitFormResponse(
   input: { invitationId?: string; answers: AnswerInput[]; anonymous?: boolean }
 ) {
   const form = await getFormForFilling(actor, formId);
-  const questions = form.sections.flatMap((section) => section.questions);
-  const byId = new Map(questions.map((q) => [q.id, q]));
-
-  for (const question of questions) {
-    if (!question.required) continue;
-    const answer = input.answers.find((a) => a.questionId === question.id);
-    const isEmpty =
-      answer === undefined ||
-      answer.value === undefined ||
-      answer.value === null ||
-      answer.value === "" ||
-      (Array.isArray(answer.value) && answer.value.length === 0);
-    if (isEmpty) throw new FormError(`"${question.title}" is required`, "REQUIRED_ANSWER_MISSING", 400);
-  }
-
-  for (const answer of input.answers) {
-    const question = byId.get(answer.questionId);
-    if (!question) throw new FormError("Answer references a question not on this form", "UNKNOWN_QUESTION", 400);
-    const error = validateAnswerValue(question, answer.value);
-    if (error) throw new FormError(`"${question.title}": ${error}`, "INVALID_ANSWER", 400);
-  }
+  validateAnswers(form.sections.flatMap((section) => section.questions), input.answers);
 
   if (!form.allowMultipleSubmissions && !input.anonymous) {
     const existing = await prisma.formResponse.findFirst({
@@ -185,5 +197,57 @@ export async function submitFormResponse(
     }
 
     return response;
+  });
+}
+
+// The public link (/f/<id>). Every reason a form can't be filled publicly —
+// missing, unpublished, link switched off, a template, outside its open
+// window — reads the same to a visitor, so the link reveals nothing about
+// forms that were never shared.
+export async function getPublicForm(formId: string) {
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    include: { sections: { orderBy: { order: "asc" }, include: { questions: { orderBy: { order: "asc" } } } } },
+  });
+  const now = new Date();
+  if (
+    !form ||
+    form.status !== "PUBLISHED" ||
+    !form.publicLinkEnabled ||
+    form.isTemplate ||
+    (form.opensAt && form.opensAt > now) ||
+    (form.closesAt && form.closesAt < now)
+  ) {
+    throw new FormError("This form isn't available", "NOT_FOUND", 404);
+  }
+  return form;
+}
+
+export function hasFileUpload(form: { sections: { questions: { type: FormQuestionType }[] }[] }): boolean {
+  return form.sections.some((section) => section.questions.some((q) => q.type === "FILE_UPLOAD"));
+}
+
+// Anonymous by construction: there is no signed-in person to attach, and
+// nothing stops one visitor submitting twice, so a public form is not the
+// place for anything that must be one-per-person.
+export async function submitPublicFormResponse(formId: string, answers: AnswerInput[]) {
+  const form = await getPublicForm(formId);
+  // Uploads need a signed-in user, so a form with an upload question can't
+  // be completed from the public link.
+  if (hasFileUpload(form)) {
+    throw new FormError("This form can't be filled from a public link", "PUBLIC_FILE_UPLOAD", 400);
+  }
+  validateAnswers(form.sections.flatMap((section) => section.questions), answers);
+
+  return prisma.formResponse.create({
+    data: {
+      formId,
+      respondentUserId: null,
+      anonymous: true,
+      answers: {
+        create: answers.map((answer) => ({ questionId: answer.questionId, value: answer.value as object })),
+      },
+    },
+    select: { id: true },
   });
 }

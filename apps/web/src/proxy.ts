@@ -63,7 +63,13 @@ const PUBLIC_API_ROUTE_PREFIXES = [
   // Does not cover /api/v1/admin/registrations, a different, protected
   // prefix.
   "/api/v1/workshop/registrations",
+  // Anonymous submissions to a form shared by public link.
+  "/api/v1/public/forms",
 ];
+
+// Pages anyone may open, signed in or not, without being redirected: a
+// public form link is opened by participants and staff alike.
+const OPEN_ROUTE_PREFIXES = ["/f"];
 
 // Role-based route prefixes
 const ROLE_ROUTES: Record<string, UserRole[]> = {
@@ -121,7 +127,9 @@ export async function proxy(request: NextRequest) {
       (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
     );
 
-  if (isPublicApi) {
+  const isOpenRoute = OPEN_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix + "/"));
+
+  if (isPublicApi || isOpenRoute) {
     return NextResponse.next();
   }
 

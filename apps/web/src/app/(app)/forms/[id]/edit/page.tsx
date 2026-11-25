@@ -28,7 +28,15 @@ export default async function FormEditPage({
 
   return (
     <FormBuilder
-      form={{ id: form.id, title: form.title, description: form.description, status: form.status, category: form.category }}
+      form={{
+        id: form.id,
+        title: form.title,
+        description: form.description,
+        status: form.status,
+        category: form.category,
+        isTemplate: form.isTemplate,
+        publicLinkEnabled: form.publicLinkEnabled,
+      }}
       initialSections={JSON.parse(
         JSON.stringify(
           form.sections.map((section) => ({

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db/prisma";
+import { listForms } from "@/lib/forms/form-service";
 import { FormsFeedbackTabs } from "@/components/forms/forms-feedback-tabs";
 
 export default async function FormsPage({
@@ -15,11 +15,12 @@ export default async function FormsPage({
 
   const { tab } = await searchParams;
 
-  const forms = await prisma.form.findMany({
-    where: user.role === "ADMIN" ? {} : { createdById: user.id },
-    orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { sections: true, responses: true } } },
-  });
+  const forms = (await listForms(user, {})).map((form) => ({
+    ...form,
+    // The edit page only opens for the creator or an admin; a template is
+    // visible to every staff member but editable only by them.
+    canEdit: user.role === "ADMIN" || form.createdById === user.id,
+  }));
 
   return (
     <FormsFeedbackTabs

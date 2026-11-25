@@ -40,6 +40,8 @@ export async function PATCH(
       allowMultipleSubmissions: body.allowMultipleSubmissions,
       feedbackTargetType: body.feedbackTargetType,
       feedbackTargetLabel: body.feedbackTargetLabel,
+      isTemplate: typeof body.isTemplate === "boolean" ? body.isTemplate : undefined,
+      publicLinkEnabled: typeof body.publicLinkEnabled === "boolean" ? body.publicLinkEnabled : undefined,
     });
     return successResponse({ form });
   } catch (error) {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { initialAnswers } from "@/lib/forms/prefill";
 import { QuestionRenderer, type QuestionLike } from "./question-renderer";
 
 type FormSectionLike = { id: string; title: string | null; description: string | null; questions: QuestionLike[] };
@@ -41,6 +42,7 @@ export function FormFillView({ invitationId }: { invitationId: string }) {
       .then((data) => {
         if (!cancelled) {
           setInvitation(data.invitation);
+          setAnswers(initialAnswers(data.invitation.form.sections.flatMap((section) => section.questions)));
           setSubmitted(data.invitation.status === "SUBMITTED");
         }
       })
@@ -96,7 +98,9 @@ export function FormFillView({ invitationId }: { invitationId: string }) {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <div>
         <h1 className="text-2xl font-bold">{invitation.form.title}</h1>
-        {invitation.form.description ? <p className="mt-2 text-muted-foreground">{invitation.form.description}</p> : null}
+        {invitation.form.description ? (
+          <p className="mt-2 whitespace-pre-line text-muted-foreground">{invitation.form.description}</p>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

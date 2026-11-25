@@ -31,6 +31,8 @@ vi.mock("@/lib/db/prisma", () => ({
 
 import {
   createForm,
+  duplicateForm,
+  listForms,
   requireStaff,
   setFormStatus,
   saveFormStructure,
@@ -122,5 +124,47 @@ describe("saveFormStructure", () => {
         }),
       })
     );
+  });
+});
+
+describe("templates", () => {
+  const template = {
+    id: "t1",
+    title: "AI Empowerment for Teams Certificate",
+    description: null,
+    headerImageUrl: null,
+    themeColor: null,
+    category: "FEEDBACK",
+    allowMultipleSubmissions: false,
+    feedbackTargetType: null,
+    feedbackTargetLabel: null,
+    createdById: "admin1",
+    isTemplate: true,
+    sections: [],
+  };
+
+  it("lets any staff member use another person's template, keeping its title", async () => {
+    formFindUnique.mockResolvedValue(template);
+    formCreate.mockResolvedValue({ id: "f2" });
+    await duplicateForm({ id: "mentor1", role: "MENTOR" }, "t1");
+    const data = formCreate.mock.calls[0][0].data;
+    expect(data.title).toBe("AI Empowerment for Teams Certificate");
+    expect(data.createdById).toBe("mentor1");
+    expect(data.status).toBe("DRAFT");
+    expect(data).not.toHaveProperty("isTemplate");
+    expect(data).not.toHaveProperty("publicLinkEnabled");
+  });
+
+  it("still blocks copying someone else's ordinary form", async () => {
+    formFindUnique.mockResolvedValue({ ...template, isTemplate: false });
+    await expect(duplicateForm({ id: "mentor1", role: "MENTOR" }, "t1")).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("shows a mentor their own forms plus every template", async () => {
+    formFindMany.mockResolvedValue([]);
+    await listForms({ id: "mentor1", role: "MENTOR" }, {});
+    expect(formFindMany.mock.calls[0][0].where).toMatchObject({
+      OR: [{ createdById: "mentor1" }, { isTemplate: true }],
+    });
   });
 });

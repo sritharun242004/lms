@@ -210,6 +210,25 @@ describe("portal-aware proxy redirects", () => {
     expect(response.status).not.toBe(401);
   });
 
+  it.each([undefined, "ADMIN", "MENTEE"] as const)(
+    "lets %s visitors open a public form link without a redirect",
+    async (role) => {
+      const response = await proxy(request("/f/form123?location=Chennai", role));
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.status).not.toBe(401);
+    }
+  );
+
+  it("lets an anonymous visitor submit to a public form", async () => {
+    const response = await proxy(request("/api/v1/public/forms/form123/responses"));
+    expect(response.status).not.toBe(401);
+  });
+
+  it("keeps the staff forms API private", async () => {
+    const response = await proxy(request("/api/v1/forms/form123"));
+    expect(response.status).toBe(401);
+  });
+
   it("still protects the admin registrations prefix despite the similarly-named public one", async () => {
     const response = await proxy(request("/api/v1/admin/registrations"));
     expect(response.status).toBe(401);
