@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ findSettings: vi.fn(), upsert: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findSettings: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     aiSettings: { findUnique: mocks.findSettings },
-    aiUsageDaily: { upsert: mocks.upsert, update: mocks.update },
+    aiUsageDaily: { upsert: mocks.upsert, update: mocks.update, updateMany: mocks.updateMany },
   },
 }));
 
-import { consumeAiUsage, DEFAULT_LIMITS, LimitReachedError, normalizeLimits, utcDay } from "./usage";
+import { consumeAiUsage, DEFAULT_LIMITS, LimitReachedError, normalizeLimits, refundAiUsage, utcDay } from "./usage";
 
 const NOW = new Date("2026-11-24T22:30:00Z");
 
@@ -50,6 +50,15 @@ describe("usage limits", () => {
     expect(error.resetAt.toISOString()).toBe("2026-11-25T00:00:00.000Z");
     expect(mocks.update).toHaveBeenCalledWith({
       where: { userId_day_feature: { userId: "u1", day: "2026-11-24", feature: "enhance" } },
+      data: { count: { decrement: 1 } },
+    });
+  });
+
+  it("hands back one unit on the day it was spent, never going below zero", async () => {
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    await refundAiUsage("u1", "skill_analyze", NOW);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { userId: "u1", day: "2026-11-24", feature: "skill_analyze", count: { gt: 0 } },
       data: { count: { decrement: 1 } },
     });
   });

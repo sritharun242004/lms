@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   executeRaw: vi.fn(),
   transaction: vi.fn(),
   consumeAiUsage: vi.fn(),
+  refundAiUsage: vi.fn(),
   analyseFile: vi.fn(),
   readUpload: vi.fn(),
   imageForClaude: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock("@/lib/db/prisma", () => ({
     $transaction: mocks.transaction,
   },
 }));
-vi.mock("@/lib/ai/usage", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/usage")>()), consumeAiUsage: mocks.consumeAiUsage }));
+vi.mock("@/lib/ai/usage", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/usage")>()), consumeAiUsage: mocks.consumeAiUsage, refundAiUsage: mocks.refundAiUsage }));
 vi.mock("@/lib/ai/claude", () => ({ analyseFile: mocks.analyseFile }));
 vi.mock("../files/extract", () => ({ readUpload: mocks.readUpload }));
 vi.mock("../files/image", () => ({ imageForClaude: mocks.imageForClaude }));
@@ -47,6 +48,7 @@ import { Prisma } from "@prisma/client";
 import { AiBadRequestError, AiResponseError } from "@/lib/ai/errors";
 import { LimitReachedError } from "@/lib/ai/usage";
 import { FileReadError, FILE_READ_MESSAGES } from "../files/types";
+import { ANALYSIS_STALE_MS } from "../limits";
 import { AlreadyAnalysingError, AlreadyGeneratingError, FileNameTakenError, FileNotFoundError, JobNotFoundError, TooManyFilesError } from "./errors";
 import {
   ANALYSIS_FAILED_MESSAGE,
@@ -61,6 +63,7 @@ import {
   startReanalysis,
   storeJobFile,
 } from "./files";
+import { toFileView, type FileViewRow } from "./jobs";
 
 const NOW = new Date("2026-11-25T12:00:00Z");
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000);
@@ -97,6 +100,7 @@ beforeEach(() => {
   mocks.assetFileName.mockReturnValue("q3-deck.pptx");
   mocks.fileCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => fileRow({ ...data, id: "f1" }));
   mocks.fileUpdateMany.mockResolvedValue({ count: 1 });
+  mocks.refundAiUsage.mockResolvedValue(undefined);
   mocks.transaction.mockImplementation(async (ops: unknown[]) => ops);
 });
 
@@ -156,6 +160,7 @@ describe("storeJobFile", () => {
     expect(mocks.fileCreate).toHaveBeenCalledTimes(2);
     expect(mocks.fileCreate.mock.calls[1][0].data.assetName).toBe("q3-deck-2.pptx");
     expect(mocks.consumeAiUsage).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAiUsage).not.toHaveBeenCalled();
     expect(view.id).toBe("f1");
   });
 
@@ -165,6 +170,22 @@ describe("storeJobFile", () => {
     expect(error).toEqual(new FileNameTakenError("x.pptx"));
     expect(error).not.toBeInstanceOf(TooManyFilesError);
     expect(mocks.fileCreate).toHaveBeenCalledTimes(2);
+    // Nothing was stored, so nothing will run: the unit goes back.
+    expect(mocks.refundAiUsage).toHaveBeenCalledWith("u1", "skill_analyze", NOW);
+  });
+
+  it("hands the unit back when storing the file fails for another reason, and still reports that failure", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const down = new Error("connection lost");
+    mocks.fileCreate.mockRejectedValue(down);
+    await expect(storeJobFile({ jobId: "j1", userId: "u1", fileName: "x.pptx", bytes: BYTES }, NOW)).rejects.toBe(down);
+    expect(mocks.fileCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAiUsage).toHaveBeenCalledTimes(1);
+    expect(mocks.refundAiUsage).toHaveBeenCalledWith("u1", "skill_analyze", NOW);
+    // A refund that fails too never hides the original error.
+    mocks.refundAiUsage.mockRejectedValueOnce(new Error("still down"));
+    await expect(storeJobFile({ jobId: "j1", userId: "u1", fileName: "x.pptx", bytes: BYTES }, NOW)).rejects.toBe(down);
+    log.mockRestore();
   });
 
   it("counts only files that are not removed", async () => {
@@ -204,8 +225,8 @@ describe("runFileAnalysis", () => {
     expect(mocks.fileUpdateMany).toHaveBeenCalledTimes(1);
   });
 
-  it("runs at most two analyses at once; a third waits until one finishes", async () => {
-    mocks.fileFindFirst.mockResolvedValue(withData());
+  it("runs at most two PDF or image analyses at once; a third waits until one finishes", async () => {
+    mocks.fileFindFirst.mockResolvedValue(withData({ kind: "PDF", facts: { kind: "PDF", version: "1.7", pages: 2, title: null } }));
     const release: (() => void)[] = [];
     mocks.analyseFile.mockImplementation(() => new Promise<string>((resolve) => release.push(() => resolve("guide"))));
     const runs = ["f1", "f2", "f3"].map((id) => runFileAnalysis("j1", id, "u1"));
@@ -222,13 +243,68 @@ describe("runFileAnalysis", () => {
     expect(mocks.fileUpdateMany.mock.calls.filter(([a]) => a.data.analysisStatus === "READY")).toHaveLength(3);
   });
 
+  it("runs up to eight Office analyses at once, apart from the two PDF or image slots", async () => {
+    const pdf = withData({ kind: "PDF", facts: { kind: "PDF", version: "1.7", pages: 2, title: null } });
+    mocks.fileFindFirst.mockImplementation(async ({ where }: { where: { id: string } }) => (where.id.startsWith("p") ? { ...pdf, id: where.id } : withData({ id: where.id })));
+    const release: (() => void)[] = [];
+    mocks.analyseFile.mockImplementation(() => new Promise<string>((resolve) => release.push(() => resolve("guide"))));
+    const ids = ["p1", "p2", "p3", ...Array.from({ length: 9 }, (_, i) => `o${i}`)];
+    const runs = ids.map((id) => runFileAnalysis("j1", id, "u1"));
+    await vi.waitFor(() => expect(mocks.analyseFile).toHaveBeenCalledTimes(10));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mocks.analyseFile).toHaveBeenCalledTimes(10);
+    const started = mocks.fileUpdateMany.mock.calls.map(([a]) => a.where.id);
+    expect(started.filter((id: string) => id.startsWith("p"))).toEqual(["p1", "p2"]);
+    expect(started.filter((id: string) => id.startsWith("o"))).toHaveLength(8);
+    while (release.length > 0) {
+      release.splice(0).forEach((done) => done());
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    await Promise.all(runs);
+    expect(mocks.analyseFile).toHaveBeenCalledTimes(12);
+  });
+
+  it("keeps a queued analysis's claim fresh, so a long wait never reads as interrupted", async () => {
+    vi.useRealTimers(); // re-fake with the interval timers too
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(STARTED);
+    const pdf = withData({ kind: "PDF", facts: { kind: "PDF", version: "1.7", pages: 2, title: null } });
+    mocks.fileFindFirst.mockImplementation(async ({ where }: { where: { id: string } }) => ({ ...pdf, id: where.id }));
+    const release: (() => void)[] = [];
+    mocks.analyseFile.mockImplementation(() => new Promise<string>((resolve) => release.push(() => resolve("guide"))));
+    const runs = ["f1", "f2", "f3"].map((id) => runFileAnalysis("j1", id, "u1"));
+    await vi.waitFor(() => expect(mocks.analyseFile).toHaveBeenCalledTimes(2));
+    const beats = () => mocks.fileUpdateMany.mock.calls.map(([a]) => a).filter((a) => a.where.OR);
+    await vi.advanceTimersByTimeAsync(ANALYSIS_STALE_MS + 60_000);
+    // One batched, claim-guarded write a minute for every queued run (here only f3), each from the last claim.
+    expect(beats()).toHaveLength(6);
+    expect(beats()[0].where).toEqual({ OR: [{ id: "f3", analysisStatus: "PENDING", analysisStartedAt: NOW }] });
+    beats().slice(1).forEach((beat, i) => {
+      expect(beat.where.OR[0].analysisStartedAt).toEqual(beats()[i].data.analysisStartedAt);
+      expect(beat.data.analysisStartedAt.getTime() - beats()[i].data.analysisStartedAt.getTime()).toBe(60_000);
+    });
+    const lastBeat = beats().at(-1)!.data.analysisStartedAt as Date;
+    expect(Date.now() - NOW.getTime()).toBeGreaterThan(ANALYSIS_STALE_MS);
+    expect(toFileView(fileRow({ id: "f3", analysisStartedAt: lastBeat }) as unknown as FileViewRow, new Date()).analysisStatus).toBe("PENDING");
+    release[0]();
+    await vi.waitFor(() => expect(mocks.analyseFile).toHaveBeenCalledTimes(3));
+    // The run starts from the heartbeat's claim, not its upload-time claim.
+    expect(mocks.fileUpdateMany.mock.calls.find(([a]) => a.where.id === "f3")![0].where.analysisStartedAt).toEqual(lastBeat);
+    release[1]();
+    release[2]();
+    await Promise.all(runs);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(beats()).toHaveLength(6);
+  });
+
   it("writes the analysis for an Office file from its facts, only if the claim is still ours", async () => {
     mocks.fileFindFirst.mockResolvedValue(withData());
     mocks.analyseFile.mockResolvedValue("## Colours\n- #1F4E79");
     await runFileAnalysis("j1", "f1", "u1");
-    // The bytes are read only once the run holds an analysis slot.
+    // An Office file is analysed from its facts alone: its bytes are never loaded.
+    expect(mocks.fileFindFirst).toHaveBeenCalledTimes(1);
     expect(mocks.fileFindFirst.mock.calls[0][0]).toEqual({ where: { id: "f1", jobId: "j1", deletedAt: null, job: { userId: "u1" } }, omit: { data: true } });
-    expect(mocks.fileFindFirst.mock.calls[1][0]).toEqual({ where: { id: "f1" }, select: { data: true } });
     const content = mocks.analyseFile.mock.calls[0][0];
     expect(content.document).toBeUndefined();
     expect(content.image).toBeUndefined();
@@ -244,6 +320,8 @@ describe("runFileAnalysis", () => {
     mocks.analyseFile.mockResolvedValue("guide");
     await runFileAnalysis("j1", "f1", "u1");
     expect(mocks.analyseFile.mock.calls[0][0].document).toEqual({ base64: Buffer.from("PDFBYTES").toString("base64"), title: "brand.pdf" });
+    // The bytes are read only once the run holds an analysis slot.
+    expect(mocks.fileFindFirst.mock.calls[1][0]).toEqual({ where: { id: "f1" }, select: { data: true } });
   });
 
   it("skips the AI for a PDF over 100 pages and says why", async () => {

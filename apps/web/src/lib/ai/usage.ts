@@ -51,3 +51,11 @@ export async function consumeAiUsage(userId: string, feature: AiFeature, now = n
     throw new LimitReachedError(feature, nextUtcMidnight(now));
   }
 }
+
+/** Hands back one unit spent on `now`'s day, for a call that was counted but will never run. Never below zero. */
+export async function refundAiUsage(userId: string, feature: AiFeature, now = new Date()): Promise<void> {
+  await prisma.aiUsageDaily.updateMany({
+    where: { userId, day: utcDay(now), feature, count: { gt: 0 } },
+    data: { count: { decrement: 1 } },
+  });
+}
