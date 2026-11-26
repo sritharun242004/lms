@@ -31,9 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const messageId = await sendFormToGroup(user, groupId, formId);
     const created = await prisma.message.findUniqueOrThrow({
       where: { id: messageId },
-      select: messageSelect(user.id),
+      select: messageSelect(user.id, access.canManage),
     });
-    const message = serializeMessage(created, user.id);
+    const message = serializeMessage(created, user.id, access.canManage);
     broadcastToGroup(groupId, "message:new", message);
     return successResponse(message, undefined, 201);
   } catch (error) {

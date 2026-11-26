@@ -26,7 +26,7 @@ export function FormInvitationMessage({
         <p className="text-sm text-muted-foreground">{formInvitation.formDescription}</p>
       ) : null}
       <p className="text-xs text-muted-foreground">Sent by {message.sender.name}</p>
-      {isSubmitted ? (
+      {!formInvitation.mine ? null : isSubmitted ? (
         <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
           <CheckCircle2 className="size-4" /> Submitted
         </div>

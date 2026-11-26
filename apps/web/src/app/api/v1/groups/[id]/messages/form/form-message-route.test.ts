@@ -73,4 +73,45 @@ describe("POST /api/v1/groups/[id]/messages/form", () => {
     expect(res.status).toBe(201);
     expect(broadcastToGroup).toHaveBeenCalledWith("g1", "message:new", expect.objectContaining({ id: "msg1" }));
   });
+
+  it("shows the sender a form card, not stuck-as-text, since they're never their own recipient", async () => {
+    getCurrentUser.mockResolvedValue({ id: "staff1", role: "MENTOR" });
+    getGroupAccess.mockResolvedValue({ canView: true, canManage: true });
+    sendFormToGroup.mockResolvedValue("msg1");
+    findUniqueOrThrow.mockResolvedValue({
+      id: "msg1",
+      content: "Feedback",
+      type: "FORM",
+      groupId: "g1",
+      senderId: "staff1",
+      sender: { id: "staff1", name: "Staff", email: null, role: "MENTOR", avatarUrl: null, status: "ONLINE" },
+      attachmentUrl: null,
+      attachmentName: null,
+      attachment: null,
+      isPinned: false,
+      isEdited: false,
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      poll: null,
+      openQuestion: null,
+      wordCloud: null,
+      // Only recipients get their own row (sendFormToGroup never makes one
+      // for the staff sender) — canManage is what lets this query find it.
+      formInvitations: [
+        { id: "inv1", status: "SENT", recipientUserId: "mentee1", form: { title: "Feedback", description: null } },
+      ],
+    });
+
+    const req = new NextRequest("http://localhost", { method: "POST", body: JSON.stringify({ formId: "f1" }) });
+    const res = await POST(req, { params: Promise.resolve({ id: "g1" }) });
+    const body = await res.json();
+
+    expect(body.data.formInvitation).toMatchObject({ formTitle: "Feedback", mine: false });
+    expect(broadcastToGroup).toHaveBeenCalledWith(
+      "g1",
+      "message:new",
+      expect.objectContaining({ formInvitation: expect.objectContaining({ mine: false }) })
+    );
+  });
 });

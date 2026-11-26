@@ -150,6 +150,9 @@ export interface FormInvitationData {
   status: "SENT" | "OPENED" | "SUBMITTED";
   formTitle: string;
   formDescription: string | null;
+  /** False for the staff member who sent the form — they have no personal
+   * invitation to fill, so the UI shows the card without a fill action. */
+  mine: boolean;
 }
 
 export const messageService = {

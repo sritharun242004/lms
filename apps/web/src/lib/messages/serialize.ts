@@ -104,14 +104,18 @@ export function messageSelect(viewerId: string, canManage = false) {
         },
       },
     },
-    // Scoped to the viewer the same way poll/openQuestion/scale already
-    // are above — each group member gets their own FormInvitation row for
-    // the same message, so this never leaks another recipient's status.
+    // Scoped to the viewer the same way poll/openQuestion/scale already are
+    // above — each group member gets their own FormInvitation row for the
+    // same message. The staff sender never gets one (only MENTEE members
+    // do, see sendFormToGroup), so a manager instead gets any one row tied
+    // to the message, purely to show the form's title/description — never
+    // treated as "theirs" to fill (see `mine` in serializeMessage below).
     formInvitations: {
-      where: { recipientUserId: viewerId },
+      where: canManage ? {} : { recipientUserId: viewerId },
       select: {
         id: true,
         status: true,
+        recipientUserId: true,
         form: { select: { title: true, description: true } },
       },
       take: 1,
@@ -187,6 +191,7 @@ interface RawMessage {
   formInvitations?: {
     id: string;
     status: string;
+    recipientUserId: string;
     form: { title: string; description: string | null };
   }[];
 }
@@ -281,6 +286,10 @@ export function serializeMessage<T extends RawMessage>(
         status: formInvitationRow.status as "SENT" | "OPENED" | "SUBMITTED",
         formTitle: formInvitationRow.form.title,
         formDescription: formInvitationRow.form.description,
+        // False for the manager who sent it (and picked up someone else's
+        // row just to show the title): they have nothing to fill, so the
+        // client shows the card without a fill action or submitted badge.
+        mine: formInvitationRow.recipientUserId === viewerId,
       }
     : null;
 

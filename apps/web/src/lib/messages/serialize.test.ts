@@ -88,23 +88,39 @@ describe("serializeMessage formInvitation", () => {
       {
         id: "invitation-1",
         status: "SENT",
+        recipientUserId: "participant-1",
         form: { title: "Day 1 feedback", description: "Tell us how it went" },
       },
     ],
   };
 
-  it("surfaces only the viewer's own invitation, scoped by the select's where clause", () => {
+  it("surfaces the viewer's own invitation as theirs to fill, scoped by the select's where clause", () => {
     const result = serializeMessage(formMessage, "participant-1", false);
     expect(result.formInvitation).toEqual({
       id: "invitation-1",
       status: "SENT",
       formTitle: "Day 1 feedback",
       formDescription: "Tell us how it went",
+      mine: true,
     });
   });
 
   it("is null when the viewer has no invitation row for this message", () => {
     const result = serializeMessage({ ...formMessage, formInvitations: [] }, "participant-1", false);
     expect(result.formInvitation).toBeNull();
+  });
+
+  it("gives a manager any invitation row for the title/description, marked as not theirs to fill", () => {
+    // The sender is staff, never a recipient, so the select's where clause
+    // (canManage: true) has no recipientUserId filter and can only return
+    // some participant's row — never the manager's own.
+    const result = serializeMessage(formMessage, "coach-1", true);
+    expect(result.formInvitation).toEqual({
+      id: "invitation-1",
+      status: "SENT",
+      formTitle: "Day 1 feedback",
+      formDescription: "Tell us how it went",
+      mine: false,
+    });
   });
 });

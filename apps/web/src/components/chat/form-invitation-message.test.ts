@@ -19,6 +19,7 @@ describe("FormInvitationMessage", () => {
       status: "SENT",
       formTitle: "Day 1 feedback",
       formDescription: "Tell us how it went",
+      mine: true,
     };
     render(createElement(FormInvitationMessage, { message, formInvitation: invitation }));
     const link = screen.getByRole("link", { name: /click to fill the form/i });
@@ -32,9 +33,24 @@ describe("FormInvitationMessage", () => {
       status: "SUBMITTED",
       formTitle: "Day 1 feedback",
       formDescription: null,
+      mine: true,
     };
     render(createElement(FormInvitationMessage, { message, formInvitation: invitation }));
     expect(screen.getByText("Submitted")).toBeTruthy();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("shows neither a fill link nor a Submitted badge for the manager who sent it", () => {
+    const invitation: FormInvitationData = {
+      id: "inv1",
+      status: "SUBMITTED",
+      formTitle: "Day 1 feedback",
+      formDescription: "Tell us how it went",
+      mine: false,
+    };
+    render(createElement(FormInvitationMessage, { message, formInvitation: invitation }));
+    expect(screen.getByText("Day 1 feedback")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText("Submitted")).toBeNull();
   });
 });
