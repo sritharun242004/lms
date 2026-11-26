@@ -48,11 +48,16 @@ export function QuestionRenderer({
   value,
   onChange,
   disabled,
+  publicFormId,
 }: {
   question: QuestionLike;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  /** Set only on the public link (/f/[id]): a FILE_UPLOAD question then
+   * uploads through that form's unauthenticated upload routes instead of
+   * the signed-in staff/participant ones. */
+  publicFormId?: string;
 }) {
   const config = asConfig(question.config);
 
@@ -65,7 +70,7 @@ export function QuestionRenderer({
         </p>
         {question.description ? <p className="text-sm text-muted-foreground">{question.description}</p> : null}
       </div>
-      <QuestionInput question={question} config={config} value={value} onChange={onChange} disabled={disabled} />
+      <QuestionInput question={question} config={config} value={value} onChange={onChange} disabled={disabled} publicFormId={publicFormId} />
     </div>
   );
 }
@@ -76,12 +81,14 @@ function QuestionInput({
   value,
   onChange,
   disabled,
+  publicFormId,
 }: {
   question: QuestionLike;
   config: Config;
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  publicFormId?: string;
 }) {
   switch (question.type) {
     case "SHORT_ANSWER":
@@ -190,7 +197,15 @@ function QuestionInput({
     case "TIME":
       return <Input type="time" value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} />;
     case "FILE_UPLOAD":
-      return <FileUploadInput value={value} onChange={onChange} disabled={disabled} />;
+      return (
+        <FileUploadInput
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          questionId={question.id}
+          publicFormId={publicFormId}
+        />
+      );
     case "MULTIPLE_CHOICE_GRID":
     case "CHECKBOX_GRID": {
       const rows = config.rows ?? [];
@@ -283,10 +298,14 @@ function FileUploadInput({
   value,
   onChange,
   disabled,
+  questionId,
+  publicFormId,
 }: {
   value: unknown;
   onChange: (value: unknown) => void;
   disabled?: boolean;
+  questionId: string;
+  publicFormId?: string;
 }) {
   const [progress, setProgress] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -295,10 +314,17 @@ function FileUploadInput({
   const isUploading = progress !== null;
   const [maxBytes, setMaxBytes] = React.useState<number | null>(null);
 
+  const initUrl = publicFormId
+    ? `/api/v1/public/forms/${publicFormId}/answer-files/upload-url`
+    : "/api/v1/forms/answer-files/upload-url";
+  const directUrl = publicFormId
+    ? `/api/v1/public/forms/${publicFormId}/answer-files`
+    : "/api/v1/forms/answer-files";
+
   React.useEffect(() => {
     if (disabled) return;
     let cancelled = false;
-    fetch("/api/v1/forms/answer-files/upload-url")
+    fetch(initUrl)
       .then((response) => response.json())
       .then((result) => {
         if (!cancelled && result.success) setMaxBytes(result.data.maxBytes);
@@ -308,7 +334,7 @@ function FileUploadInput({
     return () => {
       cancelled = true;
     };
-  }, [disabled]);
+  }, [disabled, initUrl]);
 
   async function upload(file: File) {
     setError(null);
@@ -319,10 +345,10 @@ function FileUploadInput({
     }
     setProgress(0);
     try {
-      const response = await fetch("/api/v1/forms/answer-files/upload-url", {
+      const response = await fetch(initUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size }),
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type, size: file.size, questionId }),
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error?.message || "Couldn't start the upload");
@@ -335,7 +361,8 @@ function FileUploadInput({
       } else {
         const body = new FormData();
         body.append("file", file);
-        const sent = await putWithProgress("/api/v1/forms/answer-files", "POST", body, {}, setProgress);
+        body.append("questionId", questionId);
+        const sent = await putWithProgress(directUrl, "POST", body, {}, setProgress);
         const stored = JSON.parse(sent.text || "{}");
         if (sent.status < 200 || sent.status >= 300 || !stored.success) {
           throw new Error(stored.error?.message || "The upload didn't finish. Please try again.");

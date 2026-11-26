@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FormError } from "@/lib/forms/form-service";
-import { getPublicForm, hasRequiredFileUpload, withoutUploadQuestions } from "@/lib/forms/responses";
+import { getPublicForm } from "@/lib/forms/responses";
 import { initialAnswers } from "@/lib/forms/prefill";
 import { PublicFormView } from "@/components/forms/public-form-view";
 
@@ -28,9 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicFormPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const fullForm = await loadForm(id);
-  const blocked = hasRequiredFileUpload(fullForm);
-  const form = withoutUploadQuestions(fullForm);
+  const form = await loadForm(id);
   const questions = form.sections.flatMap((section) => section.questions);
 
   return (
@@ -56,11 +54,6 @@ export default async function PublicFormPage({ params, searchParams }: PageProps
         })
       )}
       initialAnswers={initialAnswers(questions, await searchParams)}
-      unavailableReason={
-        blocked
-          ? "This form asks for a file upload, which needs you to sign in. Ask the organiser for another way to submit it."
-          : null
-      }
     />
   );
 }
