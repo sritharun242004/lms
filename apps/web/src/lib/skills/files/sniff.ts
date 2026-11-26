@@ -13,9 +13,28 @@ const JPEG = [0xff, 0xd8, 0xff];
 const startsWith = (bytes: Uint8Array, magic: number[]) => bytes.length >= magic.length && magic.every((b, i) => bytes[i] === b);
 const unsupported = (message: string = FILE_READ_MESSAGES.unsupported) => new FileReadError("UNSUPPORTED_FILE", message);
 
+/** Enough leading bytes for sniffMagic (the longest signature is 8 bytes). */
+export const MAGIC_BYTES = 8;
+export type Magic = "ZIP" | "PDF" | "PNG" | "JPEG";
+
+/**
+ * The container from the first bytes alone, so a direct upload can be refused before it is downloaded.
+ * OLE (encrypted or old Office) and unknown signatures are refused here with the same errors as sniffFile.
+ */
+export function sniffMagic(bytes: Uint8Array): Magic {
+  if (startsWith(bytes, ZIP)) return "ZIP";
+  // Encrypted .pptx/.docx/.xlsx and the old .ppt/.doc/.xls formats are all OLE compound files.
+  if (startsWith(bytes, OLE)) throw new FileReadError("FILE_ENCRYPTED", FILE_READ_MESSAGES.ole);
+  if (startsWith(bytes, PDF)) return "PDF";
+  if (startsWith(bytes, PNG)) return "PNG";
+  if (startsWith(bytes, JPEG)) return "JPEG";
+  throw unsupported();
+}
+
 /** The kind comes from the bytes, never from the browser's MIME type or the file extension (spec, stage 1). */
 export function sniffFile(bytes: Uint8Array): Sniffed {
-  if (startsWith(bytes, ZIP)) {
+  const magic = sniffMagic(bytes);
+  if (magic === "ZIP") {
     const pkg = openOoxml(bytes);
     if (pkg.names.some((name) => /(^|\/)vbaProject\.bin$/i.test(name))) throw unsupported(FILE_READ_MESSAGES.macro);
     const has = (name: string) => pkg.names.includes(name);
@@ -24,13 +43,6 @@ export function sniffFile(bytes: Uint8Array): Sniffed {
     if (has("xl/workbook.xml")) return { kind: "XLSX", pkg };
     throw unsupported();
   }
-  // Encrypted .pptx/.docx/.xlsx and the old .ppt/.doc/.xls formats are all OLE compound files.
-  if (startsWith(bytes, OLE)) throw new FileReadError("FILE_ENCRYPTED", FILE_READ_MESSAGES.ole);
-  if (startsWith(bytes, PDF)) {
-    if (isEncryptedPdf(bytes)) throw new FileReadError("FILE_ENCRYPTED", FILE_READ_MESSAGES.encryptedPdf);
-    return { kind: "PDF", pkg: null };
-  }
-  if (startsWith(bytes, PNG)) return { kind: "PNG", pkg: null };
-  if (startsWith(bytes, JPEG)) return { kind: "JPEG", pkg: null };
-  throw unsupported();
+  if (magic === "PDF" && isEncryptedPdf(bytes)) throw new FileReadError("FILE_ENCRYPTED", FILE_READ_MESSAGES.encryptedPdf);
+  return { kind: magic, pkg: null };
 }

@@ -55,15 +55,58 @@ export const deleteQuestion = (jobId: string, questionId: string): Promise<CallR
   call<{ deleted: true }>(questionUrl(jobId, questionId), send("DELETE"));
 
 /**
- * The file itself is the body (the route reads it with a byte cap); its name, and the question it
+ * The no-S3 path: the file itself is the body (the route reads it with a byte cap); its name, and the question it
  * answers when there is one, travel in the query.
  */
-export const uploadJobFile = (jobId: string, file: File, questionId?: string): Promise<CallResult<JobFileView>> =>
+export const postJobFile = (jobId: string, file: File, questionId?: string | null): Promise<CallResult<JobFileView>> =>
   call<JobFileView>(`${jobUrl(jobId)}/files?name=${encodeURIComponent(file.name)}${questionId ? `&questionId=${encodeURIComponent(questionId)}` : ""}`, {
     method: "POST",
     body: file,
     headers: { "content-type": file.type || "application/octet-stream" },
   });
+
+type UploadTarget = { mode: "s3"; fileId: string; uploadUrl: string; headers: Record<string, string>; maxBytes: number } | { mode: "direct"; maxBytes: number };
+export type UploadOptions = { questionId?: string | null; onProgress?(fraction: number): void; signal?: AbortSignal };
+
+/** Failures a person can fix by trying again (the connection dropped, or S3 refused a stale link). */
+export const RETRYABLE_UPLOAD_CODES: ReadonlySet<string> = new Set(["NETWORK_ERROR", "UPLOAD_FAILED"]);
+const CANCELLED = { ok: false as const, code: "UPLOAD_CANCELLED", message: "Upload cancelled." };
+const INTERRUPTED = { ok: false as const, code: "NETWORK_ERROR", message: "The upload was interrupted. Check your connection and try again." };
+
+/** One PUT straight to S3 with upload progress; resolves the HTTP status, or "network" / "aborted". */
+function putToS3(target: Extract<UploadTarget, { mode: "s3" }>, file: File, options: UploadOptions): Promise<number | "network" | "aborted"> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", target.uploadUrl);
+    for (const [name, value] of Object.entries(target.headers)) xhr.setRequestHeader(name, value);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) options.onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => resolve(xhr.status);
+    xhr.onerror = () => resolve("network");
+    xhr.onabort = () => resolve("aborted");
+    if (options.signal?.aborted) return resolve("aborted");
+    options.signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+}
+
+/**
+ * Declares the file; with S3 configured, sends it straight to the bucket (progress via onProgress, cancel via
+ * signal), then asks the server to check and store it. Without S3, posts it to this server as before.
+ */
+export async function uploadJobFile(jobId: string, file: File, options: UploadOptions = {}): Promise<CallResult<JobFileView>> {
+  const declared = await call<UploadTarget>(`${jobUrl(jobId)}/files/upload-url`, send("POST", { name: file.name, size: file.size, questionId: options.questionId ?? undefined }));
+  if (!declared.ok) return declared;
+  if (options.signal?.aborted) return CANCELLED;
+  if (declared.data.mode === "direct") return postJobFile(jobId, file, options.questionId);
+  const status = await putToS3(declared.data, file, options);
+  if (status === "aborted") return CANCELLED;
+  if (status === "network") return INTERRUPTED;
+  if (status < 200 || status >= 300) return { ok: false, code: "UPLOAD_FAILED", message: "The file storage refused the upload. Try again." };
+  options.onProgress?.(1);
+  return call<JobFileView>(`${fileUrl(jobId, declared.data.fileId)}/complete`, send("POST"));
+}
 export const getJobFile = (jobId: string, fileId: string): Promise<CallResult<JobFileDetail>> => call<JobFileDetail>(fileUrl(jobId, fileId));
 export const saveAnalysis = (jobId: string, fileId: string, analysis: string): Promise<CallResult<JobFileView>> =>
   call<JobFileView>(fileUrl(jobId, fileId), send("PATCH", { analysis }));

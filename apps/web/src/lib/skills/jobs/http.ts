@@ -49,6 +49,17 @@ export function jobErrorResponse(error: unknown): Response | null {
   if (error instanceof E.FileNameTakenError) {
     return conflict("FILE_NAME_TAKEN", `Another file named "${error.fileName}" was added at the same moment. Upload it again.`);
   }
+  if (error instanceof E.FileTooLargeError) {
+    return errorResponse(`Files can be up to ${error.maxBytes / (1024 * 1024)} MB.`, "FILE_TOO_LARGE", 413);
+  }
+  if (error instanceof E.UploadNotFinishedError) return conflict("UPLOAD_INCOMPLETE", "The upload didn't finish. Try again.");
+  if (error instanceof E.UploadExpiredError) {
+    return errorResponse("This upload took too long and was cancelled. Upload the file again.", "UPLOAD_EXPIRED", 410);
+  }
+  if (error instanceof E.UploadSizeMismatchError) {
+    return errorResponse("The file didn't arrive complete. Upload it again.", "UPLOAD_SIZE_MISMATCH", 400);
+  }
+  if (error instanceof E.StorageUnavailableError) return errorResponse("File storage isn't available right now. Try again later.", "STORAGE_UNAVAILABLE", 503);
   if (error instanceof E.TooManySkillsError) {
     return conflict("TOO_MANY_SKILLS", `A plugin can have at most ${JOB_LIMITS.subSkillsMax} sub-skills.`);
   }
@@ -81,4 +92,14 @@ export async function readJobJson(req: Request): Promise<{ ok: true; value: unkn
   if (body.ok) return body;
   const mb = `${JOB_LIMITS.jsonBodyBytes / 1024} KB`;
   return { ok: false, response: errorResponse(`That is over the ${mb} limit for one save. Make it shorter.`, "PAYLOAD_TOO_LARGE", 413) };
+}
+
+const UPLOAD_NAME_MAX = 255;
+
+/** An upload's display name: the base name without control characters; null when empty or over 255 characters. */
+export function uploadName(raw: string | null): string | null {
+  if (raw === null) return null;
+  const base = raw.split(/[\\/]/).pop() ?? "";
+  const name = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return name && name.length <= UPLOAD_NAME_MAX ? name : null;
 }

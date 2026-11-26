@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobFileView, TaskQuestionView } from "@/lib/skills/jobs/types";
 
 const mocks = vi.hoisted(() => ({ uploadJobFile: vi.fn() }));
-vi.mock("@/lib/skills/jobs/client", () => ({ uploadJobFile: mocks.uploadJobFile, saveAnalysis: vi.fn(), analyseAgain: vi.fn(), removeJobFile: vi.fn() }));
+vi.mock("@/lib/skills/jobs/client", () => ({ uploadJobFile: mocks.uploadJobFile, RETRYABLE_UPLOAD_CODES: new Set(["NETWORK_ERROR"]), saveAnalysis: vi.fn(), analyseAgain: vi.fn(), removeJobFile: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 import { HINT_LABEL, QuestionFiles } from "./question-files";
@@ -67,7 +67,7 @@ describe("QuestionFiles", () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Choose files to upload"), { target: { files: [picked] } });
     });
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", picked, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", picked, expect.objectContaining({ questionId: "q1" }));
     expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f2" }));
   });
 
@@ -78,7 +78,7 @@ describe("QuestionFiles", () => {
     await act(async () => {
       fireEvent.drop(screen.getByTestId("file-drop-zone"), { dataTransfer: { files: [dropped] } });
     });
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped, expect.objectContaining({ questionId: "q1" }));
   });
 
   it("disables uploads without the AI", () => {

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isAiConfigured } from "@/lib/ai/config";
 import { prisma } from "@/lib/db/prisma";
 import { loadJobView } from "@/lib/skills/jobs/jobs";
+import { maxJobFileBytes } from "@/lib/skills/jobs/storage";
 import { JobWorkspace } from "./job-workspace";
 
 export default async function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
@@ -17,5 +18,5 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
     notFound();
   }
   // Viewing, editing text and downloads need no AI; the workspace disables the AI actions without it.
-  return <JobWorkspace initial={view} aiConfigured={isAiConfigured()} isAdmin={user.role === "ADMIN"} />;
+  return <JobWorkspace initial={view} aiConfigured={isAiConfigured()} isAdmin={user.role === "ADMIN"} maxFileBytes={maxJobFileBytes()} />;
 }

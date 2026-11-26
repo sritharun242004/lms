@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
   fileCount: vi.fn(),
+  uploadCount: vi.fn(),
+  loadJobFileBytes: vi.fn(),
+  deleteStoredObject: vi.fn(),
   fileFindMany: vi.fn(),
   fileFindFirst: vi.fn(),
   fileCreate: vi.fn(),
@@ -32,6 +35,7 @@ vi.mock("@/lib/db/prisma", () => ({
       updateMany: mocks.fileUpdateMany,
       deleteMany: mocks.fileDeleteMany,
     },
+    skillJobFileUpload: { count: mocks.uploadCount },
     skillJobSkill: { findFirst: mocks.skillFindFirst },
     skillVersion: { findFirst: mocks.versionFindFirst },
     $executeRaw: mocks.executeRaw,
@@ -43,6 +47,7 @@ vi.mock("@/lib/ai/claude", () => ({ analyseFile: mocks.analyseFile }));
 vi.mock("../files/extract", () => ({ readUpload: mocks.readUpload }));
 vi.mock("../files/image", () => ({ imageForClaude: mocks.imageForClaude }));
 vi.mock("../files/safe-name", () => ({ assetFileName: mocks.assetFileName }));
+vi.mock("./storage", () => ({ loadJobFileBytes: mocks.loadJobFileBytes, deleteStoredObject: mocks.deleteStoredObject }));
 
 import { Prisma } from "@prisma/client";
 import { AiBadRequestError, AiResponseError } from "@/lib/ai/errors";
@@ -55,6 +60,7 @@ import {
   countActiveFiles,
   deleteJobFile,
   loadFileDetail,
+  PDF_TOO_LARGE_MESSAGE,
   PDF_TOO_LONG_MESSAGE,
   PDF_UNREADABLE_MESSAGE,
   purgeUnreferencedFiles,
@@ -95,6 +101,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.jobFindFirst.mockResolvedValue({ id: "j1", title: "t", description: "d" });
   mocks.fileCount.mockResolvedValue(0);
+  mocks.uploadCount.mockResolvedValue(0);
+  // S3 reads are faked: a row with a storage key reads back "s3-bytes"; a legacy row its own data.
+  mocks.loadJobFileBytes.mockImplementation(async (row: { storageKey: string | null; data: Uint8Array | null }) =>
+    row.storageKey ? new Uint8Array(Buffer.from("s3-bytes")) : row.data,
+  );
   mocks.fileFindMany.mockResolvedValue([{ assetName: "logo.png" }]);
   mocks.readUpload.mockResolvedValue({ kind: "PPTX", mimeType: PPTX_MIME, facts: FACTS, sha256: "abc" });
   mocks.assetFileName.mockReturnValue("q3-deck.pptx");
@@ -188,10 +199,12 @@ describe("storeJobFile", () => {
     log.mockRestore();
   });
 
-  it("counts only files that are not removed", async () => {
+  it("counts files that are not removed plus direct uploads still in flight (not abandoned ones)", async () => {
     mocks.fileCount.mockResolvedValue(3);
-    expect(await countActiveFiles("j1")).toBe(3);
+    mocks.uploadCount.mockResolvedValue(2);
+    expect(await countActiveFiles("j1", NOW)).toBe(5);
     expect(mocks.fileCount).toHaveBeenCalledWith({ where: { jobId: "j1", deletedAt: null } });
+    expect(mocks.uploadCount).toHaveBeenCalledWith({ where: { jobId: "j1", createdAt: { gte: minutesAgo(30) } } });
   });
 });
 
@@ -321,7 +334,29 @@ describe("runFileAnalysis", () => {
     await runFileAnalysis("j1", "f1", "u1");
     expect(mocks.analyseFile.mock.calls[0][0].document).toEqual({ base64: Buffer.from("PDFBYTES").toString("base64"), title: "brand.pdf" });
     // The bytes are read only once the run holds an analysis slot.
-    expect(mocks.fileFindFirst.mock.calls[1][0]).toEqual({ where: { id: "f1" }, select: { data: true } });
+    expect(mocks.fileFindFirst.mock.calls[1][0]).toEqual({ where: { id: "f1" }, select: { data: true, storageKey: true } });
+  });
+
+  it("reads a direct upload's bytes from S3, and a legacy row's from the database", async () => {
+    const pdf = { kind: "PDF", assetName: "brand.pdf", facts: { kind: "PDF", version: "1.7", pages: 12, title: null } };
+    mocks.analyseFile.mockResolvedValue("guide");
+    mocks.fileFindFirst.mockResolvedValueOnce(fileRow(pdf)).mockResolvedValueOnce({ data: null, storageKey: "skills/j1/f1" });
+    await runFileAnalysis("j1", "f1", "u1");
+    expect(mocks.loadJobFileBytes).toHaveBeenLastCalledWith({ data: null, storageKey: "skills/j1/f1", size: 4 });
+    expect(mocks.analyseFile.mock.calls[0][0].document.base64).toBe(Buffer.from("s3-bytes").toString("base64"));
+
+    mocks.fileFindFirst.mockResolvedValueOnce(fileRow(pdf)).mockResolvedValueOnce({ data: new Uint8Array(Buffer.from("PDFBYTES")), storageKey: null });
+    await runFileAnalysis("j1", "f1", "u1");
+    expect(mocks.analyseFile.mock.calls[1][0].document.base64).toBe(Buffer.from("PDFBYTES").toString("base64"));
+  });
+
+  it("never downloads or sends a PDF too large for Claude's 32 MB request, and says to add the analysis by hand", async () => {
+    mocks.fileFindFirst.mockResolvedValue(fileRow({ kind: "PDF", size: 40 * 1024 * 1024, storageKey: "skills/j1/f1", facts: { kind: "PDF", version: "1.7", pages: 12, title: null } }));
+    await runFileAnalysis("j1", "f1", "u1");
+    expect(mocks.loadJobFileBytes).not.toHaveBeenCalled();
+    expect(mocks.analyseFile).not.toHaveBeenCalled();
+    expect(finished().data).toEqual({ analysisStatus: "FAILED", analysisError: PDF_TOO_LARGE_MESSAGE });
+    expect(PDF_TOO_LARGE_MESSAGE).toContain("add the analysis by hand");
   });
 
   it("skips the AI for a PDF over 100 pages and says why", async () => {
@@ -456,6 +491,17 @@ describe("deleteJobFile and purge (Review Focus 3)", () => {
     mocks.versionFindFirst.mockResolvedValue(null);
     expect(await deleteJobFile("j1", "f1", "u1", NOW)).toBe("hard");
     expect(mocks.fileDeleteMany).toHaveBeenCalledWith({ where: { id: "f1" } });
+    expect(mocks.deleteStoredObject).not.toHaveBeenCalled();
+  });
+
+  it("tries to delete a hard-deleted direct upload's S3 object, but never a soft-deleted one's", async () => {
+    mocks.fileFindFirst.mockResolvedValue({ id: "f1", storageKey: "skills/j1/f1" });
+    mocks.versionFindFirst.mockResolvedValueOnce({ id: "v1" });
+    expect(await deleteJobFile("j1", "f1", "u1", NOW)).toBe("soft");
+    expect(mocks.deleteStoredObject).not.toHaveBeenCalled();
+    mocks.versionFindFirst.mockResolvedValueOnce(null);
+    expect(await deleteJobFile("j1", "f1", "u1", NOW)).toBe("hard");
+    expect(mocks.deleteStoredObject).toHaveBeenCalledWith("skills/j1/f1");
   });
 
   it("refuses while a skill of the job is being written, and 404s a foreign file", async () => {

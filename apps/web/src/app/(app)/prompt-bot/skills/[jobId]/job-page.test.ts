@@ -42,7 +42,8 @@ describe("job page", () => {
     const element = await JobPage(params("j1"));
     expect(mocks.loadJobView).toHaveBeenCalledWith("j1", "u1");
     expect(element.type).toBe(JobWorkspace);
-    expect(element.props).toEqual({ initial: view, aiConfigured: true, isAdmin: true });
+    // No bucket in tests: the page passes the no-S3 cap (20 MB) as the effective limit.
+    expect(element.props).toEqual({ initial: view, aiConfigured: true, isAdmin: true, maxFileBytes: 20 * 1024 * 1024 });
   });
 
   it("redirects an old pack link to the legacy page", async () => {

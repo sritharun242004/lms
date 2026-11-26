@@ -26,7 +26,8 @@ export function formUploadsS3(): S3Settings | null {
 }
 
 let cachedClient: { region: string; client: S3Client } | null = null;
-function s3Client(region: string): S3Client {
+/** One client per region for the uploads bucket (forms and Skills Builder files share it). */
+export function s3Client(region: string): S3Client {
   if (!cachedClient || cachedClient.region !== region) cachedClient = { region, client: new S3Client({ region }) };
   return cachedClient.client;
 }

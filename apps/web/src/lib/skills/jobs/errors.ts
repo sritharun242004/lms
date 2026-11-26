@@ -58,6 +58,36 @@ export class FileNameTakenError extends NamedError {
     super(`A file named "${fileName}" is being added`);
   }
 }
+/** Over the effective per-file cap (100 MB with S3, 20 MB without). */
+export class FileTooLargeError extends NamedError {
+  constructor(readonly maxBytes: number) {
+    super("File too large");
+  }
+}
+/** A direct upload was completed before its bytes reached S3 (it can be completed again once they have). */
+export class UploadNotFinishedError extends NamedError {
+  constructor() {
+    super("The upload has not finished");
+  }
+}
+/** A direct upload not completed within UPLOAD_ABANDONED_MS was abandoned; its unit went back. */
+export class UploadExpiredError extends NamedError {
+  constructor() {
+    super("The upload expired");
+  }
+}
+/** The bytes in S3 are not the size the upload was signed for. */
+export class UploadSizeMismatchError extends NamedError {
+  constructor() {
+    super("The uploaded file is not the declared size");
+  }
+}
+/** Files are stored in S3 but this server has no bucket configured. */
+export class StorageUnavailableError extends NamedError {
+  constructor() {
+    super("File storage isn't configured on this server");
+  }
+}
 export class TooManySkillsError extends NamedError {
   constructor() {
     super("Too many skills");

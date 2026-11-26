@@ -28,13 +28,23 @@ import {
   unansweredCount,
   type JobStep,
 } from "./job-steps";
+import { FileLimitContext } from "./file-card";
 import { QuestionsPanel } from "./questions-panel";
 import { SkillsPanel } from "./skills-panel";
 import { TaskPanel, taskShortMessageId } from "./task-panel";
 
 type Props = { initial: JobView; aiConfigured: boolean; isAdmin: boolean };
 
-export function JobWorkspace({ initial, aiConfigured, isAdmin }: Props) {
+/** maxFileBytes: the server's effective per-file upload cap, for every upload box below (defaults to the no-S3 cap). */
+export function JobWorkspace({ maxFileBytes = JOB_LIMITS.fileBytes, ...props }: Props & { maxFileBytes?: number }) {
+  return (
+    <FileLimitContext.Provider value={maxFileBytes}>
+      <Workspace {...props} />
+    </FileLimitContext.Provider>
+  );
+}
+
+function Workspace({ initial, aiConfigured, isAdmin }: Props) {
   const router = useRouter();
   const [job, setJob] = React.useState(initial);
   const jobRef = React.useRef(job);

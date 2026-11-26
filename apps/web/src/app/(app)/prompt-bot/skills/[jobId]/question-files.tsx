@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, type ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
 import type { FileHint, JobFileView, TaskQuestionView } from "@/lib/skills/jobs/types";
 import { cn } from "@/lib/utils";
-import { FILE_ACCEPT, FILE_HELP, FileCard, UploadRows, useUploadQueue, type AskConfirm } from "./file-card";
+import { FILE_ACCEPT, FileCard, FileLimitContext, fileHelp, UploadRows, useUploadQueue, type AskConfirm } from "./file-card";
 
 export const HINT_LABEL: Record<FileHint, string> = {
   TEMPLATE: "Template or design system",
@@ -81,7 +81,8 @@ type ZoneProps = { jobId: string; question: TaskQuestionView; aiConfigured: bool
 function UploadZone({ jobId, question, aiConfigured, onFileChange }: ZoneProps) {
   const [dragging, setDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const { rows, enqueue, dismiss } = useUploadQueue({ jobId, questionId: question.id, enabled: aiConfigured, onFileChange });
+  const maxBytes = React.useContext(FileLimitContext);
+  const { rows, enqueue, dismiss, retry } = useUploadQueue({ jobId, questionId: question.id, enabled: aiConfigured, maxBytes, onFileChange });
   const prominent = question.wantsFiles;
   const hint = prominent && question.fileHint ? HINT_LABEL[question.fileHint] : null;
 
@@ -143,13 +144,13 @@ function UploadZone({ jobId, question, aiConfigured, onFileChange }: ZoneProps) 
           </Button>
           <p className="min-w-0 flex-1 basis-56 text-xs text-pretty text-muted-foreground">
             <span className="hidden sm:inline">Or drop them here. </span>
-            {FILE_HELP}
+            {fileHelp(maxBytes)}
           </p>
         </div>
       </div>
       {rows.length > 0 && (
         <div className="mt-3">
-          <UploadRows rows={rows} onDismiss={dismiss} />
+          <UploadRows rows={rows} onDismiss={dismiss} onRetry={retry} />
         </div>
       )}
     </>
