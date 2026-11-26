@@ -54,7 +54,7 @@ describe("downloadPluginVersion", () => {
   it("names the zips after the plugin and version, loading each original once", async () => {
     expect((await downloadPluginVersion("j1", 3, "u1", "plugin")).filename).toBe("acme-quarterly-deck-v3.zip");
     expect(mocks.fileFindFirst).toHaveBeenCalledTimes(2);
-    expect(mocks.fileFindFirst.mock.calls[0][0]).toEqual({ where: { id: "deck", jobId: "j1" }, select: { data: true } });
+    expect(mocks.fileFindFirst.mock.calls[0][0]).toEqual({ where: { id: "deck", jobId: "j1" }, select: { data: true, storageKey: true, size: true } });
     expect((await downloadPluginVersion("j1", "latest", "u1", "share")).filename).toBe("acme-quarterly-deck-v3-share.zip");
   });
 

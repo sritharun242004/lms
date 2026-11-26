@@ -8,16 +8,22 @@ import type { ConfirmDialogHandle } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { SafeMarkdown } from "@/components/prompt-bot/safe-markdown";
 import { KIND_LABEL, type SkillFileKind } from "@/lib/skills/files/types";
-import { analyseAgain, removeJobFile, saveAnalysis, uploadJobFile } from "@/lib/skills/jobs/client";
+import { analyseAgain, RETRYABLE_UPLOAD_CODES, removeJobFile, saveAnalysis, uploadJobFile } from "@/lib/skills/jobs/client";
 import { formatBytes } from "@/lib/skills/jobs/format";
 import type { JobFileView } from "@/lib/skills/jobs/types";
 import { JOB_LIMITS } from "@/lib/skills/limits";
 import { cn } from "@/lib/utils";
 
 export const FILE_ACCEPT = ".pptx,.docx,.xlsx,.pdf,.png,.jpg,.jpeg";
-export const FILE_MB = JOB_LIMITS.fileBytes / (1024 * 1024);
+const MB = 1024 * 1024;
 /** Accepted types and caps, under every upload button. */
-export const FILE_HELP = `PowerPoint, Word, Excel, PDF, PNG or JPG · up to ${FILE_MB} MB each · ${JOB_LIMITS.filesPerJob} files per task`;
+export const fileHelp = (maxBytes: number) =>
+  `PowerPoint, Word, Excel, PDF, PNG or JPG · up to ${maxBytes / MB} MB each · ${JOB_LIMITS.filesPerJob} files per task`;
+/**
+ * The server's effective per-file cap (100 MB with S3, 20 MB without), provided once by the task page.
+ * The default is the no-S3 cap, so an upload box outside a provider never promises more than the server takes.
+ */
+export const FileLimitContext = React.createContext<number>(JOB_LIMITS.fileBytes);
 const KIND_ICON: Record<SkillFileKind, typeof FileText> = {
   PPTX: Presentation,
   DOCX: FileText,
@@ -33,76 +39,141 @@ const ACTION = "min-h-11 sm:min-h-8";
 const UPLOAD_FAILED = "We couldn't upload this file. Refresh the page to see if it arrived, then try again.";
 
 export type AskConfirm = ConfirmDialogHandle["open"];
-export type UploadRow = { key: number; name: string; status: "waiting" | "uploading" | "failed"; message?: string };
+export type UploadRow = {
+  key: number;
+  name: string;
+  status: "waiting" | "uploading" | "checking" | "failed";
+  /** 0..1 while the bytes go to storage; null when the browser can't tell (an upload to this server). */
+  progress: number | null;
+  message?: string;
+  /** Kept when trying again can fix the failure (the connection dropped), so the row offers Try again. */
+  retry?: File;
+};
 
-type QueueOptions = { jobId: string; questionId?: string | null; enabled: boolean; onFileChange(file: JobFileView): void };
+type QueueOptions = { jobId: string; questionId?: string | null; enabled: boolean; maxBytes?: number; onFileChange(file: JobFileView): void };
 
 /**
  * Uploads one file at a time, in the order chosen; each has a row until it lands as a card. A file over
  * the size cap fails on its own row without being sent. With a question, each upload is attached to it.
+ * A waiting or running upload can be cancelled; one cut off by the network can be tried again.
  */
-export function useUploadQueue({ jobId, questionId, enabled, onFileChange }: QueueOptions) {
+export function useUploadQueue({ jobId, questionId, enabled, maxBytes = JOB_LIMITS.fileBytes, onFileChange }: QueueOptions) {
   const [rows, setRows] = React.useState<UploadRow[]>([]);
   const queue = React.useRef<Promise<void>>(Promise.resolve());
   const nextKey = React.useRef(0);
+  const controllers = React.useRef(new Map<number, AbortController>());
   const latest = React.useRef({ jobId, questionId, onFileChange });
   React.useEffect(() => {
     latest.current = { jobId, questionId, onFileChange };
   });
   const patchRow = (key: number, patch: Partial<UploadRow>) => setRows((all) => all.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const dismiss = React.useCallback((key: number) => setRows((all) => all.filter((r) => r.key !== key)), []);
+  /** Dismiss a failure, or cancel an upload that is waiting or running. */
+  const dismiss = React.useCallback((key: number) => {
+    controllers.current.get(key)?.abort();
+    controllers.current.delete(key);
+    setRows((all) => all.filter((r) => r.key !== key));
+  }, []);
+
+  function add(file: File) {
+    const key = ++nextKey.current;
+    if (file.size > maxBytes) {
+      setRows((all) => [...all, { key, name: file.name, status: "failed", progress: null, message: `Files can be up to ${maxBytes / MB} MB. Upload a smaller copy.` }]);
+      return;
+    }
+    const controller = new AbortController();
+    controllers.current.set(key, controller);
+    setRows((all) => [...all, { key, name: file.name, status: "waiting", progress: null }]);
+    // Each upload settles on its own row, so one that throws never stops the ones after it.
+    queue.current = queue.current
+      .then(async () => {
+        if (controller.signal.aborted) return;
+        patchRow(key, { status: "uploading" });
+        const { jobId: job, questionId: question } = latest.current;
+        const result = await uploadJobFile(job, file, {
+          ...(question ? { questionId: question } : {}),
+          signal: controller.signal,
+          onProgress: (fraction) => patchRow(key, fraction >= 1 ? { status: "checking", progress: 1 } : { progress: fraction }),
+        });
+        controllers.current.delete(key);
+        if (controller.signal.aborted) return;
+        if (!result.ok) return patchRow(key, { status: "failed", message: result.message, retry: RETRYABLE_UPLOAD_CODES.has(result.code) ? file : undefined });
+        latest.current.onFileChange(result.data);
+        dismiss(key);
+      })
+      .catch(() => patchRow(key, { status: "failed", message: UPLOAD_FAILED }));
+  }
 
   function enqueue(list: File[]) {
     if (!enabled) return;
-    for (const file of list) {
-      const key = ++nextKey.current;
-      if (file.size > JOB_LIMITS.fileBytes) {
-        setRows((all) => [...all, { key, name: file.name, status: "failed", message: `This file is over ${FILE_MB} MB. Upload a smaller copy.` }]);
-        continue;
-      }
-      setRows((all) => [...all, { key, name: file.name, status: "waiting" }]);
-      // Each upload settles on its own row, so one that throws never stops the ones after it.
-      queue.current = queue.current
-        .then(async () => {
-          patchRow(key, { status: "uploading" });
-          const { jobId: job, questionId: question } = latest.current;
-          const result = question ? await uploadJobFile(job, file, question) : await uploadJobFile(job, file);
-          if (!result.ok) return patchRow(key, { status: "failed", message: result.message });
-          latest.current.onFileChange(result.data);
-          dismiss(key);
-        })
-        .catch(() => patchRow(key, { status: "failed", message: UPLOAD_FAILED }));
-    }
+    for (const file of list) add(file);
   }
 
-  return { rows, enqueue, dismiss };
+  function retry(row: UploadRow) {
+    dismiss(row.key);
+    if (row.retry) enqueue([row.retry]);
+  }
+
+  return { rows, enqueue, dismiss, retry };
 }
 
+const STATUS_TEXT: Record<Exclude<UploadRow["status"], "failed">, string> = {
+  waiting: "Waiting…",
+  uploading: "Uploading…",
+  checking: "Checking the file…",
+};
+
 /** One row per chosen file until it lands as a card; a failure stays (readable next to its name) until dismissed. */
-export function UploadRows({ rows, onDismiss }: { rows: UploadRow[]; onDismiss(key: number): void }) {
+export function UploadRows({ rows, onDismiss, onRetry }: { rows: UploadRow[]; onDismiss(key: number): void; onRetry?(row: UploadRow): void }) {
   return (
     <ul className="flex flex-col gap-2" aria-label="Uploads">
       {rows.map((row) => {
         const failed = row.status === "failed";
+        const percent = row.progress === null ? null : Math.round(row.progress * 100);
+        const showBar = row.status === "uploading" && percent !== null;
         return (
           <li key={row.key} className={cn("flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm", failed ? "bg-destructive/10" : "bg-primary/5")}>
             {failed ? (
               <AlertTriangle className="size-4 shrink-0 text-destructive" aria-hidden />
             ) : (
-              <Loader2 className={cn("size-4 shrink-0 text-primary", row.status === "uploading" ? "animate-spin" : "opacity-50")} aria-hidden />
+              <Loader2 className={cn("size-4 shrink-0 text-primary", row.status === "waiting" ? "opacity-50" : "animate-spin")} aria-hidden />
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium" title={row.name}>
                 {row.name}
               </p>
-              <p className={cn("text-xs text-pretty", failed ? "text-destructive" : "text-muted-foreground")} role={failed ? "alert" : "status"}>
-                {failed ? row.message : row.status === "uploading" ? "Uploading…" : "Waiting…"}
-              </p>
+              {showBar ? (
+                <div className="mt-1.5 flex items-center gap-2.5">
+                  <div
+                    role="progressbar"
+                    aria-label={`Uploading ${row.name}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={percent}
+                    className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/15"
+                  >
+                    <div
+                      className="h-full origin-left rounded-full bg-primary transition-transform duration-300 ease-out motion-reduce:transition-none"
+                      style={{ transform: `scaleX(${row.progress})` }}
+                    />
+                  </div>
+                  <span className="w-9 text-right text-xs text-muted-foreground tabular-nums">{percent}%</span>
+                </div>
+              ) : (
+                <p className={cn("text-xs text-pretty", failed ? "text-destructive" : "text-muted-foreground")} role={failed ? "alert" : "status"}>
+                  {row.status === "failed" ? row.message : STATUS_TEXT[row.status]}
+                </p>
+              )}
             </div>
-            {failed && (
+            {failed && row.retry && onRetry && (
+              <Button variant="outline" size="sm" className="min-h-11 shrink-0 sm:min-h-8" onClick={() => onRetry(row)}>
+                <RotateCcw className="size-3.5" aria-hidden />
+                Try again
+              </Button>
+            )}
+            {row.status !== "checking" && (
               <Button variant="ghost" size="icon" className="size-11 shrink-0 sm:size-9" onClick={() => onDismiss(row.key)}>
                 <X className="size-4" aria-hidden />
-                <span className="sr-only">Dismiss {row.name}</span>
+                <span className="sr-only">{failed ? `Dismiss ${row.name}` : `Cancel upload of ${row.name}`}</span>
               </Button>
             )}
           </li>

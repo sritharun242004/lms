@@ -80,6 +80,13 @@ export const KIND_MIME: Record<SkillFileKind, string> = {
 export const KIND_EXTENSION: Record<SkillFileKind, string> = { PPTX: "pptx", DOCX: "docx", XLSX: "xlsx", PDF: "pdf", PNG: "png", JPEG: "jpg" };
 export const KIND_LABEL: Record<SkillFileKind, string> = { PPTX: "PowerPoint", DOCX: "Word", XLSX: "Excel", PDF: "PDF", PNG: "PNG image", JPEG: "JPG image" };
 
+const EXTENSION_KIND: Record<string, SkillFileKind> = { pptx: "PPTX", docx: "DOCX", xlsx: "XLSX", pdf: "PDF", png: "PNG", jpg: "JPEG", jpeg: "JPEG" };
+/** The kind a file's name declares (a direct upload is signed for it before any byte is seen); null when unsupported. */
+export function kindFromFileName(name: string): SkillFileKind | null {
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? null : (EXTENSION_KIND[name.slice(dot + 1).toLowerCase()] ?? null);
+}
+
 export type FileReadErrorCode = "UNSUPPORTED_FILE" | "FILE_ENCRYPTED" | "FILE_UNREADABLE";
 export const FILE_READ_MESSAGES = {
   unsupported: "Upload a PowerPoint, Word, Excel, PDF, PNG or JPG file.",
@@ -87,6 +94,7 @@ export const FILE_READ_MESSAGES = {
   ole: "This file is password-protected or in an old Office format. Remove the password or save it as .pptx, .docx or .xlsx, then upload it again.",
   encryptedPdf: "This PDF is password-protected. Remove the password, then upload it again.",
   unreadable: "We couldn't read this file. It may be damaged. Open and save it again, then upload it.",
+  mismatch: "This file's contents don't match its name. Save it again in the format its name says, then upload it.",
 } as const;
 
 export class FileReadError extends Error {

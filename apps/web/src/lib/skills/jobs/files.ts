@@ -3,11 +3,11 @@ import { prisma } from "@/lib/db/prisma";
 import { analyseFile, type AnalysisContent } from "@/lib/ai/claude";
 import { AiBadRequestError } from "@/lib/ai/errors";
 import { consumeAiUsage, refundAiUsage } from "@/lib/ai/usage";
-import { readUpload } from "../files/extract";
+import { readUpload, type ReadUpload } from "../files/extract";
 import { imageForClaude } from "../files/image";
 import { assetFileName } from "../files/safe-name";
 import type { FileFacts, SkillFileKind } from "../files/types";
-import { JOB_LIMITS } from "../limits";
+import { JOB_LIMITS, UPLOAD_ABANDONED_MS } from "../limits";
 import {
   AlreadyAnalysingError,
   AlreadyGeneratingError,
@@ -19,7 +19,8 @@ import {
   TooManyFilesError,
 } from "./errors";
 import { buildAnalysisText } from "./instructions";
-import { fileViewOmit, findOwnedJob, toFileView } from "./jobs";
+import { fileViewOmit, findOwnedJob, toFileView, type FileViewRow } from "./jobs";
+import { deleteStoredObject, loadJobFileBytes } from "./storage";
 import { analysisCutoff, generationCutoff, isAnalysing } from "./staleness";
 import type { JobFileDetail, JobFileView } from "./types";
 
@@ -28,11 +29,17 @@ export const PDF_TOO_LONG_MESSAGE =
   "This PDF has more than 100 pages, so it can't be analysed. Upload the pages that show the style, or write the style guide yourself.";
 
 export const PDF_UNREADABLE_MESSAGE = "This PDF couldn't be read — add the analysis by hand.";
+export const PDF_TOO_LARGE_MESSAGE = `This PDF is over ${JOB_LIMITS.pdfBytesForAnalysis / (1024 * 1024)} MB, so it can't be analysed — add the analysis by hand, or upload a smaller copy.`;
 
 const ownedFile = (jobId: string, fileId: string, userId: string) => ({ id: fileId, jobId, deletedAt: null, job: { userId } });
 
-export function countActiveFiles(jobId: string): Promise<number> {
-  return prisma.skillJobFile.count({ where: { jobId, deletedAt: null } });
+/** The task's files plus its direct uploads still in flight (an abandoned one no longer holds a place). */
+export async function countActiveFiles(jobId: string, now = new Date()): Promise<number> {
+  const [files, uploads] = await Promise.all([
+    prisma.skillJobFile.count({ where: { jobId, deletedAt: null } }),
+    prisma.skillJobFileUpload.count({ where: { jobId, createdAt: { gte: new Date(now.getTime() - UPLOAD_ABANDONED_MS) } } }),
+  ]);
+  return files + uploads;
 }
 
 /** Removed-but-kept files keep their names, so a version's assets/<name> never changes meaning. */
@@ -44,6 +51,56 @@ async function takenAssetNames(jobId: string): Promise<string[]> {
 export async function assertTaskQuestion(jobId: string, questionId: string): Promise<void> {
   const row = await prisma.skillJobQuestion.findFirst({ where: { id: questionId, jobId, kind: "FIXED" }, select: { id: true } });
   if (!row) throw new QuestionNotFoundError();
+}
+
+export type NewJobFile = {
+  /** A direct upload keeps its upload's id. */
+  id?: string;
+  jobId: string;
+  fileName: string;
+  questionId: string | null;
+  read: ReadUpload;
+  size: number;
+  /** Exactly one of these holds the bytes. */
+  data: Uint8Array<ArrayBuffer> | null;
+  storageKey: string | null;
+};
+
+/**
+ * Inserts the file as PENDING under a fresh asset name. `alongside` runs in the same transaction (a direct
+ * upload's pending row is removed exactly when its file appears).
+ */
+export async function insertJobFile(file: NewJobFile, now: Date, alongside?: () => Prisma.PrismaPromise<unknown>): Promise<FileViewRow> {
+  const data = (assetName: string): Prisma.SkillJobFileUncheckedCreateInput => ({
+    ...(file.id ? { id: file.id } : {}),
+    jobId: file.jobId,
+    fileName: file.fileName,
+    assetName,
+    kind: file.read.kind,
+    mimeType: file.read.mimeType,
+    size: file.size,
+    sha256: file.read.sha256,
+    data: file.data,
+    storageKey: file.storageKey,
+    facts: file.read.facts as unknown as Prisma.InputJsonValue,
+    analysisStatus: "PENDING",
+    analysisStartedAt: now,
+    questionId: file.questionId,
+  });
+  const create = async () => {
+    const op = prisma.skillJobFile.create({ data: data(assetFileName(file.fileName, file.read.kind, await takenAssetNames(file.jobId))), omit: fileViewOmit });
+    if (!alongside) return op;
+    const [row] = await prisma.$transaction([op, alongside()]);
+    return row;
+  };
+  // The unique [jobId, assetName] index only catches two uploads picking the same name at once (two uploads can
+  // still both pass the count check). The loser picks again from a fresh read of the names, once.
+  return create().catch((error: unknown) => {
+    if (!isUniqueViolation(error)) throw error;
+    return create().catch((retryError: unknown) => {
+      throw isUniqueViolation(retryError) ? new FileNameTakenError(file.fileName) : retryError;
+    });
+  });
 }
 
 /**
@@ -60,39 +117,16 @@ export async function storeJobFile(
   const read = await readUpload(input.bytes);
   if ((await countActiveFiles(input.jobId)) >= JOB_LIMITS.filesPerJob) throw new TooManyFilesError();
   await consumeAiUsage(input.userId, "skill_analyze", now);
-  const bytes = Buffer.from(input.bytes);
-  const data = (assetName: string): Prisma.SkillJobFileUncheckedCreateInput => ({
-    jobId: input.jobId,
-    fileName: input.fileName,
-    assetName,
-    kind: read.kind,
-    mimeType: read.mimeType,
-    size: input.bytes.byteLength,
-    sha256: read.sha256,
-    data: bytes,
-    facts: read.facts as unknown as Prisma.InputJsonValue,
-    analysisStatus: "PENDING",
-    analysisStartedAt: now,
-    questionId,
-  });
-  const create = async () =>
-    prisma.skillJobFile.create({ data: data(assetFileName(input.fileName, read.kind, await takenAssetNames(input.jobId))), omit: fileViewOmit });
-  // The unique [jobId, assetName] index only catches two uploads picking the same name at once (two uploads can
-  // still both pass the count check). The loser picks again from a fresh read of the names, once.
-  const row = await create()
-    .catch((error: unknown) => {
-      if (!isUniqueViolation(error)) throw error;
-      return create().catch((retryError: unknown) => {
-        throw isUniqueViolation(retryError) ? new FileNameTakenError(input.fileName) : retryError;
-      });
-    })
-    .catch(async (error: unknown) => {
-      // Nothing was stored, so nothing will run: hand the unit back. A failed refund never hides the first error.
-      await refundAiUsage(input.userId, "skill_analyze", now).catch((refundError: unknown) => {
-        console.error("[skills-builder] could not refund the analysis unit:", refundError instanceof Error ? refundError.name : "unknown");
-      });
-      throw error;
+  const row = await insertJobFile(
+    { jobId: input.jobId, fileName: input.fileName, questionId, read, size: input.bytes.byteLength, data: Buffer.from(input.bytes), storageKey: null },
+    now,
+  ).catch(async (error: unknown) => {
+    // Nothing was stored, so nothing will run: hand the unit back. A failed refund never hides the first error.
+    await refundAiUsage(input.userId, "skill_analyze", now).catch((refundError: unknown) => {
+      console.error("[skills-builder] could not refund the analysis unit:", refundError instanceof Error ? refundError.name : "unknown");
     });
+    throw error;
+  });
   return toFileView(row, now);
 }
 
@@ -126,7 +160,7 @@ export const MAX_CONCURRENT_TEXT_ANALYSES = 8;
 /** How often a queued run re-stamps its claim; well inside ANALYSIS_STALE_MS. */
 export const ANALYSIS_HEARTBEAT_MS = 60_000;
 
-function createLimiter(max: number) {
+export function createLimiter(max: number) {
   let running = 0;
   const waiting: (() => void)[] = [];
   return async <T>(work: () => Promise<T>, whileQueued: () => () => void): Promise<T> => {
@@ -211,6 +245,11 @@ export async function runFileAnalysis(jobId: string, fileId: string, userId: str
       await finish({ analysisStatus: "FAILED", analysisError: PDF_TOO_LONG_MESSAGE });
       return;
     }
+    // Claude takes at most 32 MB per request; a bigger PDF is never downloaded or sent.
+    if (row.kind === "PDF" && row.size > JOB_LIMITS.pdfBytesForAnalysis) {
+      await finish({ analysisStatus: "FAILED", analysisError: PDF_TOO_LARGE_MESSAGE });
+      return;
+    }
     const binary = BINARY_KINDS.has(row.kind);
     const queued: QueuedClaim = { id: fileId, claim };
     await (binary ? binaryAnalyses : textAnalyses)(async () => {
@@ -226,12 +265,13 @@ export async function runFileAnalysis(jobId: string, fileId: string, userId: str
       });
       if (refreshed.count === 0) return;
       claim = startedAt;
-      // Only now, and only for a PDF or image, are the bytes loaded, so queued runs hold no file in memory.
+      // Only now, and only for a PDF or image, are the bytes loaded (from S3 or the row), so queued runs hold no file
+      // in memory and at most MAX_CONCURRENT_ANALYSES files are held at once.
       let data: Uint8Array | null = null;
       if (binary) {
-        const stored = await prisma.skillJobFile.findFirst({ where: { id: fileId }, select: { data: true } });
+        const stored = await prisma.skillJobFile.findFirst({ where: { id: fileId }, select: { data: true, storageKey: true } });
         if (!stored) return;
-        data = stored.data;
+        data = await loadJobFileBytes({ data: stored.data, storageKey: stored.storageKey ?? null, size: row.size });
       }
       const analysis = await analyseFile(await analysisContent({ ...row, facts }, data));
       await finish({ analysisStatus: "READY", analysis, analysisEdited: false, analysisError: null });
@@ -292,7 +332,7 @@ export async function saveAnalysisEdit(jobId: string, fileId: string, userId: st
  * updateMany/deleteMany, not update/delete: those would read the bytes back.
  */
 export async function deleteJobFile(jobId: string, fileId: string, userId: string, now = new Date()): Promise<"soft" | "hard"> {
-  const row = await prisma.skillJobFile.findFirst({ where: ownedFile(jobId, fileId, userId), select: { id: true } });
+  const row = await prisma.skillJobFile.findFirst({ where: ownedFile(jobId, fileId, userId), select: { id: true, storageKey: true } });
   if (!row) throw new FileNotFoundError();
   const generating = await prisma.skillJobSkill.findFirst({
     where: { jobId, status: "GENERATING", generationStartedAt: { gt: generationCutoff(now) } },
@@ -306,7 +346,9 @@ export async function deleteJobFile(jobId: string, fileId: string, userId: strin
       : prisma.skillJobFile.deleteMany({ where: { id: fileId } }),
     prisma.$executeRaw`UPDATE "skill_job_skills" SET "file_ids" = array_remove("file_ids", ${fileId}) WHERE "job_id" = ${jobId}`,
   ]);
-  return referenced ? "soft" : "hard";
+  if (referenced) return "soft";
+  if (row.storageKey) await deleteStoredObject(row.storageKey);
+  return "hard";
 }
 
 /** Hard-deletes the job's removed files that no remaining skill version or plugin version bundles. Returns how many went. */

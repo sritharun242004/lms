@@ -10,6 +10,7 @@ import { PackTooLargeError } from "../zip";
 import { AssetMissingError, JobNotFoundError, VersionNotFoundError } from "./errors";
 import { MANIFEST_PATH } from "./plugin";
 import type { PluginVersionDetail } from "./types";
+import { loadJobFileBytes } from "./storage";
 
 const StoredFiles = z.array(z.object({ path: z.string(), content: z.string() }));
 const StoredSkills = z.array(
@@ -138,9 +139,9 @@ export function buildPluginShareZip(detail: PluginVersionDetail, bytes: Readonly
 async function assetBytes(jobId: string, detail: PluginVersionDetail): Promise<Map<string, Uint8Array>> {
   const out = new Map<string, Uint8Array>();
   for (const fileId of new Set(detail.skills.flatMap((s) => s.assets.map((a) => a.fileId)))) {
-    const row = await prisma.skillJobFile.findFirst({ where: { id: fileId, jobId }, select: { data: true } });
+    const row = await prisma.skillJobFile.findFirst({ where: { id: fileId, jobId }, select: { data: true, storageKey: true, size: true } });
     if (!row) throw new AssetMissingError();
-    out.set(fileId, row.data);
+    out.set(fileId, await loadJobFileBytes(row));
   }
   return out;
 }

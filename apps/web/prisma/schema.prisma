@@ -939,6 +939,7 @@ model SkillJob {
   answers                   SkillJobAnswer[]
   questions                 SkillJobQuestion[]
   files                     SkillJobFile[]
+  fileUploads               SkillJobFileUpload[]
   skills                    SkillJobSkill[]
 
   @@index([userId, updatedAt])
@@ -974,7 +975,10 @@ model SkillJobFile {
   mimeType          String              @map("mime_type")
   size              Int
   sha256            String
-  data              Bytes
+  /// The bytes of a file posted to this server; null when they live in S3 (storageKey).
+  data              Bytes?
+  /// The S3 object of a direct-to-S3 upload; null for bytes kept in `data`.
+  storageKey        String?             @unique @map("storage_key")
   /// Deterministic extraction (FileFacts).
   facts             Json?
   /// Readable style guide: the AI's, or the user's edit.
@@ -996,6 +1000,27 @@ model SkillJobFile {
   @@index([jobId, createdAt])
   @@index([questionId])
   @@map("skill_job_files")
+}
+
+/// A direct-to-S3 upload the browser has not finished: it becomes a SkillJobFile (same id) on complete,
+/// or is removed (and its analysis unit handed back) once it is abandoned.
+model SkillJobFileUpload {
+  id         String   @id
+  jobId      String   @map("job_id")
+  /// As chosen, for display only.
+  fileName   String   @map("file_name")
+  /// The kind the file's name declares; the bytes must match it on complete.
+  kind       SkillJobFileKind
+  size       Int
+  storageKey String   @unique @map("storage_key")
+  questionId String?  @map("question_id")
+  /// Also the day the analysis unit was spent, for the refund of an abandoned upload.
+  createdAt  DateTime @default(now()) @map("created_at")
+  job        SkillJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([createdAt])
+  @@map("skill_job_file_uploads")
 }
 
 enum SkillQuestionSource {

@@ -6,19 +6,9 @@ import { AiNotConfiguredError, isAiConfigured } from "@/lib/ai/config";
 import { aiErrorResponse } from "@/lib/prompt-bot/http";
 import { JobNotFoundError, TooManyFilesError } from "@/lib/skills/jobs/errors";
 import { assertTaskQuestion, countActiveFiles, runFileAnalysis, storeJobFile } from "@/lib/skills/jobs/files";
-import { jobErrorResponse, unauthorized } from "@/lib/skills/jobs/http";
+import { jobErrorResponse, unauthorized, uploadName } from "@/lib/skills/jobs/http";
 import { findOwnedJob } from "@/lib/skills/jobs/jobs";
 import { JOB_LIMITS } from "@/lib/skills/limits";
-
-const NAME_MAX = 255;
-
-/** The display name: URLSearchParams has already decoded it; keep the base name, drop control characters. */
-function uploadName(raw: string | null): string | null {
-  if (raw === null) return null;
-  const base = raw.split(/[\\/]/).pop() ?? "";
-  const name = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
-  return name && name.length <= NAME_MAX ? name : null;
-}
 
 /**
  * Uploads one resource file as the raw request body (`?name=` carries the file name; optional `?questionId=` the

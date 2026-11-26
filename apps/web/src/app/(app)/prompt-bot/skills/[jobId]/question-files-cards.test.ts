@@ -7,6 +7,7 @@ import type { JobFileView, TaskQuestionView } from "@/lib/skills/jobs/types";
 const mocks = vi.hoisted(() => ({ uploadJobFile: vi.fn(), saveAnalysis: vi.fn(), analyseAgain: vi.fn(), removeJobFile: vi.fn(), toastError: vi.fn() }));
 vi.mock("@/lib/skills/jobs/client", () => ({
   uploadJobFile: mocks.uploadJobFile,
+  RETRYABLE_UPLOAD_CODES: new Set(["NETWORK_ERROR", "UPLOAD_FAILED"]),
   saveAnalysis: mocks.saveAnalysis,
   analyseAgain: mocks.analyseAgain,
   removeJobFile: mocks.removeJobFile,
@@ -170,7 +171,7 @@ describe("QuestionFiles uploads", () => {
     const pdf = new File([new Uint8Array([37, 80, 68, 70])], "locked.pdf");
     await pick([deck, pdf]);
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(1);
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", deck, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", deck, expect.objectContaining({ questionId: "q1" }));
     expect(screen.getByText("Uploading…")).toBeTruthy();
     expect(screen.getByText("Waiting…")).toBeTruthy();
     await act(async () => {
@@ -179,7 +180,7 @@ describe("QuestionFiles uploads", () => {
     await flush();
     expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f9" }));
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(2);
-    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", pdf, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", pdf, expect.objectContaining({ questionId: "q1" }));
     const row = screen.getByText("locked.pdf").closest("li")!;
     expect(within(row).getByText("This PDF is password-protected. Remove the password, then upload it again.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Dismiss/ }));
@@ -204,7 +205,7 @@ describe("QuestionFiles uploads", () => {
     await pick([deck, brief]);
     await flush();
     expect(mocks.uploadJobFile).toHaveBeenCalledTimes(2);
-    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", brief, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenLastCalledWith("j1", brief, expect.objectContaining({ questionId: "q1" }));
     expect(props.onFileChange).toHaveBeenCalledWith(expect.objectContaining({ id: "f9" }));
     const row = screen.getByText("deck.pptx").closest("li")!;
     expect(within(row).getByRole("alert").textContent).toMatch(/couldn.t upload/i);
@@ -228,7 +229,7 @@ describe("QuestionFiles uploads", () => {
     Object.defineProperty(big, "size", { value: 21 * 1024 * 1024 });
     await pick([big]);
     expect(mocks.uploadJobFile).not.toHaveBeenCalled();
-    expect(screen.getByText("This file is over 20 MB. Upload a smaller copy.")).toBeTruthy();
+    expect(screen.getByText("Files can be up to 20 MB. Upload a smaller copy.")).toBeTruthy();
   });
 
   it("uploads dropped files", async () => {
@@ -239,7 +240,7 @@ describe("QuestionFiles uploads", () => {
       fireEvent.drop(screen.getByTestId("file-drop-zone"), { dataTransfer: { files: [dropped] } });
     });
     await flush();
-    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped, "q1");
+    expect(mocks.uploadJobFile).toHaveBeenCalledWith("j1", dropped, expect.objectContaining({ questionId: "q1" }));
     expect(props.onFileChange).toHaveBeenCalled();
   });
 

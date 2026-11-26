@@ -19,7 +19,7 @@ import {
   saveJobAnswer,
   scoreJob,
   suggestSkills,
-  uploadJobFile,
+  postJobFile,
   versionDownloadUrl,
 } from "./client";
 
@@ -81,7 +81,7 @@ describe("jobs client", () => {
 
   it("uploads the file itself as the body, named in the query", async () => {
     const file = new File([new Uint8Array([80, 75, 3, 4])], "Q3 board deck “final”.pptx", { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
-    await uploadJobFile("j1", file);
+    await postJobFile("j1", file);
     expect(last().url).toBe(`/api/v1/prompt-bot/skill-jobs/j1/files?name=${encodeURIComponent("Q3 board deck “final”.pptx")}`);
     expect(last().init.method).toBe("POST");
     expect(last().init.body).toBe(file);
@@ -89,7 +89,7 @@ describe("jobs client", () => {
   });
 
   it("falls back to octet-stream when the browser gives no type", async () => {
-    await uploadJobFile("j1", new File([new Uint8Array([1])], "notes"));
+    await postJobFile("j1", new File([new Uint8Array([1])], "notes"));
     expect(header("content-type")).toBe("application/octet-stream");
   });
 

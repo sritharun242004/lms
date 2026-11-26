@@ -6,6 +6,7 @@ import { parseStoredFiles } from "../stored-files";
 import { buildPackZip, buildSkillZip, DuplicateSkillNameError, packZipSize, PackTooLargeError, type ZipAsset, type ZipSkill } from "../zip";
 import { AssetMissingError, JobNotFoundError, NothingToDownloadError, SkillNotFoundError, VersionNotFoundError } from "./errors";
 import type { VersionDetail } from "./types";
+import { loadJobFileBytes } from "./storage";
 
 /** Versions are written only by the server, but stored JSON is still parsed before it reaches a zip. */
 const StoredAssets = z.array(z.object({ fileId: z.string(), path: z.string(), fileName: z.string(), bytes: z.number().int().nonnegative() }));
@@ -50,9 +51,9 @@ export async function loadVersionDetail(jobId: string, skillId: string, version:
 export async function toZipSkill(detail: VersionDetail, purpose: string, jobId: string): Promise<ZipSkill> {
   const assets: ZipAsset[] = [];
   for (const asset of detail.assets) {
-    const row = await prisma.skillJobFile.findFirst({ where: { id: asset.fileId, jobId }, select: { data: true } });
+    const row = await prisma.skillJobFile.findFirst({ where: { id: asset.fileId, jobId }, select: { data: true, storageKey: true, size: true } });
     if (!row) throw new AssetMissingError();
-    assets.push({ path: asset.path, bytes: row.data });
+    assets.push({ path: asset.path, bytes: await loadJobFileBytes(row) });
   }
   return { name: detail.name, purpose, version: detail.version, files: detail.files, assets };
 }

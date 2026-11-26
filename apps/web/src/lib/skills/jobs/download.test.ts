@@ -2,7 +2,18 @@ import { strFromU8, unzipSync } from "fflate";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse } from "yaml";
 
-const mocks = vi.hoisted(() => ({ jobFindFirst: vi.fn(), skillFindFirst: vi.fn(), versionFindUnique: vi.fn(), fileFindFirst: vi.fn() }));
+const mocks = vi.hoisted(() => ({ jobFindFirst: vi.fn(), skillFindFirst: vi.fn(), versionFindUnique: vi.fn(), fileFindFirst: vi.fn(), s3Send: vi.fn() }));
+vi.mock("@aws-sdk/client-s3", () => ({
+  S3Client: class {
+    send = mocks.s3Send;
+  },
+  GetObjectCommand: class {
+    constructor(readonly input: Record<string, unknown>) {}
+  },
+  HeadObjectCommand: class {},
+  PutObjectCommand: class {},
+  DeleteObjectCommand: class {},
+}));
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     skillJob: { findFirst: mocks.jobFindFirst },
@@ -92,9 +103,20 @@ describe("toZipSkill", () => {
     const detail = (await loadVersionDetail("j1", "s1", 1, "u1"))!;
     const skill = await toZipSkill(detail, "Writes it.", "j1");
     // No deletedAt filter: a soft-deleted file is still the bytes this version shipped.
-    expect(mocks.fileFindFirst).toHaveBeenCalledWith({ where: { id: "f1", jobId: "j1" }, select: { data: true } });
+    expect(mocks.fileFindFirst).toHaveBeenCalledWith({ where: { id: "f1", jobId: "j1" }, select: { data: true, storageKey: true, size: true } });
     expect(sha256Hex(skill.assets![0].bytes)).toBe(sha256Hex(png));
     expect(skill).toMatchObject({ name: "board-update", purpose: "Writes it.", version: 1 });
+  });
+
+  it("bundles a direct upload's original from S3, byte for byte", async () => {
+    vi.stubEnv("FORM_UPLOADS_BUCKET", "uploads-bucket");
+    mocks.fileFindFirst.mockResolvedValue({ data: null, storageKey: "skills/j1/f1", size: png.byteLength });
+    mocks.s3Send.mockResolvedValue({ Body: (async function* () { yield png; })() });
+    const detail = (await loadVersionDetail("j1", "s1", 1, "u1"))!;
+    const skill = await toZipSkill(detail, "Writes it.", "j1");
+    expect(mocks.s3Send.mock.calls[0][0].input).toEqual({ Bucket: "uploads-bucket", Key: "skills/j1/f1" });
+    expect(sha256Hex(skill.assets![0].bytes)).toBe(sha256Hex(png));
+    vi.unstubAllEnvs();
   });
 
   it("refuses when an original is gone", async () => {

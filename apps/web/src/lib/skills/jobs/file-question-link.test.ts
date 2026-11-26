@@ -15,6 +15,7 @@ vi.mock("@/lib/db/prisma", () => ({
     skillJob: { findFirst: mocks.jobFindFirst },
     skillJobQuestion: { findFirst: mocks.questionFindFirst },
     skillJobFile: { count: mocks.fileCount, findMany: mocks.fileFindMany, create: mocks.fileCreate },
+    skillJobFileUpload: { count: async () => 0 },
   },
 }));
 vi.mock("@/lib/ai/usage", () => ({ consumeAiUsage: mocks.consumeAiUsage, refundAiUsage: mocks.refundAiUsage }));

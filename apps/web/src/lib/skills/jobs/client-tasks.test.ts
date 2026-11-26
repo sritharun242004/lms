@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addQuestion, deleteQuestion, enhanceTask, generateQuestions, patchQuestion, uploadJobFile } from "./client";
+import { addQuestion, deleteQuestion, enhanceTask, generateQuestions, patchQuestion, postJobFile } from "./client";
 
 type Seen = { url: string; init: RequestInit };
 let seen: Seen[];
@@ -53,9 +53,9 @@ describe("task client calls", () => {
 
   it("sends questionId with an upload only when given", async () => {
     const file = new File(["x"], "Brand kit.pdf", { type: "application/pdf" });
-    await uploadJobFile("j1", file);
+    await postJobFile("j1", file);
     expect(last().url).toBe(`${BASE}/files?name=Brand%20kit.pdf`);
-    await uploadJobFile("j1", file, "q&1");
+    await postJobFile("j1", file, "q&1");
     expect(last().url).toBe(`${BASE}/files?name=Brand%20kit.pdf&questionId=q%261`);
     expect(last().init.body).toBe(file);
   });

@@ -31,7 +31,12 @@ export const JOB_LIMITS = {
   jsonBodyBytes: 64 * 1024,
   descriptionChars: 20_000,
   filesPerJob: 10,
+  /** A file posted to this server and kept in Postgres (no S3 bucket configured). */
   fileBytes: 20 * 1024 * 1024,
+  /** A file the browser sends straight to S3: the server never holds it during the upload. */
+  s3FileBytes: 100 * 1024 * 1024,
+  /** Claude's request cap is 32 MB and a PDF goes as base64 (4/3 larger), so bigger PDFs are never sent. */
+  pdfBytesForAnalysis: 23 * 1024 * 1024,
   assetBytes: 10 * 1024 * 1024,
   skillAssetBytes: 25 * 1024 * 1024,
   /** Plugins spec (2026-11-25 plugins, Limits): 1 main skill + at most 6 sub-skills. */
@@ -81,6 +86,10 @@ export const JOB_LIMITS = {
   subSkillAssetCopyBytes: 1024 * 1024,
   pluginVersionsKept: 20,
 } as const;
+
+/** A direct-to-S3 upload's signed link lasts 15 minutes; one not completed within this is abandoned. */
+export const UPLOAD_URL_TTL_SECONDS = 15 * 60;
+export const UPLOAD_ABANDONED_MS = 30 * 60_000;
 
 /** One file analysis call (run in after()); the SDK retries it once. */
 export const ANALYSIS_TIMEOUT_MS = 90_000;
