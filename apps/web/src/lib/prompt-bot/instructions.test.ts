@@ -40,14 +40,15 @@ describe("prompt bot instructions", () => {
 
   it("writes elaborate prose: a specific expert persona, rich first-person context with bold key facts, inline-numbered details", () => {
     expect(ENHANCE_SYSTEM).toMatch(/flowing, natural prose paragraphs/);
-    expect(rule("Persona")).toMatch(/seniority, years of experience/);
-    expect(rule("Persona")).toMatch(/role-play/);
+    expect(rule("Persona")).toMatch(/seniority and years of experience/);
+    expect(rule("Persona")).toMatch(/in the person's own words/);
+    expect(rule("Persona")).toMatch(/Never narrow or shift it to a specialism they did not mention/);
     expect(rule("Context")).toMatch(/first person plural/);
     expect(rule("Context")).toMatch(/all the facts/);
     expect(rule("Context")).toMatch(/key facts in \*\*bold\*\*/);
     expect(rule("Data")).toMatch(/inline numbering/);
     expect(rule("Data")).toMatch(/1\) … 2\) …/);
-    expect(ENHANCE_SYSTEM).toMatch(/250-600 words/);
+    expect(ENHANCE_SYSTEM).toMatch(/150-600 words/);
   });
 
   it("never invents facts about the person, and never leaves placeholders or a missing-details list", () => {
@@ -87,7 +88,20 @@ describe("prompt bot instructions", () => {
     expect(plan).toMatch(/confirm it with the user before executing/);
   });
 
+  it("keeps a thin input short and on scope instead of padding it", () => {
+    expect(ENHANCE_SYSTEM).toMatch(/Stay on the person's scope\. Never add topics, tools, channels, sub-specialties or goals/);
+    expect(ENHANCE_SYSTEM).toMatch(/When it is "thin"[^\n]*60-150 words/);
+    expect(ENHANCE_SYSTEM).toMatch(/ask the user the key questions first/);
+    expect(ENHANCE_SYSTEM).toMatch(/Never pad\./);
+  });
+
+  it("tells the model how much the person gave", () => {
+    const q = (id: string, answer: string) => ({ id, text: `Q${id}?`, guidance: "", answer, score: answer ? 2 : 0, notRelevant: false });
+    expect(buildEnhanceMessage("email expert", [q("1", ""), q("2", "")])).toContain("<input_size>thin (basic prompt: 2 words; answered questions: 0)</input_size>");
+    expect(buildEnhanceMessage("email expert", [q("1", "Sales team"), q("2", "Win back lapsed clients")])).toContain("<input_size>enough");
+  });
+
   it("versions the instructions", () => {
-    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v5");
+    expect(INSTRUCTIONS_VERSION).toBe("prompt-bot-v6");
   });
 });

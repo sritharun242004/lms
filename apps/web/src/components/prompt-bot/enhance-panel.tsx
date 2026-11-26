@@ -16,6 +16,8 @@ type Props = {
   error: string | null;
   onEnhance(): void;
   unansweredCount: number;
+  /** Questions with any answer; under 2 shows a nudge to answer a few before enhancing. */
+  answeredCount?: number;
 };
 
 /** The prompt's sections sit under the panel's h2, so Markdown headings render one level down. */
@@ -42,7 +44,7 @@ const PROMPT_TYPE = [
   "[&_pre]:mt-2 [&_pre]:overflow-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-3 dark:[&_pre]:bg-white/5",
 ].join(" ");
 
-export function EnhancePanel({ content, contentKey, streaming, version, versions, onSelectVersion, error, onEnhance, unansweredCount }: Props) {
+export function EnhancePanel({ content, contentKey, streaming, version, versions, onSelectVersion, error, onEnhance, unansweredCount, answeredCount }: Props) {
   const [copied, setCopied] = React.useState(false);
   const copiedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
@@ -98,6 +100,11 @@ export function EnhancePanel({ content, contentKey, streaming, version, versions
           </Button>
         </div>
       </div>
+      {answeredCount !== undefined && answeredCount < 2 && !streaming && (
+        <p className="mt-3 rounded-xl bg-primary/[.06] px-3 py-2 text-sm text-pretty text-muted-foreground">
+          Answer a few questions for a sharper prompt. With little to go on, the prompt stays short and asks the AI to check the details with you first.
+        </p>
+      )}
       {error && <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       {content && (
         <div

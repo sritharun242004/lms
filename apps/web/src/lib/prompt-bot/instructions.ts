@@ -2,7 +2,7 @@
  * Prompt Bot's instructions to Claude. Bump INSTRUCTIONS_VERSION whenever any
  * text here changes; it is stored on every enhancement for comparison.
  */
-export const INSTRUCTIONS_VERSION = "prompt-bot-v5";
+export const INSTRUCTIONS_VERSION = "prompt-bot-v6";
 
 export type PromptQuestionContext = {
   id: string;
@@ -37,7 +37,7 @@ Write the prompt as flowing, natural prose paragraphs, the way a thoughtful clie
 The headings are markers only, so the text under each one must read naturally without it. Always include ## Persona, ## Context, ## Output Expectations and ## Iteration Request. Include ## Data whenever the input gives any specifics, and ## Examples only when the person gave a template, sample or style to follow; otherwise omit that heading entirely. Never leave a section empty or say there is nothing to add. Use no other headings.
 
 How to write each element:
-- ## Persona: one paragraph in the second person that casts the AI as a vivid, specific expert suited to the task, with their role, seniority, years of experience and the precise domain expertise the work needs, in the style of "You are an **expert recruiter with 20 years of experience**, 10 years in management consulting… For the last 5 years you have been an expert in…". This is a role-play framing, so the expert may be specific, but it must not state anything about the person or their organisation that the input does not give.
+- ## Persona: one paragraph in the second person that casts the AI as an experienced expert in exactly what the person asked for, in the style of "You are an **expert recruiter with 20 years of experience**…". Name the expertise in the person's own words (for "email expert": an experienced email writer), with seniority and years of experience. Never narrow or shift it to a specialism they did not mention (for example automation, deliverability or marketing funnels when they only said "email"). It must not state anything about the person or their organisation that the input does not give.
 - ## Context: one or more rich paragraphs in the first person plural ("We are…", "We are now…"; "I am…" only when the person clearly works alone) that describe the organisation, the situation, the goal and the audience using all the facts from the basic prompt and the answers. Put the key facts in **bold**.
 - ## Data: the specifics the AI must work from (offers, figures, requirements, constraints, lists, and any documents or files the person mentions) as flowing sentences with inline numbering, for example "We offer **…**, such as 1) … 2) … 3) …". Do not use bullet points here.
 - ## Output Expectations: what the finished work must look like: the deliverable, its format (for example a document with headings, a table, code, Markdown or HTML), length, level of detail, tone and style, and who it is for. Start with the concrete ask in a direct, warm voice ("Please help us …").
@@ -45,9 +45,10 @@ How to write each element:
 - ## Examples: only when a template, sample or style was given: describe it and tell the AI to follow its structure, tone and style exactly.
 
 Rules for the whole prompt:
+- Stay on the person's scope. Never add topics, tools, channels, sub-specialties or goals that the basic prompt and the answers do not mention.
 - Use only facts from the basic prompt and the answers. Never invent facts, numbers, names, credentials, dates or company details about the person, their organisation or their situation; the Persona's expertise is the only invented detail allowed.
 - Never write placeholders, blanks or brackets for someone to fill in, and never add a "Missing details" list or any other note addressed to the person; turn missing information into clarifying questions in ## Iteration Request.
-- Write 250-600 words in total.
+- Match the length to how much the person gave. <input_size> says how much that is. When it is "thin" (a very short basic prompt and fewer than 2 answered questions), write a short prompt of 60-150 words: a one-sentence Persona, a one or two sentence Context with only what they said, a short Output Expectations, and an Iteration Request whose main job is to ask the user the key questions first (what exactly they need, for whom, and the goal); omit ## Data unless they gave specifics. Otherwise write 150-600 words, longer only as the input gives more to work with. Never pad.
 - Output only the prompt itself: no preamble, title, explanation or closing remark, and do not wrap it in a code block.`;
 
 function relevant(questions: PromptQuestionContext[]) {
@@ -72,7 +73,11 @@ export function buildEnhanceMessage(basePrompt: string, questions: PromptQuestio
     .filter((q) => q.score < 3)
     .map((q) => `- ${q.text} (${q.guidance})`)
     .join("\n");
+  const answeredCount = rel.filter((q) => q.answer.trim()).length;
+  const words = basePrompt.trim().split(/\s+/).filter(Boolean).length;
+  const size = words < 25 && answeredCount < 2 ? "thin" : "enough";
   return [
+    `<input_size>${size} (basic prompt: ${words} words; answered questions: ${answeredCount})</input_size>`,
     `<basic_prompt>\n${basePrompt.trim()}\n</basic_prompt>`,
     `<answers>\n${answered || "(none)"}\n</answers>`,
     `<gaps>\n${gaps || "(none)"}\n</gaps>`,

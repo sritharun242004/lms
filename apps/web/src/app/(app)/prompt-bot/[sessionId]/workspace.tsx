@@ -191,6 +191,7 @@ export function Workspace({ initial }: { initial: SessionView }) {
           error={enhanceError}
           onEnhance={() => void enhance()}
           unansweredCount={gaps.length}
+          answeredCount={questions.filter((q) => matrix.answerFor(q.id).answer.trim()).length}
         />
         <p className="text-center text-xs text-muted-foreground">
           Your prompts are stored in the LMS and sent to Anthropic&apos;s API to analyse them.
