@@ -22,7 +22,13 @@ vi.mock("@/lib/db/prisma", () => ({
   },
 }));
 
-import { getFormForFilling, getPublicForm, submitFormResponse, submitPublicFormResponse } from "./responses";
+import {
+  getFormForFilling,
+  getPublicForm,
+  isPublicFileUploadQuestion,
+  submitFormResponse,
+  submitPublicFormResponse,
+} from "./responses";
 
 beforeEach(() => {
   formFindUnique.mockReset();
@@ -201,15 +207,27 @@ describe("public form link", () => {
     expect(responseCreate).not.toHaveBeenCalled();
   });
 
-  it("refuses a form with a required file upload, which needs a signed-in user", async () => {
+  it("accepts a required file upload answer on a public form", async () => {
     formFindUnique.mockResolvedValue({
       ...publicForm,
       sections: [{ questions: [{ id: "q9", type: "FILE_UPLOAD", title: "CV", required: true, config: {} }] }],
     });
-    await expect(submitPublicFormResponse("f1", [])).rejects.toMatchObject({ code: "PUBLIC_FILE_UPLOAD" });
+    responseCreate.mockResolvedValue({ id: "r1" });
+    await submitPublicFormResponse("f1", [{ questionId: "q9", value: { fileId: "f-abc" } }]);
+    expect(responseCreate.mock.calls[0][0].data.answers.create).toEqual([
+      { questionId: "q9", value: { fileId: "f-abc" } },
+    ]);
   });
 
-  it("leaves out an optional file upload and accepts the rest", async () => {
+  it("still rejects a required file upload left unanswered", async () => {
+    formFindUnique.mockResolvedValue({
+      ...publicForm,
+      sections: [{ questions: [{ id: "q9", type: "FILE_UPLOAD", title: "CV", required: true, config: {} }] }],
+    });
+    await expect(submitPublicFormResponse("f1", [])).rejects.toThrow(/required/i);
+  });
+
+  it("accepts an optional file upload left out, and the rest of the answers", async () => {
     formFindUnique.mockResolvedValue({
       ...publicForm,
       sections: [
@@ -224,8 +242,30 @@ describe("public form link", () => {
     responseCreate.mockResolvedValue({ id: "r1" });
     await submitPublicFormResponse("f1", [{ questionId: "q1", value: "Asha" }]);
     expect(responseCreate).toHaveBeenCalled();
-    await expect(
-      submitPublicFormResponse("f1", [{ questionId: "q1", value: "Asha" }, { questionId: "q9", value: { fileId: "x" } }])
-    ).rejects.toMatchObject({ code: "UNKNOWN_QUESTION" });
+  });
+});
+
+describe("isPublicFileUploadQuestion", () => {
+  const form = {
+    sections: [
+      {
+        questions: [
+          { id: "q1", type: "SHORT_ANSWER" as const },
+          { id: "q9", type: "FILE_UPLOAD" as const },
+        ],
+      },
+    ],
+  };
+
+  it("accepts a real FILE_UPLOAD question on the form", () => {
+    expect(isPublicFileUploadQuestion(form, "q9")).toBe(true);
+  });
+
+  it("rejects a question that exists but is not a file upload", () => {
+    expect(isPublicFileUploadQuestion(form, "q1")).toBe(false);
+  });
+
+  it("rejects a question id that isn't on the form at all", () => {
+    expect(isPublicFileUploadQuestion(form, "nope")).toBe(false);
   });
 });

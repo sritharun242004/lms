@@ -28,6 +28,9 @@ export const RATE_LIMITS = {
   // A whole workshop room can submit from one venue Wi-Fi IP at the end of
   // a session, so this only stops scripted floods.
   publicFormSubmitPerIp: { limit: 120, windowMs: 10 * MINUTE },
+  // Same reasoning as publicFormSubmitPerIp, kept separate since an upload
+  // is a heavier request than a plain answer submission.
+  publicFileUploadPerIp: { limit: 120, windowMs: 10 * MINUTE },
 } satisfies Record<string, RateLimitRule>;
 
 /** Counts one attempt against `key`; returns seconds to wait when over the limit. */

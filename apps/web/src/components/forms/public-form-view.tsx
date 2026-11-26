@@ -17,11 +17,9 @@ type PublicForm = {
 export function PublicFormView({
   form,
   initialAnswers,
-  unavailableReason,
 }: {
   form: PublicForm;
   initialAnswers: Record<string, unknown>;
-  unavailableReason: string | null;
 }) {
   const [answers, setAnswers] = React.useState<Record<string, unknown>>(initialAnswers);
   const [trap, setTrap] = React.useState("");
@@ -72,61 +70,56 @@ export function PublicFormView({
         ) : null}
       </header>
 
-      {unavailableReason ? (
-        <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {unavailableReason}
-        </p>
-      ) : (
-        <form onSubmit={submit} className="flex flex-col gap-6">
-          {form.sections.map((section) => (
-            <Card key={section.id}>
-              <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
-                {section.title ? <h2 className="font-semibold">{section.title}</h2> : null}
-                {section.description ? (
-                  <p className="whitespace-pre-line text-sm text-muted-foreground">{section.description}</p>
-                ) : null}
-                {section.questions.map((question) => (
-                  <QuestionRenderer
-                    key={question.id}
-                    question={question}
-                    value={answers[question.id]}
-                    onChange={(value) => {
-                  setAnswers((current) => ({ ...current, [question.id]: value }));
-                  // An old "X is required" shouldn't linger once they're fixing it.
-                  setError(null);
-                }}
-                  />
-                ))}
-              </CardContent>
-            </Card>
-          ))}
+      <form onSubmit={submit} className="flex flex-col gap-6">
+        {form.sections.map((section) => (
+          <Card key={section.id}>
+            <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+              {section.title ? <h2 className="font-semibold">{section.title}</h2> : null}
+              {section.description ? (
+                <p className="whitespace-pre-line text-sm text-muted-foreground">{section.description}</p>
+              ) : null}
+              {section.questions.map((question) => (
+                <QuestionRenderer
+                  key={question.id}
+                  question={question}
+                  value={answers[question.id]}
+                  publicFormId={form.id}
+                  onChange={(value) => {
+                setAnswers((current) => ({ ...current, [question.id]: value }));
+                // An old "X is required" shouldn't linger once they're fixing it.
+                setError(null);
+              }}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        ))}
 
-          {/* Spam trap: invisible and unreachable for people, filled by bots. */}
-          <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
-            <label>
-              Leave this empty
-              <input
-                tabIndex={-1}
-                autoComplete="off"
-                name={HONEYPOT_FIELD}
-                value={trap}
-                onChange={(e) => setTrap(e.target.value)}
-              />
-            </label>
-          </div>
+        {/* Spam trap: invisible and unreachable for people, filled by bots. */}
+        <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+          <label>
+            Leave this empty
+            <input
+              tabIndex={-1}
+              autoComplete="off"
+              name={HONEYPOT_FIELD}
+              value={trap}
+              onChange={(e) => setTrap(e.target.value)}
+            />
+          </label>
+        </div>
 
-          {error ? (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
+        {error ? (
+          <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
 
-          <Button type="submit" size="lg" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
-            Submit
-          </Button>
-        </form>
-      )}
+        <Button type="submit" size="lg" disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+          Submit
+        </Button>
+      </form>
     </main>
   );
 }

@@ -223,22 +223,17 @@ export async function getPublicForm(formId: string) {
   return form;
 }
 
-// Uploads need a signed-in user, so on the public link an optional upload
-// question is simply left out, and a required one makes the form unusable
-// there (it could never be completed).
-export function hasRequiredFileUpload(form: { sections: { questions: { type: FormQuestionType; required: boolean }[] }[] }): boolean {
-  return form.sections.some((section) => section.questions.some((q) => q.type === "FILE_UPLOAD" && q.required));
-}
-
-/** The form as the public link shows it: upload questions removed. */
-export function withoutUploadQuestions<T extends { sections: { questions: { type: FormQuestionType }[] }[] }>(form: T): T {
-  return {
-    ...form,
-    sections: form.sections.map((section) => ({
-      ...section,
-      questions: section.questions.filter((q) => q.type !== "FILE_UPLOAD"),
-    })),
-  };
+// Used by the public file-upload routes: a visitor may only start an upload
+// for a question that is actually a FILE_UPLOAD question on this public
+// form, never an arbitrary id (that would turn the endpoint into free-form
+// anonymous file storage unrelated to any real form).
+export function isPublicFileUploadQuestion(
+  form: { sections: { questions: { id: string; type: FormQuestionType }[] }[] },
+  questionId: string
+): boolean {
+  return form.sections.some((section) =>
+    section.questions.some((q) => q.id === questionId && q.type === "FILE_UPLOAD")
+  );
 }
 
 // Anonymous by construction: there is no signed-in person to attach, and
@@ -246,12 +241,7 @@ export function withoutUploadQuestions<T extends { sections: { questions: { type
 // place for anything that must be one-per-person.
 export async function submitPublicFormResponse(formId: string, answers: AnswerInput[]) {
   const form = await getPublicForm(formId);
-  if (hasRequiredFileUpload(form)) {
-    throw new FormError("This form can't be filled from a public link", "PUBLIC_FILE_UPLOAD", 400);
-  }
-  // Validated against the public version, so an answer to an upload
-  // question is refused as "not on this form".
-  validateAnswers(withoutUploadQuestions(form).sections.flatMap((section) => section.questions), answers);
+  validateAnswers(form.sections.flatMap((section) => section.questions), answers);
 
   return prisma.formResponse.create({
     data: {
