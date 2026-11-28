@@ -10,7 +10,10 @@ async function requireViewableForm(actor: Actor, formId: string) {
     where: { id: formId },
     include: {
       sections: { orderBy: { order: "asc" }, include: { questions: { orderBy: { order: "asc" } } } },
-      responses: { include: { answers: true, respondent: { select: { name: true } } } },
+      responses: {
+        orderBy: { submittedAt: "asc" },
+        include: { answers: true, respondent: { select: { name: true } } },
+      },
       invitations: true,
     },
   });
@@ -115,6 +118,75 @@ export async function getFormAnalytics(actor: Actor, formId: string) {
     completionRate,
     publicLinkResponses,
     questionSummaries,
+    responseTable: buildResponseTable(questions, form.responses),
+  };
+}
+
+export type ResponseCell =
+  | { kind: "empty" }
+  | { kind: "text"; text: string }
+  | { kind: "files"; files: { fileId: string; fileName: string }[] };
+
+export type ResponseTable = {
+  identityTitle: string;
+  columns: { questionId: string; title: string; type: string }[];
+  rows: {
+    responseId: string;
+    submittedAt: string;
+    name: string;
+    source: "CHAT" | "PUBLIC_LINK";
+    cells: ResponseCell[];
+  }[];
+};
+
+type TableQuestion = { id: string; title: string; type: string };
+type TableResponse = {
+  id: string;
+  submittedAt: Date;
+  anonymous: boolean;
+  invitationId: string | null;
+  respondent: { name: string } | null;
+  answers: { questionId: string; value: unknown }[];
+};
+
+// Public-link responses carry no account, so the only name is the one the
+// person typed. Use the form's own name question as the row label when it
+// has one.
+function findNameQuestion(questions: TableQuestion[]): TableQuestion | undefined {
+  return questions.find((q) => q.type === "SHORT_ANSWER" && /\bname\b/i.test(q.title));
+}
+
+function toCell(value: unknown): ResponseCell {
+  if (isFileAnswer(value)) return { kind: "files", files: [{ fileId: value.fileId, fileName: value.fileName ?? "File" }] };
+  if (Array.isArray(value) && value.length > 0 && value.every(isFileAnswer)) {
+    return { kind: "files", files: value.map((v) => ({ fileId: v.fileId, fileName: v.fileName ?? "File" })) };
+  }
+  const text = answerText(value).trim();
+  return text ? { kind: "text", text } : { kind: "empty" };
+}
+
+// One row per submission, one cell per question, read from that submission
+// alone — so a skipped answer leaves a blank cell instead of shifting
+// everyone else's answers up, as the per-question summary lists do.
+function buildResponseTable(questions: TableQuestion[], responses: TableResponse[]): ResponseTable {
+  const nameQuestion = findNameQuestion(questions);
+  const columns = questions.filter((q) => q.id !== nameQuestion?.id);
+
+  return {
+    identityTitle: nameQuestion?.title ?? "Respondent",
+    columns: columns.map((q) => ({ questionId: q.id, title: q.title, type: q.type })),
+    rows: responses.map((response) => {
+      const byQuestion = new Map(response.answers.map((a) => [a.questionId, a.value]));
+      const typedName = nameQuestion ? answerText(byQuestion.get(nameQuestion.id)).trim() : "";
+      const accountName = response.anonymous ? "" : response.respondent?.name ?? "";
+      return {
+        responseId: response.id,
+        submittedAt: response.submittedAt.toISOString(),
+        name: typedName || accountName || "Anonymous",
+        source: response.invitationId === null ? "PUBLIC_LINK" : "CHAT",
+        cells: columns.map((q) => toCell(byQuestion.get(q.id))),
+      };
+    }),
   };
 }
 

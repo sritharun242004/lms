@@ -179,3 +179,90 @@ describe("answers that are not plain text", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("responseTable", () => {
+  const form = {
+    ...sampleForm,
+    sections: [
+      {
+        questions: [
+          { id: "name", type: "SHORT_ANSWER", title: "Name (for certificate)" },
+          { id: "email", type: "SHORT_ANSWER", title: "Email" },
+          { id: "role", type: "SHORT_ANSWER", title: "Designation / Role / Title" },
+          { id: "stay", type: "CHECKBOXES", title: "Stay connected" },
+          { id: "photo", type: "FILE_UPLOAD", title: "Photo" },
+        ],
+      },
+    ],
+    invitations: [],
+    responses: [
+      {
+        id: "r1",
+        submittedAt: new Date("2026-11-27T10:00:00Z"),
+        anonymous: true,
+        respondentUserId: null,
+        respondent: null,
+        invitationId: null,
+        answers: [
+          { questionId: "name", value: "S. Balakrishnan" },
+          { questionId: "email", value: "bala@example.com" },
+          { questionId: "role", value: "CEO" },
+          { questionId: "stay", value: ["Updates", "Workshops"] },
+        ],
+      },
+      {
+        // Skipped email — every later field must still land on this row.
+        id: "r2",
+        submittedAt: new Date("2026-11-27T11:00:00Z"),
+        anonymous: true,
+        respondentUserId: null,
+        respondent: null,
+        invitationId: null,
+        answers: [
+          { questionId: "name", value: "Sidharth S" },
+          { questionId: "role", value: "Technical Assistant" },
+          { questionId: "photo", value: { fileId: "file9", fileName: "me.png" } },
+        ],
+      },
+    ],
+  };
+
+  it("maps every answer to its own respondent's row, keyed by the name question", async () => {
+    findUnique.mockResolvedValue(form);
+    const { responseTable } = await getFormAnalytics({ id: "staff1", role: "MENTOR" }, "f1");
+
+    expect(responseTable.identityTitle).toBe("Name (for certificate)");
+    expect(responseTable.columns.map((c) => c.title)).toEqual([
+      "Email",
+      "Designation / Role / Title",
+      "Stay connected",
+      "Photo",
+    ]);
+
+    const [bala, sidharth] = responseTable.rows;
+    expect(bala.name).toBe("S. Balakrishnan");
+    expect(bala.cells).toEqual([
+      { kind: "text", text: "bala@example.com" },
+      { kind: "text", text: "CEO" },
+      { kind: "text", text: "Updates; Workshops" },
+      { kind: "empty" },
+    ]);
+    expect(sidharth.name).toBe("Sidharth S");
+    expect(sidharth.cells).toEqual([
+      { kind: "empty" },
+      { kind: "text", text: "Technical Assistant" },
+      { kind: "empty" },
+      { kind: "files", files: [{ fileId: "file9", fileName: "me.png" }] },
+    ]);
+  });
+
+  it("falls back to the account name, and never reveals an anonymous respondent", async () => {
+    findUnique.mockResolvedValue(sampleForm);
+    const { responseTable } = await getFormAnalytics({ id: "staff1", role: "MENTOR" }, "f1");
+
+    expect(responseTable.identityTitle).toBe("Respondent");
+    expect(responseTable.columns).toHaveLength(3);
+    expect(responseTable.rows.map((r) => r.name)).toEqual(["Asha Rao", "Anonymous"]);
+    expect(responseTable.rows[0].source).toBe("CHAT");
+  });
+});

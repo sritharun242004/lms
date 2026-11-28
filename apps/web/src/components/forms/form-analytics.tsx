@@ -1,9 +1,11 @@
 "use client";
 
-import { Download, FileText } from "lucide-react";
+import { ChartColumn, Download, FileText, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { QuestionSummary } from "@/lib/forms/analytics";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormResponsesTable } from "@/components/forms/form-responses-table";
+import type { QuestionSummary, ResponseTable } from "@/lib/forms/analytics";
 import { answerFilePath } from "@/lib/forms/file-links";
 
 export type FormAnalyticsData = {
@@ -14,6 +16,7 @@ export type FormAnalyticsData = {
   completionRate: number | null;
   publicLinkResponses: number;
   questionSummaries: QuestionSummary[];
+  responseTable: ResponseTable;
 };
 
 export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
@@ -57,7 +60,23 @@ export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
         </Card>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <Tabs defaultValue="summary" className="gap-4">
+        <TabsList aria-label="Analytics view">
+          <TabsTrigger value="summary">
+            <ChartColumn aria-hidden="true" /> Summary
+          </TabsTrigger>
+          <TabsTrigger value="responses">
+            <Table2 aria-hidden="true" /> Responses
+          </TabsTrigger>
+        </TabsList>
+
+        {/* The table breaks out of this narrow column so long rows have room;
+            it stays centred on the page and never wider than the viewport. */}
+        <TabsContent value="responses" className="relative left-1/2 w-[min(80rem,calc(100vw-2rem))] -translate-x-1/2">
+          <FormResponsesTable table={analytics.responseTable} />
+        </TabsContent>
+
+        <TabsContent value="summary" className="flex flex-col gap-4">
         {analytics.questionSummaries.map((summary) => (
           <Card key={summary.questionId}>
             <CardContent className="p-5">
@@ -111,7 +130,8 @@ export function FormAnalytics({ analytics }: { analytics: FormAnalyticsData }) {
             </CardContent>
           </Card>
         ))}
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
